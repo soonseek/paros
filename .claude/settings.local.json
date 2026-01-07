@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(mkdir:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(copy:*)",
+      "Bash(cp:*)",
+      "Bash(if:*)",
+      "Bash(then mkdir -p \"C:\\Users\\송민정\\ClaudecodeProjects\\pharos-bmad\\_bmad-output\\planning-artifacts\")",
+      "Bash(fi:*)"
+    ]
+  }
+}
