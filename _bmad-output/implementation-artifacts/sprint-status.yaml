@@ -1,0 +1,115 @@
+# generated: 2026-01-07
+# project: pharos-bmad
+# project_key: file-system
+# tracking_system: file-system
+# story_location: {project-root}/_bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: 2026-01-07
+project: pharos-bmad
+project_key: file-system
+tracking_system: file-system
+story_location: {project-root}/_bmad-output/implementation-artifacts
+
+development_status:
+  # Epic 1: 사용자 인증 및 프로필 관리
+  epic-1: done  # 2026-01-08: All 4 stories completed (1-1, 1-2, 1-3, 1-4)
+  1-1-user-registration: done  # 2026-01-08: All review follow-ups complete (JWT security issues resolved)
+  1-2-user-login-logout: done  # 2026-01-08: Implementation complete
+  1-3-password-reset: done  # 2026-01-08: Implementation complete
+  1-4-user-profile-management: done  # 2026-01-08: All review follow-ups complete (HIGH+MEDIUM bugs fixed)
+  epic-1-retrospective: done  # 2026-01-08: Retrospective complete
+
+  # Epic 2: 파산 사건 관리
+  epic-2: in-progress  # 2026-01-08: Story 2.4 implementation complete, ready for review
+  2-1-case-registration: done  # 2026-01-08: All CRITICAL+HIGH review issues fixed (TypeScript, RBAC, validation, security)
+  2-2-case-list-search: done  # 2026-01-08: Code review passed - excellent implementation with RBAC, search, pagination
+  2-3-case-detail-view: done  # 2026-01-08: All review follow-ups complete (MEDIUM-1, MEDIUM-2, LOW-1 fixed)
+  2-4-case-information-edit: in-progress  # 2026-01-09: Code review complete - 5 action items assigned (0 CRITICAL/HIGH)
+  2-5-case-archive: backlog
+  2-6-case-note-management: backlog
+  epic-2-retrospective: optional
+
+  # Epic 3: 거래내역서 업로드 및 전처리
+  epic-3: backlog
+  3-1-file-upload-ui-dragdrop: backlog
+  3-2-file-format-validation: backlog
+  3-3-s3-file-storage-metadata: backlog
+  3-4-file-structure-analysis-column-identification: backlog
+  3-5-realtime-progress-sse: backlog
+  3-6-data-extraction-db-storage: backlog
+  3-7-upload-preview-deletion: backlog
+  epic-3-retrospective: optional
+
+  # Epic 4: AI 기반 거래 분류
+  epic-4: backlog
+  4-1-ai-based-transaction-classification: backlog
+  4-2-confidence-score-uncertain-classification: backlog
+  4-3-important-transaction-auto-detection: backlog
+  4-4-transaction-nature-judgment: backlog
+  4-5-manual-classification-edit: backlog
+  4-6-tag-addition-deletion: backlog
+  4-7-batch-classification-edit: backlog
+  4-8-learning-feedback-loop: backlog
+  epic-4-retrospective: optional
+
+  # Epic 5: 자금 흐름 추적
+  epic-5: backlog
+  5-1-fund-source-tracking: backlog
+  5-2-fund-destination-tracking: backlog
+  5-3-transaction-chain-identification: backlog
+  5-4-linkage-visualization: backlog
+  5-5-tracking-filtering: backlog
+  5-6-tracking-result-export: backlog
+  epic-5-retrospective: optional
+
+  # Epic 6: 발견 사항 관리
+  epic-6: backlog
+  6-1-auto-finding-identification: backlog
+  6-2-finding-visual-display: backlog
+  6-3-finding-note-addition: backlog
+  6-4-creditor-filtering: backlog
+  6-5-priority-assignment: backlog
+  epic-6-retrospective: optional
+
+  # Epic 7: 분석 결과 내보내기
+  epic-7: backlog
+  7-1-excel-export-implementation: backlog
+  7-2-selective-transaction-list-export: backlog
+  7-3-finding-list-export: backlog
+  7-4-fund-flow-tracking-result-export: backlog
+  epic-7-retrospective: optional
+
+  # Epic 8: 검색 및 필터링
+  epic-8: backlog
+  8-1-multidimensional-search-implementation: backlog
+  8-2-complex-filtering-implementation: backlog
+  epic-8-retrospective: optional

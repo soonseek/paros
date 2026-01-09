@@ -9,7 +9,23 @@
       "Bash(cp:*)",
       "Bash(if:*)",
       "Bash(then mkdir -p \"C:\\Users\\송민정\\ClaudecodeProjects\\pharos-bmad\\_bmad-output\\planning-artifacts\")",
-      "Bash(fi:*)"
+      "Bash(fi:*)",
+      "WebSearch",
+      "SlashCommand(/bmad:bmm:workflows:create-story)",
+      "Bash(npx create-t3-app:*)",
+      "Bash(test:*)",
+      "Bash(npx create-t3-app@latest:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npm install:*)",
+      "Bash(npx shadcn-ui@latest init:*)",
+      "Bash(npx shadcn@latest init:*)",
+      "Bash(npx shadcn@latest add:*)",
+      "SlashCommand(/bmad:bmm:workflows:dev-story)",
+      "Bash(npx prisma migrate dev:*)",
+      "SlashCommand(/bmad:bmm:workflows:retrospective)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(npm run lint:*)"
     ]
   }
 }

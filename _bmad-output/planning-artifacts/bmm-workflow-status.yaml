@@ -61,7 +61,7 @@ workflow_status:
       status: "pending"
       workflows:
         - id: "create-architecture"
-          status: "required"
+          status: "_bmad-output/planning-artifacts/architecture.md"
           agent: "architect"
           command: "/bmad:bmm:workflows:create-architecture"
 
@@ -90,7 +90,7 @@ workflow_status:
           command: "/bmad:bmm:workflows:sprint-planning"
 
 next_workflow:
-  id: "brainstorm-project"
-  name: "Brainstorm Project"
-  agent: "analyst"
-  command: "/bmad:bmm:workflows:brainstorming"
+  id: "create-epics-and-stories"
+  name: "Create Epics and Stories"
+  agent: "pm"
+  command: "/bmad:bmm:workflows:create-epics-and-stories"

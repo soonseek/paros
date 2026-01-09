@@ -1,0 +1,103 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+// User Role Enum
+enum Role {
+    LAWYER
+    PARALEGAL
+    ADMIN
+    SUPPORT
+}
+
+// Case Status Enum
+enum CaseStatus {
+    PENDING       // 대기
+    IN_PROGRESS   // 진행 중
+    COMPLETED     // 완료
+    SUSPENDED     // 정지
+    CLOSED        // 종료
+}
+
+// User Model with Email Verification
+model User {
+    id                       String          @id @default(uuid())
+    email                    String          @unique
+    pendingEmail             String?         @unique         // Pending email change (verification in progress)
+    password                 String          // bcrypt hashed password
+    name                     String?         // Optional display name
+    role                     Role            @default(PARALEGAL)
+    isActive                 Boolean         @default(false)  // Email verification status
+    tokenVersion             Int             @default(0)      // Refresh token version for rotation
+    emailVerificationToken   String?         // Email verification token
+    emailVerificationExpires DateTime?       // Token expiration time
+    passwordResetToken       String?         // Password reset token
+    passwordResetExpires     DateTime?       // Password reset token expiration
+    refreshTokens            RefreshToken[]                   // User's refresh tokens
+    cases                    Case[]                          // Cases owned by this user (lawyer)
+    caseNotes                CaseNote[]                      // Case notes written by this user
+    createdAt                DateTime        @default(now())
+    updatedAt                DateTime        @updatedAt
+
+    @@index([email])
+    @@map("users")
+}
+
+// Refresh Token Model for token rotation and logout
+model RefreshToken {
+    id        String   @id @default(uuid())
+    token     String   @unique
+    userId    String
+    user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    expiresAt DateTime
+    createdAt DateTime @default(now())
+
+    @@index([userId])
+    @@index([token])
+    @@map("refresh_tokens")
+}
+
+// Case Model (Bankruptcy Case)
+model Case {
+    id                String       @id @default(uuid())
+    caseNumber        String       @unique                 // Case number (unique)
+    debtorName        String                              // Debtor name (required)
+    courtName         String?                             // Court name
+    filingDate         DateTime?                           // Filing date
+    status            CaseStatus   @default(PENDING)       // Case status
+    isArchived        Boolean      @default(false)        // Archive status
+    lawyerId          String                              // Owner (lawyer)
+    lawyer            User         @relation(fields: [lawyerId], references: [id], onDelete: Restrict)
+    notes             CaseNote[]                          // Case notes
+    createdAt         DateTime     @default(now())
+    updatedAt         DateTime     @updatedAt
+
+    @@index([caseNumber])
+    @@index([lawyerId])
+    @@index([status])
+    @@index([isArchived])
+    @@map("cases")
+}
+
+// Case Note Model
+model CaseNote {
+    id        String   @id @default(uuid())
+    content   String                                // Note content
+    caseId    String                                // Associated case
+    case      Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+    authorId  String                                // Note author
+    author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+    createdAt DateTime @default(now())
+
+    @@index([caseId])
+    @@index([authorId])
+    @@map("case_notes")
+}
