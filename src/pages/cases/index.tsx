@@ -45,6 +45,7 @@ const CasesIndexPage: NextPage = () => {
   const [courtName, setCourtName] = useState("");
   const [filingDateFrom, setFilingDateFrom] = useState("");
   const [filingDateTo, setFilingDateTo] = useState("");
+  const [showArchived, setShowArchived] = useState(false); // NEW: 아카이브 필터
   const [currentPage, setCurrentPage] = useState(1);
   const [sortBy, setSortBy] = useState("filingDate");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
@@ -55,6 +56,7 @@ const CasesIndexPage: NextPage = () => {
     courtName: courtName || undefined,
     filingDateFrom: filingDateFrom ? new Date(filingDateFrom) : undefined,
     filingDateTo: filingDateTo ? new Date(filingDateTo) : undefined,
+    showArchived, // NEW
     page: currentPage,
     sortBy: sortBy as "filingDate" | "caseNumber" | "debtorName" | "status" | "createdAt",
     sortOrder,
@@ -77,6 +79,7 @@ const CasesIndexPage: NextPage = () => {
     setCourtName("");
     setFilingDateFrom("");
     setFilingDateTo("");
+    setShowArchived(false); // Reset archived filter
     setCurrentPage(1);
   };
 
@@ -101,7 +104,9 @@ const CasesIndexPage: NextPage = () => {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">사건 목록</h1>
+          <h1 className="text-3xl font-bold">
+            {showArchived ? "아카이브된 사건" : "사건 목록"}
+          </h1>
           <Button onClick={() => router.push("/cases/new")}>
             새 사건 등록
           </Button>
@@ -155,6 +160,25 @@ const CasesIndexPage: NextPage = () => {
                 onChange={(e) => setFilingDateTo(e.target.value)}
               />
             </div>
+          </div>
+
+          {/* NEW: Archive Toggle */}
+          <div className="flex items-center gap-4 mt-4 pt-4 border-t">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showArchived}
+                onChange={(e) => {
+                  setShowArchived(e.target.checked);
+                  setCurrentPage(1); // Reset to first page when filter changes
+                }}
+                aria-label="아카이브된 사건 보기"
+                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700">
+                아카이브된 사건 보기
+              </span>
+            </label>
           </div>
 
           {/* Filter Actions */}

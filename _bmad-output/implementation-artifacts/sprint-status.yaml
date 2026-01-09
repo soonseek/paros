@@ -49,23 +49,23 @@ development_status:
   epic-1-retrospective: done  # 2026-01-08: Retrospective complete
 
   # Epic 2: 파산 사건 관리
-  epic-2: in-progress  # 2026-01-08: Story 2.4 implementation complete, ready for review
+  epic-2: done  # 2026-01-09: All 6 stories completed (2-1 through 2-6)
   2-1-case-registration: done  # 2026-01-08: All CRITICAL+HIGH review issues fixed (TypeScript, RBAC, validation, security)
   2-2-case-list-search: done  # 2026-01-08: Code review passed - excellent implementation with RBAC, search, pagination
   2-3-case-detail-view: done  # 2026-01-08: All review follow-ups complete (MEDIUM-1, MEDIUM-2, LOW-1 fixed)
-  2-4-case-information-edit: in-progress  # 2026-01-09: Code review complete - 5 action items assigned (0 CRITICAL/HIGH)
-  2-5-case-archive: backlog
-  2-6-case-note-management: backlog
+  2-4-case-information-edit: done  # 2026-01-09: All review follow-ups complete (3 MEDIUM, 2 LOW issues fixed)
+  2-5-case-archive: done  # 2026-01-09: Complete with all review follow-ups (2 MEDIUM, 1 LOW resolved)
+  2-6-case-note-management: done  # 2026-01-09: All review follow-ups complete (CRITICAL-1, MEDIUM-2, MEDIUM-3, LOW-2 fixed)
   epic-2-retrospective: optional
 
   # Epic 3: 거래내역서 업로드 및 전처리
-  epic-3: backlog
-  3-1-file-upload-ui-dragdrop: backlog
-  3-2-file-format-validation: backlog
-  3-3-s3-file-storage-metadata: backlog
-  3-4-file-structure-analysis-column-identification: backlog
-  3-5-realtime-progress-sse: backlog
-  3-6-data-extraction-db-storage: backlog
+  epic-3: in-progress  # 2026-01-09: Story 3.5 completed with AC3, AC4, AC5 enhancements
+  3-1-file-upload-ui-dragdrop: done  # 2026-01-09: All review follow-ups complete (3 MEDIUM, 4 LOW issues fixed)
+  3-2-file-format-validation: done  # 2026-01-09: Complete - all 6 code review issues fixed (1 CRITICAL, 3 MEDIUM, 2 LOW)
+  3-3-s3-file-storage-metadata: done  # 2026-01-09: All review follow-ups complete (1 CRITICAL, 3 MEDIUM, 2 LOW fixed; LOW-2 UX enhancement deferred)
+  3-4-file-structure-analysis-column-identification: done  # 2026-01-09: Implementation complete - File analysis with column mapping, bilingual support, confidence scoring
+  3-5-realtime-progress-sse: done  # 2026-01-09: Complete - SSE endpoint, useRealtimeProgress hook, ProgressBar component, AC3/AC4/AC5 enhancements
+  3-6-data-extraction-db-storage: review  # 2026-01-09: Implementation complete - Transaction model, data extraction utility, extractData API, SSE integration
   3-7-upload-preview-deletion: backlog
   epic-3-retrospective: optional
 

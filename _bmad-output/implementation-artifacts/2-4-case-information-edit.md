@@ -1,10 +1,11 @@
 # Story 2.4: 사건 정보 수정
 
-**Status:** in-progress
+**Status:** done
 **Epic:** Epic 2 - 파산 사건 관리
 **Story Key:** 2-4-case-information-edit
 **Created:** 2026-01-08
 **Implemented:** 2026-01-08
+**Completed:** 2026-01-09
 **Dependencies:** Story 2.3 완료 (사건 상세 조회)
 
 ---
@@ -869,7 +870,7 @@ _Files created/modified during implementation will be listed here_
 
 ### Action Items
 
-#### [ ] MEDIUM-1: 무한 루프 위험의 중복된 reset 로직
+#### [x] MEDIUM-1: 무한 루프 위험의 중복된 reset 로직 ✅ FIXED 2026-01-09
 
 **Location:** `src/pages/cases/[id]/edit.tsx` (lines 68-81)
 
@@ -912,7 +913,7 @@ useEffect(() => {
 
 ---
 
-#### [ ] MEDIUM-2: courtName 빈 문자열 허용으로 데이터 정합성 위험
+#### [x] MEDIUM-2: courtName 빈 문자열 허용으로 데이터 정합성 위험 ✅ FIXED 2026-01-09
 
 **Location:** 
 - `src/server/api/routers/case.ts` (line 318)
@@ -956,7 +957,7 @@ courtName: z.string().optional().transform(value =>
 
 ---
 
-#### [ ] MEDIUM-3: tokenVersion 증가로 모든 세션 무효화되는 UX 저하
+#### [x] MEDIUM-3: tokenVersion 증가로 모든 세션 무효화되는 UX 저하 ✅ FIXED 2026-01-09
 
 **Location:** `src/server/api/routers/case.ts` (lines 368-372)
 
@@ -994,7 +995,7 @@ await ctx.db.user.update({
 
 ---
 
-#### [ ] LOW-1: status 필드에 aria-label 없이 접근성 부족
+#### [x] LOW-1: status 필드에 aria-label 없이 접근성 부족 ✅ FIXED 2026-01-09
 
 **Location:** `src/pages/cases/[id]/edit.tsx` (lines 207-218)
 
@@ -1031,7 +1032,7 @@ await ctx.db.user.update({
 
 ---
 
-#### [ ] LOW-2: 취소 버튼 클릭 시 변경사항 경고 없이 페이지 이탈
+#### [x] LOW-2: 취소 버튼 클릭 시 변경사항 경고 없이 페이지 이탈 ✅ FIXED 2026-01-09
 
 **Location:** `src/pages/cases/[id]/edit.tsx` (lines 224-229)
 
@@ -1093,13 +1094,28 @@ const onCancel = () => {
 
 ### Recommendation
 
-**Current Status:** in-progress (5 action items assigned)
+**Original Status:** in-progress (5 action items assigned)
 
 **Suggested Priority Order:**
-1. **MEDIUM-2** (데이터 정합성 우선 - courtName 빈 문자열 문제)
-2. **MEDIUM-1** (성능 개선 - 불필요한 로직 제거)
-3. **MEDIUM-3** (UX vs 보안 트레이드오프 검토 - tokenVersion)
-4. **LOW-2** (사용자 경험 개선 - 취소 버튼 확인)
-5. **LOW-1** (접근성 개선 - aria-label)
+1. ✅ **MEDIUM-2** 완료 (데이터 정합성 우선 - courtName 빈 문자열 문제)
+2. ✅ **MEDIUM-1** 완료 (성능 개선 - 불필요한 로직 제거)
+3. ✅ **MEDIUM-3** 완료 (UX vs 보안 트레이드오프 검토 - tokenVersion 제거)
+4. ✅ **LOW-2** 완료 (사용자 경험 개선 - 취소 버튼 확인)
+5. ✅ **LOW-1** 완료 (접근성 개선 - aria-label)
 
-**Alternative:** 현재 상태 그대로 production 배포 가능 (모든 이슈는 사소한 개선 사항, 기능적 결함 없음)
+**Final Status:** ✅ **DONE** - 2026-01-09
+
+**All Review Follow-ups Completed:**
+- ✅ courtName 빈 문자열 transform 추가로 DB에 null 또는 유효한 값만 저장
+- ✅ useEffect로 중복된 reset 로직 제거하여 성능 개선
+- ✅ tokenVersion 증가 제거로 다른 기기 세션 유지 (사건 수정은 민감하지 않음)
+- ✅ 취소 버튼에 변경사항 경고 추가로 데이터 손실 방지
+- ✅ status select에 aria-label 및 aria-required 추가로 접근성 개선
+
+**Modified Files:**
+- `src/server/api/routers/case.ts` - courtName transform, tokenVersion 제거
+- `src/pages/cases/[id]/edit.tsx` - useEffect reset, onCancel 핸들러, aria-label
+
+**TypeScript Verification:**
+- No TypeScript errors in Story 2.4 files
+- All code quality improvements applied successfully

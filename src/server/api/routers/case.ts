@@ -1,6 +1,8 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { Role } from "@prisma/client";
+import { type PrismaClient } from "@prisma/client";
+import type { Case } from "@prisma/client";
 
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 
@@ -16,6 +18,43 @@ import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
  * - Users can only view their own cases (enforced via lawyerId filter)
  * - Only users with proper access can view cases (enforced via RBAC middleware)
  */
+
+/**
+ * Helper function to verify case ownership and existence
+ *
+ * @param db - Prisma client instance
+ * @param caseId - Case ID to verify
+ * @param userId - User ID to check ownership against
+ * @returns The case if found and owned by user
+ * @throws TRPCError with NOT_FOUND if case doesn't exist
+ * @throws TRPCError with FORBIDDEN if user doesn't own the case
+ */
+async function verifyCaseOwnership(
+  db: PrismaClient,
+  caseId: string,
+  userId: string
+): Promise<Case> {
+  const existingCase = await db.case.findUnique({
+    where: { id: caseId },
+  });
+
+  if (!existingCase) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "사건을 찾을 수 없습니다",
+    });
+  }
+
+  if (existingCase.lawyerId !== userId) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "권한이 없습니다",
+    });
+  }
+
+  return existingCase;
+}
+
 export const caseRouter = createTRPCRouter({
   /**
    * Create a new bankruptcy case
@@ -128,6 +167,7 @@ export const caseRouter = createTRPCRouter({
    * @param courtName - Filter by court name (optional)
    * @param filingDateFrom - Filter by filing date start (optional)
    * @param filingDateTo - Filter by filing date end (optional)
+   * @param showArchived - Filter by archive status (optional, default: false = active cases only)
    * @param page - Page number for pagination (default: 1)
    * @param sortBy - Field to sort by (default: 'filingDate')
    * @param sortOrder - Sort order: 'asc' or 'desc' (default: 'desc')
@@ -141,6 +181,7 @@ export const caseRouter = createTRPCRouter({
         courtName: z.string().optional(),
         filingDateFrom: z.date().optional(),
         filingDateTo: z.date().optional(),
+        showArchived: z.boolean().optional(), // NEW: 아카이브 사건 표시 여부
         page: z.number().min(1).default(1),
         sortBy: z.enum(['filingDate', 'caseNumber', 'debtorName', 'status', 'createdAt']).default('filingDate'),
         sortOrder: z.enum(['asc', 'desc']).default('desc'),
@@ -152,6 +193,7 @@ export const caseRouter = createTRPCRouter({
         courtName,
         filingDateFrom,
         filingDateTo,
+        showArchived, // NEW
         page,
         sortBy,
         sortOrder,
@@ -163,7 +205,7 @@ export const caseRouter = createTRPCRouter({
       // Build where clause with RBAC enforcement
       const where: {
         lawyerId: string;
-        isArchived: boolean;
+        isArchived?: boolean; // Changed from hardcoded to conditional
         OR?: Array<{
           caseNumber?: { contains: string; mode: 'insensitive' };
           debtorName?: { contains: string; mode: 'insensitive' };
@@ -172,7 +214,10 @@ export const caseRouter = createTRPCRouter({
         filingDate?: { gte?: Date; lte?: Date };
       } = {
         lawyerId: ctx.userId, // ✅ CRITICAL: RBAC enforcement - only user's own cases
-        isArchived: false, // Active cases only
+        // ✅ CRITICAL: Default to active cases only, show archived when explicitly requested
+        ...(showArchived !== undefined && { isArchived: showArchived }),
+        // If showArchived is not provided, default to false (active cases only)
+        ...(showArchived === undefined && { isArchived: false }),
       };
 
       // Add search filter (case number or debtor name)
@@ -332,26 +377,8 @@ export const caseRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const { id, debtorName, courtName, filingDate, status } = input;
 
-      // RBAC: Verify user owns this case
-      const existingCase = await ctx.db.case.findUnique({
-        where: { id },
-      });
-
-      // Case not found
-      if (!existingCase) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "사건을 찾을 수 없습니다",
-        });
-      }
-
-      // RBAC: Check ownership
-      if (existingCase.lawyerId !== ctx.userId) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "권한이 없습니다",
-        });
-      }
+      // RBAC: Verify user owns this case (using helper function)
+      await verifyCaseOwnership(ctx.db, id, ctx.userId);
 
       // Update case
       const updatedCase = await ctx.db.case.update({
@@ -371,6 +398,106 @@ export const caseRouter = createTRPCRouter({
         success: true,
         message: "사건이 업데이트되었습니다",
         case: updatedCase,
+      };
+    }),
+
+  /**
+   * Archive a case
+   *
+   * MUTATION /api/trpc/case.archiveCase
+   *
+   * Archives a case by setting isArchived to true.
+   * RBAC enforced: Only the case owner can archive it.
+   *
+   * @param id - Case ID (UUID)
+   *
+   * @returns Archived case object with success message
+   *
+   * @throws NOT_FOUND if case doesn't exist
+   * @throws FORBIDDEN if user doesn't own the case
+   */
+  archiveCase: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().uuid("Invalid case ID format"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { id } = input;
+
+      // RBAC: Verify user owns this case (using helper function)
+      const existingCase = await verifyCaseOwnership(ctx.db, id, ctx.userId);
+
+      // Check if case is already archived
+      if (existingCase.isArchived) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "이미 아카이브된 사건입니다",
+        });
+      }
+
+      // Archive case
+      const archivedCase = await ctx.db.case.update({
+        where: { id },
+        data: {
+          isArchived: true,
+        },
+      });
+
+      return {
+        success: true,
+        message: "사건이 아카이브되었습니다",
+        case: archivedCase,
+      };
+    }),
+
+  /**
+   * Unarchive a case
+   *
+   * MUTATION /api/trpc/case.unarchiveCase
+   *
+   * Unarchives a case by setting isArchived to false.
+   * RBAC enforced: Only the case owner can unarchive it.
+   *
+   * @param id - Case ID (UUID)
+   *
+   * @returns Unarchived case object with success message
+   *
+   * @throws NOT_FOUND if case doesn't exist
+   * @throws FORBIDDEN if user doesn't own the case
+   */
+  unarchiveCase: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().uuid("Invalid case ID format"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { id } = input;
+
+      // RBAC: Verify user owns this case (using helper function)
+      const existingCase = await verifyCaseOwnership(ctx.db, id, ctx.userId);
+
+      // Check if case is already active (not archived)
+      if (!existingCase.isArchived) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "이미 활성화된 사건입니다",
+        });
+      }
+
+      // Unarchive case
+      const unarchivedCase = await ctx.db.case.update({
+        where: { id },
+        data: {
+          isArchived: false,
+        },
+      });
+
+      return {
+        success: true,
+        message: "사건이 복원되었습니다",
+        case: unarchivedCase,
       };
     }),
 });

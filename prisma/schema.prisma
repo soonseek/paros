@@ -44,6 +44,7 @@ model User {
     refreshTokens            RefreshToken[]                   // User's refresh tokens
     cases                    Case[]                          // Cases owned by this user (lawyer)
     caseNotes                CaseNote[]                      // Case notes written by this user
+    uploadedDocuments        Document[]                      // Documents uploaded by this user
     createdAt                DateTime        @default(now())
     updatedAt                DateTime        @updatedAt
 
@@ -77,6 +78,9 @@ model Case {
     lawyerId          String                              // Owner (lawyer)
     lawyer            User         @relation(fields: [lawyerId], references: [id], onDelete: Restrict)
     notes             CaseNote[]                          // Case notes
+    documents         Document[]                          // Documents uploaded for this case
+    analysisResults   FileAnalysisResult[]               // Story 3.4: File structure analysis results
+    transactions      Transaction[]                       // Story 3.6: Extracted transaction data
     createdAt         DateTime     @default(now())
     updatedAt         DateTime     @updatedAt
 
@@ -96,8 +100,103 @@ model CaseNote {
     authorId  String                                // Note author
     author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
     createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
 
     @@index([caseId])
     @@index([authorId])
     @@map("case_notes")
+}
+
+// Document Model for file uploads
+model Document {
+    id               String   @id @default(uuid())
+    caseId           String
+    originalFileName String                              // Original filename
+    s3Key            String   @unique                    // S3 object key (UUID)
+    fileSize         Int                                 // File size in bytes
+    mimeType         String                              // MIME type
+    uploadedAt       DateTime @default(now())
+    uploaderId       String                              // User who uploaded the file
+
+    case             Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+    uploader         User     @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+    analysisResult   FileAnalysisResult?                // Story 3.4: File structure analysis result
+    transactions     Transaction[]                       // Story 3.6: Extracted transactions from this document
+
+    @@index([caseId])
+    @@index([uploaderId])
+    @@map("documents")
+}
+
+// File Analysis Result Model (Story 3.4)
+model FileAnalysisResult {
+    id              String   @id @default(uuid())
+    documentId      String   @unique                         // Document ID from Story 3.3
+    caseId          String                                     // Associated Case ID
+
+    // Analysis status
+    status          String                                     // pending, analyzing, completed, failed
+
+    // Column mapping result (JSON storage)
+    columnMapping   Json     @default("{}")                     // { date: "날짜", deposit: "입금액", withdrawal: "출금액", ... }
+    headerRowIndex  Int                                        // Header row index (0-based)
+    totalRows       Int                                        // Total number of rows
+
+    // Analysis metadata
+    detectedFormat  String                                     // excel, csv, pdf
+    hasHeaders      Boolean  @default(true)                    // Has header row
+    confidence      Float    @default(0.0)                      // 0.0 ~ 1.0 confidence score
+
+    // OCR metadata (for PDF files)
+    ocrProvider     String?                                     // upstage, google
+    ocrConfidence   Float?                                     // OCR confidence score
+
+    // Completion timestamp
+    analyzedAt      DateTime?
+
+    // Error information
+    errorMessage    String?
+    errorDetails    Json?
+
+    // Relations
+    document        Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+    case            Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+    createdAt       DateTime @default(now())
+    updatedAt       DateTime @updatedAt
+
+    @@index([caseId])
+    @@index([documentId])
+    @@index([status])
+    @@map("file_analysis_results")
+}
+
+// Transaction Model (Story 3.6)
+model Transaction {
+    id               String    @id @default(uuid())
+    caseId           String
+    documentId       String
+
+    // Transaction data
+    transactionDate  DateTime  @db.Date                 // Transaction date
+    depositAmount    Decimal?  @db.Decimal(20, 4)       // Deposit amount (optional)
+    withdrawalAmount Decimal?  @db.Decimal(20, 4)       // Withdrawal amount (optional)
+    balance          Decimal?  @db.Decimal(20, 4)       // Balance after transaction (optional)
+    memo             String?   @db.Text                 // Transaction memo/note (optional)
+
+    // Metadata
+    rawMetadata      Json?                               // Original data preservation (JSON)
+    rowNumber        Int?                                // Excel row number (optional)
+
+    // Relations
+    case             Case      @relation(fields: [caseId], references: [id], onDelete: Cascade)
+    document         Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+    createdAt        DateTime  @default(now())
+    updatedAt        DateTime  @updatedAt
+
+    @@index([caseId])
+    @@index([documentId])
+    @@index([transactionDate])
+    @@map("transactions")
 }

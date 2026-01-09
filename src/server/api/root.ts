@@ -1,4 +1,6 @@
 import { caseRouter } from "~/server/api/routers/case";
+import { caseNoteRouter } from "~/server/api/routers/caseNote";
+import { fileRouter } from "~/server/api/routers/file";
 import { postRouter } from "~/server/api/routers/post";
 import { userRouter } from "~/server/api/routers/user";
 import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
@@ -10,6 +12,8 @@ import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
  */
 export const appRouter = createTRPCRouter({
   case: caseRouter,
+  caseNote: caseNoteRouter,
+  file: fileRouter,
   post: postRouter,
   user: userRouter,
 });

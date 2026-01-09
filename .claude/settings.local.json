@@ -25,7 +25,10 @@
       "SlashCommand(/bmad:bmm:workflows:retrospective)",
       "Bash(npm run typecheck:*)",
       "Bash(npx prisma generate:*)",
-      "Bash(npm run lint:*)"
+      "Bash(npm run lint:*)",
+      "Bash(npx eslint:*)",
+      "Bash(echo:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }
