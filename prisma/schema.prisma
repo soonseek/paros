@@ -195,6 +195,8 @@ model Transaction {
     createdAt        DateTime  @default(now())
     updatedAt        DateTime  @updatedAt
 
+    // CRITICAL-1 FIX: Add unique constraint to prevent duplicate transactions
+    @@unique([documentId, transactionDate, depositAmount, withdrawalAmount])
     @@index([caseId])
     @@index([documentId])
     @@index([transactionDate])

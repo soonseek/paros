@@ -59,15 +59,15 @@ development_status:
   epic-2-retrospective: optional
 
   # Epic 3: 거래내역서 업로드 및 전처리
-  epic-3: in-progress  # 2026-01-09: Story 3.5 completed with AC3, AC4, AC5 enhancements
+  epic-3: done  # 2026-01-09: All 7 stories completed (3-1 through 3-7)
   3-1-file-upload-ui-dragdrop: done  # 2026-01-09: All review follow-ups complete (3 MEDIUM, 4 LOW issues fixed)
   3-2-file-format-validation: done  # 2026-01-09: Complete - all 6 code review issues fixed (1 CRITICAL, 3 MEDIUM, 2 LOW)
   3-3-s3-file-storage-metadata: done  # 2026-01-09: All review follow-ups complete (1 CRITICAL, 3 MEDIUM, 2 LOW fixed; LOW-2 UX enhancement deferred)
   3-4-file-structure-analysis-column-identification: done  # 2026-01-09: Implementation complete - File analysis with column mapping, bilingual support, confidence scoring
   3-5-realtime-progress-sse: done  # 2026-01-09: Complete - SSE endpoint, useRealtimeProgress hook, ProgressBar component, AC3/AC4/AC5 enhancements
-  3-6-data-extraction-db-storage: review  # 2026-01-09: Implementation complete - Transaction model, data extraction utility, extractData API, SSE integration
-  3-7-upload-preview-deletion: backlog
-  epic-3-retrospective: optional
+  3-6-data-extraction-db-storage: done  # 2026-01-09: Complete - All 7 code review issues fixed (2 CRITICAL, 3 MEDIUM, 2 LOW) - Transaction deduplication, memory management, DB transaction rollback, timeout/race condition prevention, metadata size limit, column validation, idempotency
+  3-7-upload-preview-deletion: done  # 2026-01-09: Complete - All 5 code review issues fixed (2 MEDIUM: deletion rollback + N+1 queries, 3 LOW: button state + error handling + documentation)
+  epic-3-retrospective: done  # 2026-01-09: Retrospective complete
 
   # Epic 4: AI 기반 거래 분류
   epic-4: backlog

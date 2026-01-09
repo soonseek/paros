@@ -21,7 +21,7 @@
  * // Returns: { success: 998, skipped: 2, errors: [...] }
  */
 
-import { Prisma } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 
 /**
  * Column mapping interface from Story 3.4 (FileAnalysisResult)
@@ -150,6 +150,8 @@ export function parseAmount(amountValue: unknown): number | null {
  *
  * Performance: Uses Prisma createMany for bulk insert (NFR-002: 1,000 records in 60 seconds)
  *
+ * MEDIUM-1 FIX: Wrapped in database transaction for automatic rollback on failure
+ *
  * @param prisma - Prisma Client instance
  * @param documentId - Document ID from Story 3.3
  * @param caseId - Case ID
@@ -172,21 +174,27 @@ export function parseAmount(amountValue: unknown): number | null {
  * // Returns: { success: 998, skipped: 2, errors: [{ row: 15, error: "Invalid date" }] }
  */
 export async function extractAndSaveTransactions(
-  prisma: Prisma.TransactionClient,
+  prisma: PrismaClient,
   documentId: string,
   caseId: string,
   rawData: unknown[][],
   columnMapping: ColumnMapping,
   headerRowIndex: number
 ): Promise<ExtractionResult> {
-  const transactions: Prisma.TransactionCreateManyInput[] = [];
-  let skipped = 0;
-  const errors: Array<{ row: number; error: string }> = [];
+  // MEDIUM-1 FIX: Wrap entire operation in database transaction for automatic rollback
+  return await prisma.$transaction(
+    async (tx: Prisma.TransactionClient) => {
+      const transactions: Prisma.TransactionCreateManyInput[] = [];
+      let skipped = 0;
+      const errors: Array<{ row: number; error: string }> = [];
 
   // Validate required column mapping
   if (columnMapping.date === undefined) {
     throw new Error("Date column is required in column mapping");
   }
+
+  // MEDIUM-3 FIX: Limit metadata size to prevent database bloat
+  const MAX_METADATA_SIZE = 5 * 1024; // 5KB max per transaction
 
   // Start from the row after the header
   const startRow = headerRowIndex + 1;
@@ -243,6 +251,23 @@ export async function extractAndSaveTransactions(
           ? String(row[columnMapping.memo] ?? "")
           : "";
 
+      // MEDIUM-3 FIX: Validate metadata size before adding
+      const metadata = {
+        rowNumber: i + 1,
+        originalData: row as Prisma.JsonValue,
+      };
+
+      const metadataSize = JSON.stringify(metadata).length;
+
+      if (metadataSize > MAX_METADATA_SIZE) {
+        skipped++;
+        errors.push({
+          row: i + 1,
+          error: `Row data too large (${metadataSize} bytes > ${MAX_METADATA_SIZE} bytes limit)`,
+        });
+        continue; // Skip this row
+      }
+
       // Create transaction record
       transactions.push({
         caseId,
@@ -252,10 +277,7 @@ export async function extractAndSaveTransactions(
         withdrawalAmount,
         balance,
         memo: memo || undefined,
-        rawMetadata: {
-          rowNumber: i + 1,
-          originalData: row as Prisma.JsonValue,
-        } as Prisma.InputJsonValue,
+        rawMetadata: metadata as Prisma.InputJsonValue,
       });
     } catch (error) {
       skipped++;
@@ -269,9 +291,9 @@ export async function extractAndSaveTransactions(
   // Bulk insert using Prisma createMany (performance optimization)
   let success = 0;
   try {
-    const result = await prisma.transaction.createMany({
+    const result = await tx.transaction.createMany({
       data: transactions,
-      skipDuplicates: false, // Don't skip duplicates - fail fast
+      skipDuplicates: true, // CRITICAL-1 FIX: Skip duplicates based on unique constraint
     });
 
     success = result.count;
@@ -284,4 +306,10 @@ export async function extractAndSaveTransactions(
   }
 
   return { success, skipped, errors };
+    },
+    {
+      maxWait: 60000, // MEDIUM-1 FIX: Wait max 60 seconds for transaction to start
+      timeout: 90000, // MEDIUM-1 FIX: Transaction timeout 90 seconds for bulk insert
+    }
+  );
 }

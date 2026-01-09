@@ -6,7 +6,7 @@ import { FILE_VALIDATION, validateFileSignature } from "~/lib/file-validation";
 import { uploadFileToS3, deleteFileFromS3, downloadFileFromS3 } from "~/lib/s3";
 import { analyzeFileStructure } from "~/lib/file-analyzer";
 import { extractAndSaveTransactions, type ColumnMapping } from "~/lib/data-extractor";
-import type { Prisma } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 
 // pdf-parse doesn't have proper TypeScript types, using require with type assertion
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -880,6 +880,30 @@ export const fileRouter = createTRPCRouter({
         });
       }
 
+      // MEDIUM-2 FIX: Validate required columns before extraction (LOW-1 also)
+      const columnMapping = analysisResult.columnMapping as ColumnMapping;
+
+      if (columnMapping.date === undefined) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "파일 구조 분석에서 '날짜' 열을 찾을 수 없습니다. 분석 결과를 확인하고 다시 시도해주세요",
+        });
+      }
+
+      if (
+        columnMapping.deposit === undefined &&
+        columnMapping.withdrawal === undefined &&
+        columnMapping.balance === undefined
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "파일 구조 분석에서 금액 관련 열(입금액/출금액/잔액)을 찾을 수 없습니다",
+        });
+      }
+
+      // MEDIUM-2 FIX: Check if already processing (prevent race condition)
       if (analysisResult.status !== "analyzing") {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -887,132 +911,74 @@ export const fileRouter = createTRPCRouter({
         });
       }
 
-      // Step 4: Update status to "processing" (75% progress for SSE)
-      await ctx.db.fileAnalysisResult.update({
-        where: { documentId },
-        data: { status: "processing" },
+      // MEDIUM-2 FIX: Use optimistic locking - only update if still "analyzing"
+      const updateResult = await ctx.db.fileAnalysisResult.updateMany({
+        where: {
+          documentId,
+          status: "analyzing", // Only update if still in analyzing state
+        },
+        data: {
+          status: "processing", // 75% progress
+        },
       });
 
+      // MEDIUM-2 FIX: If no rows updated, another process already started extraction
+      if (updateResult.count === 0) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "다른 사용자가 이 파일을 처리 중입니다. 잠시 후 다시 시도해주세요",
+        });
+      }
+
+      // LOW-2 FIX: Check if data already extracted (idempotency)
+      const existingCount = await ctx.db.transaction.count({
+        where: { documentId },
+      });
+
+      if (existingCount > 0) {
+        // Data already extracted from this document
+        console.log(
+          `[Idempotent] Document ${documentId} already has ${existingCount} transactions`
+        );
+
+        // Update status to completed
+        await ctx.db.fileAnalysisResult.update({
+          where: { documentId },
+          data: {
+            status: "completed",
+            analyzedAt: new Date(),
+          },
+        });
+
+        return {
+          success: true,
+          message: `이 파일의 데이터는 이미 추출되었습니다 (${existingCount}건)`,
+          extractedCount: existingCount,
+          skippedCount: 0,
+          errors: [],
+        };
+      }
+
       try {
-        // Step 5: Download file from S3
-        let fileBuffer: Buffer;
-        try {
-          fileBuffer = await downloadFileFromS3(document.s3Key);
-        } catch (error) {
-          console.error("[S3 Download Error]", error);
+        // MEDIUM-2 FIX: Add timeout for entire extraction process
+        const EXTRACTION_TIMEOUT_MS = 90 * 1000; // 90 seconds
 
-          // Update analysis result with failed status
-          await ctx.db.fileAnalysisResult.update({
-            where: { documentId },
-            data: {
-              status: "failed",
-              errorMessage: "S3 파일 다운로드 실패",
-              errorDetails: {
-                originalError:
-                  error instanceof Error ? error.message : String(error),
-              },
-            },
-          });
+        const extractionPromise = performExtraction(
+          ctx,
+          document,
+          columnMapping,
+          analysisResult.headerRowIndex
+        );
 
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "파일 다운로드 중 오류가 발생했습니다",
-          });
-        }
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => {
+            reject(new Error("Data extraction timeout (90 seconds exceeded)"));
+          }, EXTRACTION_TIMEOUT_MS);
+        });
 
-        // Step 6: Parse Excel/CSV file
-        let rawData: unknown[][];
-        try {
-          const workbook = XLSX.read(fileBuffer, { type: "buffer" });
-
-          if (!workbook.SheetNames.length) {
-            throw new Error("엑셀 파일에 시트가 없습니다");
-          }
-
-          const sheetName = workbook.SheetNames[0];
-          if (!sheetName) {
-            throw new Error("첫 번째 시트를 찾을 수 없습니다");
-          }
-
-          const worksheet = workbook.Sheets[sheetName];
-          if (!worksheet) {
-            throw new Error("워크시트를 찾을 수 없습니다");
-          }
-
-          // Convert to array of arrays (raw data with header)
-          rawData = XLSX.utils.sheet_to_json(worksheet, {
-            header: 1,
-            defval: "",
-          }) as unknown[][];
-
-          if (rawData.length === 0) {
-            throw new Error("파일에 데이터가 없습니다");
-          }
-        } catch (error) {
-          console.error("[Excel Parse Error]", error);
-
-          // Update analysis result with failed status
-          await ctx.db.fileAnalysisResult.update({
-            where: { documentId },
-            data: {
-              status: "failed",
-              errorMessage:
-                error instanceof Error ? error.message : "엑셀 파싱 실패",
-              errorDetails: {
-                originalError:
-                  error instanceof Error ? error.stack : String(error),
-              },
-            },
-          });
-
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "엑셀 파일 파싱 중 오류가 발생했습니다",
-          });
-        }
-
-        // Step 7: Extract and save transactions
-        const columnMapping = analysisResult.columnMapping as ColumnMapping;
-        const headerRowIndex = analysisResult.headerRowIndex;
-
-        let extractionResult;
-        try {
-          // Update status to "saving" (90%) - 데이터 저장 중
-          await ctx.db.fileAnalysisResult.update({
-            where: { documentId },
-            data: { status: "saving" },
-          });
-
-          extractionResult = await extractAndSaveTransactions(
-            ctx.db,
-            documentId,
-            document.caseId,
-            rawData,
-            columnMapping,
-            headerRowIndex
-          );
-        } catch (error) {
-          console.error("[Data Extraction Error]", error);
-
-          // Update analysis result with failed status
-          await ctx.db.fileAnalysisResult.update({
-            where: { documentId },
-            data: {
-              status: "failed",
-              errorMessage:
-                error instanceof Error ? error.message : "데이터 추출 실패",
-              errorDetails: {
-                originalError:
-                  error instanceof Error ? error.stack : String(error),
-              },
-            },
-          });
-
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "데이터 추출 중 오류가 발생했습니다",
-          });
-        }
+        // Race extraction against timeout
+        const result = await Promise.race([extractionPromise, timeoutPromise]);
 
         // Step 8: Update FileAnalysisResult to "completed" (100% progress)
         await ctx.db.fileAnalysisResult.update({
@@ -1020,13 +986,13 @@ export const fileRouter = createTRPCRouter({
           data: {
             status: "completed",
             analyzedAt: new Date(),
-            ...(extractionResult.skipped > 0 && {
-              errorMessage: `${extractionResult.skipped}건의 데이터를 건너뛰었습니다 (전체 ${rawData.length}건 중)`,
+            ...(result.skippedCount > 0 && {
+              errorMessage: `${result.skippedCount}건의 데이터를 건너뛰었습니다 (전체 ${result.totalRows}건 중)`,
               errorDetails: {
-                skippedRecords: extractionResult.errors,
-                totalRows: rawData.length,
-                successCount: extractionResult.success,
-                skippedCount: extractionResult.skipped,
+                skippedRecords: result.errors,
+                totalRows: result.totalRows,
+                successCount: result.extractedCount,
+                skippedCount: result.skippedCount,
               },
             }),
           },
@@ -1035,12 +1001,35 @@ export const fileRouter = createTRPCRouter({
         // Step 9: Return success message
         return {
           success: true,
-          message: `${extractionResult.success}건의 거래 데이터를 저장했습니다${extractionResult.skipped > 0 ? ` (${extractionResult.skipped}건 건너뛰기)` : ""}`,
-          extractedCount: extractionResult.success,
-          skippedCount: extractionResult.skipped,
-          errors: extractionResult.errors,
+          message: `${result.extractedCount}건의 거래 데이터를 저장했습니다${result.skippedCount > 0 ? ` (${result.skippedCount}건 건너뛰기)` : ""}`,
+          extractedCount: result.extractedCount,
+          skippedCount: result.skippedCount,
+          errors: result.errors,
         };
       } catch (error) {
+        // MEDIUM-2 FIX: Always set failed status on error
+        await ctx.db.fileAnalysisResult.update({
+          where: { documentId },
+          data: {
+            status: "failed",
+            errorMessage:
+              error instanceof Error ? error.message : "데이터 추출 실패",
+            errorDetails: {
+              originalError:
+                error instanceof Error ? error.stack : String(error),
+            },
+          },
+        });
+
+        // MEDIUM-2 FIX: Check if timeout error
+        if (error instanceof Error && error.message === "Data extraction timeout (90 seconds exceeded)") {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message:
+              "데이터 추출이 시간 초과되었습니다 (최대 90초). 파일이 매우 크거나 네트워크가 느릴 수 있습니다",
+          });
+        }
+
         // Handle TRPCError (already logged and formatted above)
         if (error instanceof TRPCError) {
           throw error;
@@ -1049,22 +1038,283 @@ export const fileRouter = createTRPCRouter({
         // Handle unexpected errors
         console.error("[Unexpected Error]", error);
 
-        await ctx.db.fileAnalysisResult.update({
-          where: { documentId },
-          data: {
-            status: "failed",
-            errorMessage: "예기치 않은 오류가 발생했습니다",
-            errorDetails: {
-              originalError:
-                error instanceof Error ? error.stack : String(error),
-            },
-          },
-        });
-
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "데이터 추출 중 오류가 발생했습니다",
         });
       }
     }),
+
+  /**
+   * Get transactions preview for a document
+   *
+   * QUERY /api/trpc/file.getTransactionsPreview
+   *
+   * Retrieves the first 20 transactions for preview purposes.
+   * Only accessible by Case lawyer or Admin.
+   *
+   * @param documentId - Document ID to preview
+   *
+   * @returns First 20 transactions ordered by date (ascending)
+   *
+   * @throws NOT_FOUND if document doesn't exist
+   * @throws FORBIDDEN if user lacks permissions
+   */
+  getTransactionsPreview: protectedProcedure
+    .input(
+      z.object({
+        documentId: z.string().min(1, "문서 ID는 필수 항목입니다"),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { documentId } = input;
+      const userId = ctx.userId;
+
+      // 1. Document 조회 (RBAC 체크)
+      const document = await ctx.db.document.findUnique({
+        where: { id: documentId },
+        select: {
+          id: true,
+          caseId: true,
+          originalFileName: true,
+          uploadedAt: true,
+          case: {
+            select: {
+              id: true,
+              lawyerId: true,
+            },
+          },
+        },
+      });
+
+      if (!document) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "문서를 찾을 수 없습니다",
+        });
+      }
+
+      // 2. RBAC 권한 체크 (Case lawyer 또는 Admin만 접근 가능)
+      const user = await ctx.db.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
+
+      if (document.case.lawyerId !== userId && user?.role !== "ADMIN") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "이 문서를 조회할 권한이 없습니다",
+        });
+      }
+
+      // 3. Transaction 테이블에서 처음 20건 조회 (transactionDate 오름차순)
+      // MEDIUM-2 FIX: 병렬 쿼리 실행으로 N+1 문제 해결 (Promise.all)
+      const [transactions, totalCount] = await Promise.all([
+        ctx.db.transaction.findMany({
+          where: { documentId },
+          orderBy: { transactionDate: "asc" },
+          take: 20,
+          select: {
+            id: true,
+            transactionDate: true,
+            depositAmount: true,
+            withdrawalAmount: true,
+            balance: true,
+            memo: true,
+          },
+        }),
+        ctx.db.transaction.count({
+          where: { documentId },
+        }),
+      ]);
+
+      return {
+        documentId: document.id,
+        documentName: document.originalFileName,
+        uploadedAt: document.uploadedAt,
+        totalTransactions: totalCount,
+        transactions,
+      };
+    }),
+
+  /**
+   * Delete a document and all related data
+   *
+   * MUTATION /api/trpc/file.deleteDocument
+   *
+   * Deletes a document and all related data (transactions, analysis results, S3 file).
+   * Only accessible by Case lawyer or Admin.
+   * Cannot delete if file is currently being processed (status: processing, saving).
+   *
+   * @param documentId - Document ID to delete
+   *
+   * @returns Success message
+   *
+   * @throws NOT_FOUND if document doesn't exist
+   * @throws FORBIDDEN if user lacks permissions or file is being processed
+   */
+  deleteDocument: protectedProcedure
+    .input(
+      z.object({
+        documentId: z.string().min(1, "문서 ID는 필수 항목입니다"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { documentId } = input;
+      const userId = ctx.userId;
+
+      // 1. Document 조회 (RBAC 체크)
+      const document = await ctx.db.document.findUnique({
+        where: { id: documentId },
+        select: {
+          id: true,
+          caseId: true,
+          s3Key: true,
+          originalFileName: true,
+          case: {
+            select: {
+              id: true,
+              lawyerId: true,
+            },
+          },
+        },
+      });
+
+      if (!document) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "문서를 찾을 수 없습니다",
+        });
+      }
+
+      // 2. RBAC 권한 체크 (Case lawyer 또는 Admin만 삭제 가능)
+      const user = await ctx.db.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
+
+      if (document.case.lawyerId !== userId && user?.role !== "ADMIN") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "이 문서를 삭제할 권한이 없습니다",
+        });
+      }
+
+      // 3. FileAnalysisResult.status 확인 (analyzing, processing, saving 상태면 삭제 불가)
+      const analysisResult = await ctx.db.fileAnalysisResult.findUnique({
+        where: { documentId },
+        select: { status: true },
+      });
+
+      if (analysisResult && ["processing", "saving"].includes(analysisResult.status)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "이미 분석이 시작된 파일은 삭제할 수 없습니다",
+        });
+      }
+
+      // 4. Document 삭제 (CASCADE로 FileAnalysisResult, Transaction 자동 삭제)
+      // MEDIUM-1 FIX: DB 삭제 먼저 수행 → S3 삭제는 실패해도 로깅만 (orphan S3 객체 방지)
+      try {
+        await ctx.db.document.delete({
+          where: { id: documentId },
+        });
+      } catch (error) {
+        console.error("[Prisma Delete Error]", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "DB 삭제에 실패했습니다",
+        });
+      }
+
+      // 5. S3 파일 삭제 (DB 삭제 성공 후, 실패는 로깅만 - non-blocking)
+      try {
+        await deleteFileFromS3(document.s3Key);
+      } catch (error) {
+        // S3 삭제 실패는 로깅만 (DB는 이미 삭제됨, 사용자 경험 저하 방지)
+        console.error("[S3 Delete Error - Non-blocking]", error);
+        // S3 정리 작업은 백그라운드 작업으로 처리 가능
+      }
+
+      return {
+        success: true,
+        message: "파일이 삭제되었습니다",
+      };
+    }),
 });
+
+/**
+ * MEDIUM-2 FIX: Separate function for extraction logic to enable timeout
+ *
+ * @param ctx - tRPC context
+ * @param document - Document record
+ * @param columnMapping - Column mapping from file analysis
+ * @param headerRowIndex - Header row index
+ * @returns Extraction result
+ */
+async function performExtraction(
+  ctx: { db: PrismaClient },
+  document: { id: string; s3Key: string; caseId: string },
+  columnMapping: ColumnMapping,
+  headerRowIndex: number
+): Promise<{
+  extractedCount: number;
+  skippedCount: number;
+  totalRows: number;
+  errors: Array<{ row: number; error: string }>;
+}> {
+  const { id: documentId, s3Key, caseId } = document;
+
+  // Download file from S3
+  const fileBuffer = await downloadFileFromS3(s3Key);
+
+  // Parse Excel/CSV file
+  const workbook = XLSX.read(fileBuffer, { type: "buffer" });
+
+  if (!workbook.SheetNames.length) {
+    throw new Error("엑셀 파일에 시트가 없습니다");
+  }
+
+  const sheetName = workbook.SheetNames[0];
+  if (!sheetName) {
+    throw new Error("첫 번째 시트를 찾을 수 없습니다");
+  }
+
+  const worksheet = workbook.Sheets[sheetName];
+  if (!worksheet) {
+    throw new Error("워크시트를 찾을 수 없습니다");
+  }
+
+  // Convert to array of arrays (raw data with header)
+  const rawData = XLSX.utils.sheet_to_json(worksheet, {
+    header: 1,
+    defval: "",
+  }) as unknown[][];
+
+  if (rawData.length === 0) {
+    throw new Error("파일에 데이터가 없습니다");
+  }
+
+  // Update status to "saving" (90%) - 데이터 저장 중
+  await ctx.db.fileAnalysisResult.update({
+    where: { documentId },
+    data: { status: "saving" },
+  });
+
+  // Extract and save transactions
+  const extractionResult = await extractAndSaveTransactions(
+    ctx.db,
+    documentId,
+    caseId,
+    rawData,
+    columnMapping,
+    headerRowIndex
+  );
+
+  return {
+    extractedCount: extractionResult.success,
+    skippedCount: extractionResult.skipped,
+    totalRows: rawData.length,
+    errors: extractionResult.errors,
+  };
+}

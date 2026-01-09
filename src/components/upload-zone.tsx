@@ -8,11 +8,23 @@ import { api } from "~/utils/api";
 import { FILE_VALIDATION } from "~/lib/file-validation";
 import { ProgressBar } from "~/components/atoms/ProgressBar";
 import { useRealtimeProgress } from "~/hooks/use-realtime-progress";
+import { FilePreviewModal } from "~/components/file-preview-modal";
+import { FileDeleteButton } from "~/components/file-delete-button";
 
 interface FileUploadProps {
   caseId: string;
   onFilesSelected: (files: File[]) => void;
   onUploadSuccess?: (documentId: string) => void;
+}
+
+/**
+ * Uploaded document metadata interface
+ */
+interface UploadedDocument {
+  id: string;
+  name: string;
+  uploadedAt: Date;
+  analysisStatus: string;
 }
 
 // Use centralized constant (MEDIUM-1 fix)
@@ -60,6 +72,10 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
     totalTransactions?: number;
     columns?: string[];
   } | null>(null);
+
+  // Story 3.7: Track uploaded documents for preview/delete
+  const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
+  const [previewDocument, setPreviewDocument] = useState<UploadedDocument | null>(null);
 
   // Story 3.5: Load completion data from localStorage on mount (AC5)
   useEffect(() => {
@@ -218,6 +234,15 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
             if (result.document?.id) {
               uploadedDocumentIds.push(result.document.id);
 
+              // Story 3.7: Track uploaded document for preview/delete
+              const newDoc: UploadedDocument = {
+                id: result.document.id,
+                name: file.name,
+                uploadedAt: new Date(),
+                analysisStatus: "pending", // Initial status before analysis
+              };
+              setUploadedDocuments((prev) => [...prev, newDoc]);
+
               // Notify parent component of successful upload
               if (onUploadSuccess) {
                 onUploadSuccess(result.document.id);
@@ -237,17 +262,45 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
       for (const documentId of uploadedDocumentIds) {
         try {
           setAnalyzingDocumentId(documentId);
+
+          // Story 3.7: Update document status to analyzing
+          setUploadedDocuments((prev) =>
+            prev.map((doc) =>
+              doc.id === documentId
+                ? { ...doc, analysisStatus: "analyzing" }
+                : doc
+            )
+          );
+
           await analyzeFileMutation.mutateAsync({ documentId });
 
           // Story 3.6: After analysis completes, extract data and save to DB
           // Note: Progress tracking is handled by useRealtimeProgress hook
           await extractDataMutation.mutateAsync({ documentId });
+
+          // Story 3.7: Update document status to completed
+          setUploadedDocuments((prev) =>
+            prev.map((doc) =>
+              doc.id === documentId
+                ? { ...doc, analysisStatus: "completed" }
+                : doc
+            )
+          );
         } catch (error) {
           const errorMsg =
             error instanceof Error ? error.message : "파일 처리 실패";
           setFileErrors((prev) => [...prev, `처리 실패: ${errorMsg}`]);
           toast.error(`파일 처리 실패: ${errorMsg}`);
           setAnalyzingDocumentId(null);
+
+          // Story 3.7: Update document status to failed
+          setUploadedDocuments((prev) =>
+            prev.map((doc) =>
+              doc.id === documentId
+                ? { ...doc, analysisStatus: "failed" }
+                : doc
+            )
+          );
         }
       }
 
@@ -299,6 +352,13 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // Story 3.7: Handle document deletion
+  const handleDeleteDocument = useCallback((documentId: string) => {
+    setUploadedDocuments((prev) => prev.filter((doc) => doc.id !== documentId));
+    // Clear completion data if deleted document was the one showing completion
+    setCompletionData(null);
+  }, []);
+
   // Story 3.5: Handle retry button click (AC4)
   const handleRetry = useCallback(async () => {
     if (!failedDocumentId) return;
@@ -327,7 +387,8 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
   };
 
   return (
-    <Card className="p-6">
+    <>
+      <Card className="p-6">
       <div
         {...getRootProps()}
         role="button"
@@ -393,6 +454,47 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
         </div>
       )}
 
+      {/* Story 3.7: Uploaded Documents List with Preview/Delete Buttons */}
+      {uploadedDocuments.length > 0 && (
+        <div className="mt-4 space-y-2">
+          <h3 className="font-medium text-gray-900">
+            업로드된 파일 ({uploadedDocuments.length}개):
+          </h3>
+          {uploadedDocuments.map((doc) => (
+            <div
+              key={doc.id}
+              className="flex justify-between items-center p-3 bg-green-50 border border-green-200 rounded-md"
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">
+                  {doc.name}
+                </p>
+                <p className="text-xs text-gray-500">
+                  업로드: {doc.uploadedAt.toLocaleString("ko-KR")} | 상태:{" "}
+                  {doc.analysisStatus}
+                </p>
+              </div>
+              <div className="flex gap-2 ml-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPreviewDocument(doc)}
+                  disabled={analyzingDocumentId === doc.id}
+                >
+                  미리보기
+                </Button>
+                <FileDeleteButton
+                  documentId={doc.id}
+                  documentName={doc.name}
+                  analysisStatus={doc.analysisStatus}
+                  onDeleteSuccess={() => handleDeleteDocument(doc.id)}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Selected Files List */}
       {selectedFiles.length > 0 && (
         <div className="mt-4 space-y-2">
@@ -429,6 +531,19 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
           ))}
         </div>
       )}
-    </Card>
+      </Card>
+
+      {/* Story 3.7: File Preview Modal */}
+      {previewDocument && (
+        <FilePreviewModal
+          documentId={previewDocument.id}
+          documentName={previewDocument.name}
+          uploadedAt={previewDocument.uploadedAt}
+          totalTransactions={0} // Will be fetched from API
+          open={!!previewDocument}
+          onOpenChange={(open) => !open && setPreviewDocument(null)}
+        />
+      )}
+    </>
   );
 }
