@@ -96,7 +96,7 @@ export const userRouter = createTRPCRouter({
       const { token } = input;
 
       // Find user by token
-      const user = await ctx.db.user.findUnique({
+      const user = await ctx.db.user.findFirst({
         where: { emailVerificationToken: token },
       });
 
@@ -403,7 +403,7 @@ export const userRouter = createTRPCRouter({
 
       // Generate password reset token (32 bytes, 1 hour expiry)
       const token = generateVerificationToken(); // Reuses existing token generation (32 bytes)
-      const tokenExpires = getTokenExpiration(3600); // 1 hour = 3600 seconds
+      const tokenExpires = new Date(Date.now() + 3600 * 1000); // 1 hour = 3600 seconds
 
       // Save token to database
       await ctx.db.user.update({
@@ -440,7 +440,7 @@ export const userRouter = createTRPCRouter({
       const { token } = input;
 
       // Find user by reset token
-      const user = await ctx.db.user.findUnique({
+      const user = await ctx.db.user.findFirst({
         where: { passwordResetToken: token },
       });
 
@@ -489,7 +489,7 @@ export const userRouter = createTRPCRouter({
       }
 
       // Find user by reset token
-      const user = await ctx.db.user.findUnique({
+      const user = await ctx.db.user.findFirst({
         where: { passwordResetToken: token },
       });
 

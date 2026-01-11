@@ -207,7 +207,7 @@ async function parseFile(
 
   // Detect header row (assume first row with valid column names)
   let headerRowIndex = 0;
-  const firstRow = jsonData[0];
+  const firstRow = jsonData[0] as any[];
   if (!firstRow) {
     throw new Error("첫 번째 행을 찾을 수 없습니다");
   }
@@ -216,7 +216,7 @@ async function parseFile(
   // Try to find header row if first row doesn't look like headers
   if (!looksLikeHeaders(headers)) {
     for (let i = 1; i < Math.min(5, jsonData.length); i++) {
-      const row = jsonData[i];
+      const row = jsonData[i] as any[];
       if (!row) continue;
 
       const candidateHeaders = row.map((cell) => String(cell));

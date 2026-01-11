@@ -206,7 +206,10 @@ export const protectedProcedure = t.procedure
 export const caseAccessProcedure = protectedProcedure
   .use(async ({ ctx, input, next }) => {
     // Extract caseId from input (required for caseAccessProcedure)
-    const caseId = (input as { caseId: string }).caseId;
+    const caseId =
+      input && typeof input === "object" && "caseId" in input
+        ? (input as { caseId: string }).caseId
+        : undefined;
 
     if (!caseId) {
       throw new TRPCError({
@@ -256,7 +259,10 @@ export const caseAccessProcedure = protectedProcedure
 export const caseModifyProcedure = protectedProcedure
   .use(async ({ ctx, input, next }) => {
     // Extract caseId from input (required for caseModifyProcedure)
-    const caseId = (input as { caseId: string }).caseId;
+    const caseId =
+      input && typeof input === "object" && "caseId" in input
+        ? (input as { caseId: string }).caseId
+        : undefined;
 
     if (!caseId) {
       throw new TRPCError({

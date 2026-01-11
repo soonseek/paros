@@ -27,6 +27,14 @@ enum CaseStatus {
     CLOSED        // 종료
 }
 
+// Transaction Nature Enum (Story 4.4: 거래 성격 판단)
+enum TransactionNature {
+    CREDITOR             // 채권자 관련
+    COLLATERAL           // 담보 관련
+    PRIORITY_REPAYMENT   // 우선변제 관련
+    GENERAL              // 일반 거래
+}
+
 // User Model with Email Verification
 model User {
     id                       String          @id @default(uuid())
@@ -45,6 +53,8 @@ model User {
     cases                    Case[]                          // Cases owned by this user (lawyer)
     caseNotes                CaseNote[]                      // Case notes written by this user
     uploadedDocuments        Document[]                      // Documents uploaded by this user
+    classificationFeedbacks  ClassificationFeedback[]         // Story 4.8: Classification feedback
+    classificationErrors    ClassificationError[]            // Story 4.8: Classification errors
     createdAt                DateTime        @default(now())
     updatedAt                DateTime        @updatedAt
 
@@ -81,6 +91,7 @@ model Case {
     documents         Document[]                          // Documents uploaded for this case
     analysisResults   FileAnalysisResult[]               // Story 3.4: File structure analysis results
     transactions      Transaction[]                       // Story 3.6: Extracted transaction data
+    findings          Finding[]                           // Story 4.3: Findings for this case
     createdAt         DateTime     @default(now())
     updatedAt         DateTime     @updatedAt
 
@@ -159,8 +170,9 @@ model FileAnalysisResult {
     errorDetails    Json?
 
     // Relations
-    document        Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-    case            Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+    document        Document                @relation(fields: [documentId], references: [id], onDelete: Cascade)
+    case            Case                    @relation(fields: [caseId], references: [id], onDelete: Cascade)
+    classificationJobs ClassificationJob[]                         // Story 4.1, CRITICAL-2 FIX: AI 분류 작업
 
     createdAt       DateTime @default(now())
     updatedAt       DateTime @updatedAt
@@ -169,6 +181,26 @@ model FileAnalysisResult {
     @@index([documentId])
     @@index([status])
     @@map("file_analysis_results")
+}
+
+// Classification Job Model (Story 4.1, CRITICAL-2 FIX: AI 분류 작업 상태 추적)
+model ClassificationJob {
+    id               String   @id @default(uuid())
+    fileAnalysisResultId String                @unique       // FileAnalysisResult ID (1:1 관계)
+    status           String                              // processing, completed, failed
+    progress         Int      @default(0)                // 진행률 (0 ~ total)
+    total            Int                                 // 전체 거래 수
+    error            String?                             // 에러 메시지
+
+    // Relations
+    fileAnalysisResult FileAnalysisResult @relation(fields: [fileAnalysisResultId], references: [id], onDelete: Cascade)
+
+    createdAt        DateTime @default(now())
+    updatedAt        DateTime @updatedAt
+
+    @@index([fileAnalysisResultId])
+    @@index([status])
+    @@map("classification_jobs")
 }
 
 // Transaction Model (Story 3.6)
@@ -187,10 +219,39 @@ model Transaction {
     // Metadata
     rawMetadata      Json?                               // Original data preservation (JSON)
     rowNumber        Int?                                // Excel row number (optional)
+    version          Int      @default(1)                 // HIGH #2: Optimistic locking version
+
+    // Story 4.1: AI 분류 결과
+    category                String?                      // 입금, 출금, 이체, 수수료, 기타
+    subcategory             String?                      // 세부 분류
+    confidenceScore         Float?    @default(0.0)      // 0.0 ~ 1.0 신뢰도 점수
+    isManuallyClassified    Boolean?  @default(false)    // 수동 수정 여부
+    aiClassificationStatus  String?                      // pending, processing, completed, failed
+
+    // Story 4.5: 수동 분류 수정
+    originalCategory        String?   @db.Text           // 원본 AI 분류 카테고리 (복원용)
+    originalSubcategory     String?   @db.Text           // 원본 AI 분류 서브카테고리 (복원용)
+    originalConfidenceScore Float?                       // 원본 AI 신뢰도 점수 (복원용) - CRITICAL #1 fix
+    manualClassificationDate DateTime?                   // 수동 수정 일시
+    manualClassifiedBy      String?                      // 수동 수정 사용자 ID
+
+    // Story 4.3: 중요 거래 식별
+    importantTransaction       Boolean?  @default(false)  // 중요 거래 여부
+    importantTransactionType   String?                     // LOAN_EXECUTION, REPAYMENT, COLLATERAL, SEIZURE
+    importantTransactionKeywords String?                   // 매칭된 키워드 (JSON 배열)
+
+    // Story 4.4: 거래 성격 판단
+    transactionNature   TransactionNature?   // 거래 성격 (CREDITOR, COLLATERAL, PRIORITY_REPAYMENT, GENERAL)
+    creditorName        String?   @db.Text   // 채권자명 (채권자 관련 거래)
+    collateralType      String?              // 담보 유형 (담보 관련 거래: 저당권, 질권, 유치권)
 
     // Relations
-    case             Case      @relation(fields: [caseId], references: [id], onDelete: Cascade)
-    document         Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+    case             Case             @relation(fields: [caseId], references: [id], onDelete: Cascade)
+    document         Document         @relation(fields: [documentId], references: [id], onDelete: Cascade)
+    findings         Finding[]                          // Story 4.3: Finding 관계 (일대다)
+    tags             TransactionTag[]                   // Story 4.6: 태그 관계 (일대다)
+    feedbacks        ClassificationFeedback[]          // Story 4.8: Classification feedback (일대다)
+    errors           ClassificationError[]             // Story 4.8: Classification errors (일대다)
 
     createdAt        DateTime  @default(now())
     updatedAt        DateTime  @updatedAt
@@ -200,5 +261,179 @@ model Transaction {
     @@index([caseId])
     @@index([documentId])
     @@index([transactionDate])
+    @@index([category])
+    @@index([aiClassificationStatus])
+    @@index([importantTransaction])
+    @@index([importantTransactionType])
+    @@index([transactionNature])  // Story 4.4: 거래 성격 필터링 최적화
+    @@index([isManuallyClassified])  // Story 4.5: 수동 수정 필터링 최적화
     @@map("transactions")
+}
+
+// Finding Model (Story 4.3: 발견사항 관리)
+model Finding {
+    id                String      @id @default(cuid())
+    caseId            String
+    case              Case        @relation(fields: [caseId], references: [id], onDelete: Cascade)
+    transactionId     String?
+    transaction       Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+    findingType       String      // IMPORTANT_TRANSACTION, PRIORITY_REPAYMENT, COLLATERAL_CHANGE, etc.
+    title             String
+    description       String?     @db.Text
+    severity          String      @default("INFO") // INFO, WARNING, CRITICAL
+    isResolved        Boolean     @default(false)
+    resolvedAt        DateTime?
+
+    createdAt         DateTime    @default(now())
+    updatedAt         DateTime    @updatedAt
+
+    @@index([caseId])
+    @@index([transactionId])
+    @@index([findingType])
+    @@index([isResolved])
+    @@map("findings")
+}
+
+// Tag Model (Story 4.6: 태그 추가 및 삭제)
+model Tag {
+  id          String        @id @default(uuid())
+  name        String        @unique @db.Text
+  createdAt   DateTime      @default(now())
+  createdBy   String?
+  transactions TransactionTag[]
+
+  @@index([name])
+  @@map("tags")
+}
+
+// TransactionTag Model (Story 4.6: Transaction-Tag Many-to-Many Join Table)
+model TransactionTag {
+  id            String      @id @default(uuid())
+  transactionId String
+  tagId         String
+  createdAt     DateTime    @default(now())
+  createdBy     String?
+
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  tag           Tag         @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([transactionId, tagId])
+  @@index([transactionId])
+  @@index([tagId])
+  @@map("transaction_tags")
+}
+
+// Audit Log Model (Story 2.1, Story 4.5 CRITICAL #2)
+model AuditLog {
+    id          String   @id @default(cuid())
+    userId      String                                  // User who performed the action
+    action      String                                  // CREATE, UPDATE, DELETE, RESTORE, etc.
+    entityType  String                                  // TRANSACTION_CLASSIFICATION, CASE, DOCUMENT, etc.
+    entityId    String                                  // ID of the affected entity
+    changes     Json?                                   // JSON object with before/after values
+    ipAddress   String?                                 // Client IP address
+    userAgent   String?   @db.Text                      // Client user agent
+    createdAt   DateTime  @default(now())
+
+    @@index([userId])
+    @@index([action])
+    @@index([entityType])
+    @@index([entityId])
+    @@index([createdAt])
+    @@map("audit_logs")
+}
+
+// Story 4.8: Learning Feedback Loop Models
+
+// Classification Error Types Enum
+enum ClassificationErrorType {
+    WRONG_CATEGORY   // 잘못된 카테고리
+    MISSED           // 누락된 분류
+    LOW_CONFIDENCE   // 신뢰도 부정확
+}
+
+// Classification Rule Pattern Types Enum
+enum ClassificationRulePatternType {
+    KEYWORD       // 키워드 기반
+    AMOUNT_RANGE  // 금액 범위 기반
+    CREDITOR      // 거래처 기반
+}
+
+// Classification Feedback Model
+model ClassificationFeedback {
+    id                    String      @id @default(uuid())
+    transactionId         String
+    transaction           Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+    // Original AI classification
+    originalCategory      String?     @db.Text
+    originalSubcategory   String?     @db.Text
+    originalConfidence   Float?
+
+    // User correction
+    userCategory          String?     @db.Text
+    userSubcategory       String?     @db.Text
+
+    feedbackDate          DateTime    @default(now())
+    userId                String
+    user                  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    createdAt             DateTime    @default(now())
+    updatedAt             DateTime    @updatedAt
+
+    @@index([transactionId])
+    @@index([feedbackDate])
+    @@index([userId])
+    @@index([userCategory])
+    @@map("classification_feedbacks")
+}
+
+// Classification Rule Model
+model ClassificationRule {
+    id                String                     @id @default(uuid())
+    pattern           String                     // Pattern (keyword, amount range, creditor name)
+    patternType       ClassificationRulePatternType // KEYWORD, AMOUNT_RANGE, CREDITOR
+    category          String                     // Mapped category
+    subcategory       String?                    // Mapped subcategory (optional)
+    confidence        Float        @default(0.9)  // Rule confidence score
+    applyCount        Int          @default(0)     // Number of times rule was applied
+    successCount      Int          @default(0)     // Number of successful applications
+    lastAppliedAt     DateTime?                  // Last application timestamp
+    isActive          Boolean      @default(true)  // Whether rule is active
+
+    createdAt         DateTime    @default(now())
+    updatedAt         DateTime    @updatedAt
+
+    @@index([patternType])
+    @@index([confidence])
+    @@index([applyCount])
+    @@index([isActive])
+    @@map("classification_rules")
+}
+
+// Classification Error Report Model
+model ClassificationError {
+    id                String                   @id @default(uuid())
+    transactionId     String
+    transaction       Transaction             @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+    errorType         ClassificationErrorType  // WRONG_CATEGORY, MISSED, LOW_CONFIDENCE
+    description       String      @db.Text     // Error description
+    severity          String                   // LOW, MEDIUM, HIGH
+
+    reportedAt        DateTime    @default(now())
+    userId            String
+    user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+    resolved          Boolean     @default(false)
+
+    createdAt         DateTime    @default(now())
+    updatedAt         DateTime    @updatedAt
+
+    @@index([transactionId])
+    @@index([errorType])
+    @@index([severity])
+    @@index([resolved])
+    @@index([userId])
+    @@map("classification_errors")
 }

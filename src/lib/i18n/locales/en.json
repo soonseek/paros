@@ -1,0 +1,160 @@
+{
+  "confidence": {
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low",
+    "uncertain": "Uncertain",
+    "notClassified": "Not classified",
+    "confidenceScore": "Confidence"
+  },
+  "transactionNature": {
+    "label": "Transaction Nature",
+    "filterLabel": "Transaction Nature Filter",
+    "creditorName": "Creditor Name",
+    "collateralType": "Collateral Type",
+    "types": {
+      "CREDITOR": "Creditor Related",
+      "COLLATERAL": "Collateral Related",
+      "PRIORITY_REPAYMENT": "Priority Repayment Related",
+      "GENERAL": "General Transaction"
+    },
+    "collateralTypes": {
+      "MORTGAGE": "Mortgage",
+      "LIEN": "Lien",
+      "POSSESSION": "Possession"
+    }
+  },
+  "priorityRepayment": {
+    "title": "Priority Repayment Right Violation Potential",
+    "warning": "Potential priority repayment right violation detected. Review required.",
+    "critical": "Leasehold + Anti-power combination detected. High probability of priority repayment right violation."
+  },
+  "importantTransaction": {
+    "important": "Important Transaction",
+    "loanExecution": "Loan Execution",
+    "repayment": "Repayment",
+    "collateral": "Collateral",
+    "seizure": "Seizure",
+    "keywords": "Keywords",
+    "keywordsMatched": "keywords matched",
+    "matchedKeywords": "Matched keywords"
+  },
+  "severity": {
+    "severity": "Severity",
+    "info": "Info",
+    "warning": "Warning",
+    "critical": "Critical"
+  },
+  "finding": {
+    "title": "Findings",
+    "type": "Type",
+    "description": "Description",
+    "severity": "Severity",
+    "status": "Status",
+    "resolved": "Resolved",
+    "unresolved": "Unresolved",
+    "resolve": "Resolve",
+    "unresolve": "Mark as unresolved",
+    "createdAt": "Created",
+    "resolvedAt": "Resolved",
+    "importantTransaction": "Important Transaction",
+    "priorityRepayment": "Priority Repayment",
+    "collateralChange": "Collateral Change",
+    "seizure": "Seizure",
+    "largeAmount": "Large Amount",
+    "suspiciousPattern": "Suspicious Pattern"
+  },
+  "transaction": {
+    "table": {
+      "caption": "Transaction table. Includes transaction date, description, deposit amount, withdrawal amount, balance, category, and confidence information.",
+      "date": "Date",
+      "memo": "Description",
+      "deposit": "Deposit",
+      "withdrawal": "Withdrawal",
+      "balance": "Balance",
+      "category": "Category",
+      "confidence": "Confidence",
+      "subcategory": "Subcategory"
+    },
+    "filter": {
+      "ariaLabel": "Transaction filter",
+      "searchPlaceholder": "Search memo, category...",
+      "searchAriaLabel": "Enter transaction search query",
+      "categoryLabel": "Category:",
+      "categoryAriaLabel": "Select category filter",
+      "all": "All",
+      "sortByConfidence": "Confidence (Low to High)",
+      "sortByConfidenceAriaLabel": "Sort by confidence ascending (lowest first)",
+      "sortByConfidenceAriaLabelActive": "Confidence ascending sort active, click to change to descending",
+      "sortByConfidenceDescAriaLabel": "Confidence descending sort active, click to clear sort",
+      "resultCount": "Showing {count} of {total} transactions",
+      "noTransactions": "No transactions to display"
+    },
+    "detail": {
+      "date": "Transaction Date",
+      "memo": "Description",
+      "depositAmount": "Deposit Amount",
+      "withdrawalAmount": "Withdrawal Amount",
+      "balance": "Balance",
+      "aiResult": "AI Classification Result"
+    },
+    "pagination": {
+      "label": "Pagination",
+      "pageInfo": "Page {current} of {total}",
+      "previous": "Previous",
+      "next": "Next",
+      "first": "First",
+      "last": "Last",
+      "rowsPerPage": "Rows per page:",
+      "showing": "Showing {start}-{end} of {total}",
+      "ariaLabel": "Transaction list pagination",
+      "pageButtonAriaLabel": "Go to page {page}"
+    }
+  },
+  "category": {
+    "deposit": "Deposit",
+    "withdrawal": "Withdrawal",
+    "transfer": "Transfer",
+    "fee": "Fee",
+    "other": "Other"
+  },
+  "manualClassification": {
+    "label": "Manual Classification Edit",
+    "edit": "Edit Category",
+    "categoryLabel": "Select category",
+    "save": "Save",
+    "cancel": "Cancel",
+    "restore": "Restore Original",
+    "restoring": "Restoring...",
+    "restoreConfirm": "Confirm Restore Original",
+    "restoreConfirmDescription": "Are you sure you want to restore to the original AI classification? This action cannot be undone.",
+    "restoreSuccess": "Restored to original classification",
+    "success": "Classification updated",
+    "modifiedBadge": "Modified",
+    "original": "Original",
+    "originalLabel": "Original: {category}",
+    "modifiedDate": "Modified: {date}",
+    "error": {
+      "updateFailed": "Failed to update classification",
+      "restoreFailed": "Failed to restore original",
+      "notFound": "Transaction not found",
+      "forbidden": "No permission to modify classification",
+      "noOriginalToRestore": "No original classification to restore"
+    }
+  },
+  "classification": {
+    "start": "Start AI Classification",
+    "startAriaLabel": "Start automatic AI transaction classification",
+    "starting": "Classifying...",
+    "progress": "Classification progress {progress}%",
+    "complete": "Classification complete",
+    "failed": "Classification failed",
+    "error": "An error occurred during classification",
+    "retry": "Retry"
+  },
+  "format": {
+    "date": "MMM dd, yyyy",
+    "datetime": "MMM dd, yyyy HH:mm",
+    "currency": "${value}"
+  }
+}

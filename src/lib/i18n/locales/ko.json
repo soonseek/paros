@@ -1,0 +1,160 @@
+{
+  "confidence": {
+    "high": "높음",
+    "medium": "중간",
+    "low": "낮음",
+    "uncertain": "불확실한 분류",
+    "notClassified": "분류 안됨",
+    "confidenceScore": "신뢰도"
+  },
+  "transactionNature": {
+    "label": "거래 성격",
+    "filterLabel": "거래 성격 필터",
+    "creditorName": "채권자명",
+    "collateralType": "담보 유형",
+    "types": {
+      "CREDITOR": "채권자 관련",
+      "COLLATERAL": "담보 관련",
+      "PRIORITY_REPAYMENT": "우선변제 관련",
+      "GENERAL": "일반 거래"
+    },
+    "collateralTypes": {
+      "MORTGAGE": "저당권",
+      "LIEN": "질권",
+      "POSSESSION": "유치권"
+    }
+  },
+  "priorityRepayment": {
+    "title": "우선변제권 침해 가능성",
+    "warning": "우선변제권 침해 가능성이 있습니다. 확인이 필요합니다.",
+    "critical": "임차권+대항력 조합 감지. 우선변제권 침해 가능성이 높습니다."
+  },
+  "importantTransaction": {
+    "important": "중요 거래",
+    "loanExecution": "대출 실행",
+    "repayment": "변제",
+    "collateral": "담보",
+    "seizure": "압류",
+    "keywords": "키워드",
+    "keywordsMatched": "개 키워드 매칭",
+    "matchedKeywords": "매칭된 키워드"
+  },
+  "severity": {
+    "severity": "심각도",
+    "info": "정보",
+    "warning": "경고",
+    "critical": "심각"
+  },
+  "finding": {
+    "title": "발견사항",
+    "type": "유형",
+    "description": "설명",
+    "severity": "심각도",
+    "status": "상태",
+    "resolved": "해결됨",
+    "unresolved": "미해결",
+    "resolve": "해결",
+    "unresolve": "미해결 상태로 변경",
+    "createdAt": "생성일",
+    "resolvedAt": "해결일",
+    "importantTransaction": "중요 거래",
+    "priorityRepayment": "우선 변제",
+    "collateralChange": "담보 변경",
+    "seizure": "압류",
+    "largeAmount": "대규모 금액",
+    "suspiciousPattern": "의심스러운 패턴"
+  },
+  "transaction": {
+    "table": {
+      "caption": "거래 목록 테이블. 거래일자, 적요, 입금액, 출금액, 잔액, 카테고리, 신뢰도 정보를 포함합니다.",
+      "date": "거래일자",
+      "memo": "적요",
+      "deposit": "입금액",
+      "withdrawal": "출금액",
+      "balance": "잔액",
+      "category": "카테고리",
+      "confidence": "신뢰도",
+      "subcategory": "서브카테고리"
+    },
+    "filter": {
+      "ariaLabel": "거래 필터",
+      "searchPlaceholder": "메모, 카테고리 검색...",
+      "searchAriaLabel": "거래 검색어 입력",
+      "categoryLabel": "카테고리:",
+      "categoryAriaLabel": "카테고리 필터 선택",
+      "all": "전체",
+      "sortByConfidence": "신뢰도 낮은 순",
+      "sortByConfidenceAriaLabel": "신뢰도 오름차순으로 정렬 (낮은 신뢰도 먼저)",
+      "sortByConfidenceAriaLabelActive": "신뢰도 오름차순 정렬 활성화됨, 클릭하여 내림차순으로 변경",
+      "sortByConfidenceDescAriaLabel": "신뢰도 내림차순 정렬 활성화됨, 클릭하여 정렬 해제",
+      "resultCount": "총 {count}건 표시 (전체 {total}건 중)",
+      "noTransactions": "표시할 거래가 없습니다"
+    },
+    "detail": {
+      "date": "거래일자",
+      "memo": "적요",
+      "depositAmount": "입금액",
+      "withdrawalAmount": "출금액",
+      "balance": "잔액",
+      "aiResult": "AI 분류 결과"
+    },
+    "pagination": {
+      "label": "페이지네이션",
+      "pageInfo": "{current} / {total} 페이지",
+      "previous": "이전",
+      "next": "다음",
+      "first": "처음",
+      "last": "마지막",
+      "rowsPerPage": "페이지당 행 수:",
+      "showing": "{start}-{end} 표시 (전체 {total}건)",
+      "ariaLabel": "거래 목록 페이지네이션",
+      "pageButtonAriaLabel": "{page}페이지로 이동"
+    }
+  },
+  "category": {
+    "deposit": "입금",
+    "withdrawal": "출금",
+    "transfer": "이체",
+    "fee": "수수료",
+    "other": "기타"
+  },
+  "manualClassification": {
+    "label": "수동 분류 수정",
+    "edit": "카테고리 수정",
+    "categoryLabel": "카테고리 선택",
+    "save": "저장",
+    "cancel": "취소",
+    "restore": "원본 복원",
+    "restoring": "복원 중...",
+    "restoreConfirm": "원본 복원 확인",
+    "restoreConfirmDescription": "정말 원본 AI 분류로 복원하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
+    "restoreSuccess": "원본 분류로 복원되었습니다",
+    "success": "분류가 수정되었습니다",
+    "modifiedBadge": "수정됨",
+    "original": "원본",
+    "originalLabel": "원본: {category}",
+    "modifiedDate": "수정일: {date}",
+    "error": {
+      "updateFailed": "분류 수정에 실패했습니다",
+      "restoreFailed": "원본 복원에 실패했습니다",
+      "notFound": "거래를 찾을 수 없습니다",
+      "forbidden": "분류 수정 권한이 없습니다",
+      "noOriginalToRestore": "복원할 원본 분류가 없습니다"
+    }
+  },
+  "classification": {
+    "start": "AI 분류 시작",
+    "startAriaLabel": "AI로 거래 자동 분류 시작",
+    "starting": "분류 중...",
+    "progress": "분류 진행률 {progress}%",
+    "complete": "분류 완료",
+    "failed": "분류 실패",
+    "error": "분류 중 오류가 발생했습니다",
+    "retry": "다시 시도"
+  },
+  "format": {
+    "date": "yyyy. MM. dd.",
+    "datetime": "yyyy. MM. dd. HH:mm",
+    "currency": "{value}원"
+  }
+}

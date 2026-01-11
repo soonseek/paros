@@ -28,7 +28,18 @@
       "Bash(npm run lint:*)",
       "Bash(npx eslint:*)",
       "Bash(echo:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npm run test:*)",
+      "Bash(npm run test:run:*)",
+      "Bash(del:*)",
+      "Bash(npx prisma db push:*)",
+      "Bash(docker:*)",
+      "Bash(npm run db:seed:*)",
+      "Bash(ls:*)",
+      "Bash(npm test:*)",
+      "Bash(npm run build:*)",
+      "Bash(index.d.ts)",
+      "Bash(grep:*)"
     ]
   }
 }

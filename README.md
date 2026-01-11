@@ -1,29 +1,203 @@
-# Create T3 App
+# Pharos BMAD
 
-This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3-app`.
+**Business Money Analysis & Detection** - 법률 사건 금융 거래 분석 플랫폼
 
-## What's next? How do I make an app with this?
+## 개요
 
-We try to keep this project as simple as possible, so you can start with just the scaffolding we set up for you, and add additional things later when they become necessary.
+Pharos BMAD는 변호사와 법률 사무소를 위한 AI 기반 금융 거래 분석 시스템입니다. 엑셀, CSV, PDF 파일에서 거래 내역을 자동으로 추출하고 분류하여 사건 분석을 효율화합니다.
 
-If you are not familiar with the different technologies used in this project, please refer to the respective docs. If you still are in the wind, please join our [Discord](https://t3.gg/discord) and ask for help.
+### 주요 기능
 
-- [Next.js](https://nextjs.org)
-- [NextAuth.js](https://next-auth.js.org)
-- [Prisma](https://prisma.io)
-- [Drizzle](https://orm.drizzle.team)
-- [Tailwind CSS](https://tailwindcss.com)
-- [tRPC](https://trpc.io)
+- 📁 **파일 분석**: Excel, CSV, PDF 지원
+- 🤖 **AI 자동 분류**: 거래 내역을 카테고리별 자동 분류 (Story 4.1)
+- 📊 **시각화**: 거래 패턴 분석 및 리포트 생성
+- 🔐 **역할 기반 접근 제어**: Case Lawyer, Admin 권한 관리
 
-## Learn More
+## 기술 스택
 
-To learn more about the [T3 Stack](https://create.t3.gg/), take a look at the following resources:
+- **Framework**: [Next.js 15](https://nextjs.org) (App Router)
+- **Language**: [TypeScript](https://www.typescriptlang.org/)
+- **Database**: [PostgreSQL](https://www.postgresql.org/) + [Prisma ORM](https://www.prisma.io/)
+- **API**: [tRPC](https://trpc.io/) (타입 안전한 API)
+- **Authentication**: JWT (Custom implementation)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/)
+- **Testing**: [Vitest](https://vitest.dev/) + Testing Library
+- **AI Providers**: Upstage Solar, OpenAI GPT, Anthropic Claude
 
-- [Documentation](https://create.t3.gg/)
-- [Learn the T3 Stack](https://create.t3.gg/en/faq#what-learning-resources-are-currently-available) — Check out these awesome tutorials
+## 시작하기
 
-You can check out the [create-t3-app GitHub repository](https://github.com/t3-oss/create-t3-app) — your feedback and contributions are welcome!
+### 사전 요구사항
 
-## How do I deploy this?
+- Node.js 18+
+- PostgreSQL 데이터베이스
+- npm 또는 yarn
 
-Follow our deployment guides for [Vercel](https://create.t3.gg/en/deployment/vercel), [Netlify](https://create.t3.gg/en/deployment/netlify) and [Docker](https://create.t3.gg/en/deployment/docker) for more information.
+### 설치
+
+```bash
+# 의존성 설치
+npm install
+
+# 환경 변수 설정
+cp .env.example .env
+
+# 데이터베이스 설정
+# .env 파일의 DATABASE_URL을 본인의 데이터베이스로 변경
+
+# 데이터베이스 마이그레이션
+npx prisma migrate deploy
+
+# Prisma Client 생성
+npx prisma generate
+
+# 개발 서버 시작
+npm run dev
+```
+
+브라우저에서 [http://localhost:3000](http://localhost:3000)을 열어 애플리케이션을 확인하세요.
+
+## 환경 변수 설정
+
+`.env.example` 파일을 참고하여 `.env` 파일을 설정하세요.
+
+### 필수 환경 변수
+
+```bash
+# 데이터베이스
+DATABASE_URL="postgresql://user:password@hostname:5432/database?schema=public"
+
+# JWT 인증
+JWT_SECRET="your-super-secret-jwt-key-at-least-32-characters-long"
+
+# 애플리케이션
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+NODE_ENV="development"
+```
+
+### AI 분류 설정 (Story 4.1)
+
+AI 기반 거래 자동 분류 기능을 사용하려면 AI 공급자 설정이 필요합니다.
+
+```bash
+# AI 공급자 선택 (upstage, openai, anthropic)
+AI_PROVIDER="upstage"
+
+# Upstage Solar API (한국어 최적화)
+UPSTAGE_API_KEY="your-upstage-api-key"
+
+# OpenAI GPT API
+OPENAI_API_KEY="your-openai-api-key"
+
+# Anthropic Claude API
+ANTHROPIC_API_KEY="your-anthropic-api-key"
+```
+
+#### AI 공급자별 특징
+
+| 공급자 | 장점 | 용도 | API 키 발급 |
+|--------|------|------|-------------|
+| **Upstage Solar** | 한국어 최적화, 빠른 응답 | 한국 거래 분류 (추천) | [console.upstage.ai](https://console.upstage.ai) |
+| **OpenAI GPT** | 다국어 지원, 높은 정확도 | 복잡한 분류 | [platform.openai.com](https://platform.openai.com/api-keys) |
+| **Anthropic Claude** | 긴 컨텍스트 창 | 대량 거래 분류 | [console.anthropic.com](https://console.anthropic.com) |
+
+## 개발
+
+### 사용 가능한 스크립트
+
+```bash
+# 개발 서버 (Turbo)
+npm run dev
+
+# 프로덕션 빌드
+npm run build
+
+# 프로덕션 시작
+npm start
+
+# 타입 검사
+npm run typecheck
+
+# 린트
+npm run lint
+npm run lint:fix
+
+# 테스트
+npm run test          # watch 모드
+npm run test:run      # 단일 실행
+npm run test:coverage # 커버리지 리포트
+
+# 데이터베이스
+npm run db:generate   # 마이그레이션 생성
+npm run db:migrate    # 마이그레이션 적용
+npm run db:push       # 스키마 푸시 (개발용)
+npm run db:studio     # Prisma Studio
+```
+
+### 프로젝트 구조
+
+```
+pharos-bmad/
+├── prisma/
+│   └── schema.prisma          # 데이터베이스 스키마
+├── public/                    # 정적 파일
+├── src/
+│   ├── app/                   # Next.js App Router
+│   ├── components/            # React 컴포넌트
+│   ├── server/
+│   │   ├── api/
+│   │   │   └── routers/       # tRPC 라우터
+│   │   ├── ai/                # AI 분류 서비스 (Story 4.1)
+│   │   │   ├── providers/     # AI 공급자
+│   │   │   └── types.ts       # 타입 정의
+│   │   └── db.ts              # Prisma Client
+│   └── utils/                 # 유틸리티 함수
+├── test.setup.ts              # 테스트 설정
+└── vitest.config.ts           # Vitest 설정
+```
+
+## 테스트
+
+Story 4.1 (AI 분류)의 테스트 커버리지:
+
+```bash
+# 전체 테스트 실행
+npm run test:run
+
+# 커버리지 리포트
+npm run test:coverage
+```
+
+**현재 테스트 현황**:
+- Classification Service: 71.01% 커버리지
+- AI Button Component: 68.42% 커버리지
+- 총 21개 테스트 통과 ✅
+
+## 배포
+
+### Vercel (추천)
+
+```bash
+# Vercel CLI 설치
+npm i -g vercel
+
+# 배포
+vercel
+```
+
+### Docker
+
+```bash
+# Docker 이미지 빌드
+docker build -t pharos-bmad .
+
+# 컨테이너 실행
+docker run -p 3000:3000 --env-file .env pharos-bmad
+```
+
+## 라이선스
+
+본 프로젝트는 상업적 목적으로 사용됩니다.
+
+---
+
+**Pharos BMAD** - 법률 사건 분석의 새로운 기준
