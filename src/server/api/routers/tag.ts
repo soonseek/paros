@@ -486,4 +486,80 @@ export const tagRouter = createTRPCRouter({
         })),
       };
     }),
+
+  /**
+   * 사건의 사용 가능한 태그 목록을 반환합니다 (Story 8.1 Task 1.2, Story 8.2 Task 1.2).
+   *
+   * QUERY /api/trpc/tag.list
+   *
+   * @param caseId - 사건 ID
+   * @returns 고유 태그 이름 목록 (알파벳 순 정렬)
+   *
+   * @throws FORBIDDEN if user lacks permission
+   */
+  list: protectedProcedure
+    .input(
+      z.object({
+        caseId: z.string().min(1, "사건 ID는 필수 항목입니다"),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { caseId } = input;
+      const userId = ctx.userId;
+
+      // 1. 사건 조회
+      const caseRecord = await ctx.db.case.findUnique({
+        where: { id: caseId },
+      });
+
+      if (!caseRecord) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "사건을 찾을 수 없습니다.",
+        });
+      }
+
+      // 2. RBAC: Case lawyer 또는 Admin만 조회 가능
+      const user = await ctx.db.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "사용자를 찾을 수 없습니다.",
+        });
+      }
+
+      if (caseRecord.lawyerId !== userId && user.role !== "ADMIN") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "태그 목록 조회 권한이 없습니다.",
+        });
+      }
+
+      // 3. 사건의 모든 거래에서 사용된 고유 태그 조회 (N+1 방지)
+      const tags = await ctx.db.tag.findMany({
+        where: {
+          transactions: {
+            some: {
+              transaction: {
+                document: {
+                  caseId: caseId,
+                },
+              },
+            },
+          },
+        },
+        distinct: ["name"],
+        select: {
+          name: true,
+        },
+        orderBy: {
+          name: "asc",
+        },
+      });
+
+      return tags.map((t) => t.name);
+    }),
 });

@@ -1,12 +1,15 @@
 import { type NextPage } from "next";
 import { useRouter } from "next/router";
 import { useState } from "react";
-import { Upload } from "lucide-react";
+import { Upload, Search, Loader2, Download } from "lucide-react";
 
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
 import { Textarea } from "~/components/ui/textarea";
 import { Label } from "~/components/ui/label";
+import { FindingList } from "~/components/molecules/finding-list";
+import { FindingNoteList } from "~/components/molecules/finding-note-list";
+import { FindingNoteForm } from "~/components/molecules/finding-note-form";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,16 +30,71 @@ import {
   DialogTrigger,
 } from "~/components/ui/dialog";
 import { FileUploadZone } from "~/components/upload-zone";
+import { ExportOptionsModal } from "~/components/export/export-options-modal";
 import { api } from "~/utils/api";
 import { useAuth } from "~/contexts/AuthContext";
 import { toast } from "sonner";
+import { useI18n } from "~/lib/i18n/index";
 
 /**
  * Case Detail Page
  *
  * Displays detailed information about a specific case.
  * Story 2.3: 사건 상세 조회
+ * Story 6.2: FindingCard 클릭 인터랙션
+ * Story 6.3: 발견사항 메모 추가
  */
+
+// Story 6.3: FindingNoteSection 컴포넌트 (메모 섹션)
+const FindingNoteSection: React.FC<{ findingId: string }> = ({ findingId }) => {
+  // 메모 목록 조회 (AC6)
+  const { data: notes, isLoading } = api.findings.getNotesForFinding.useQuery(
+    { findingId },
+    {
+      enabled: !!findingId,
+    }
+  );
+
+  return (
+    <div className="space-y-4">
+      <h3 className="text-sm font-medium text-gray-700">메모</h3>
+
+      {/* Story 6.3: 메모 입력 폼 (AC1) */}
+      <FindingNoteForm findingId={findingId} />
+
+      {/* Story 6.3: 메모 목록 (AC6) */}
+      {isLoading ? (
+        <div className="flex justify-center py-4">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <FindingNoteList findingId={findingId} notes={notes ?? []} />
+      )}
+    </div>
+  );
+};
+
+// Story 6.2: Finding 타입 정의
+interface Finding {
+  id: string;
+  findingType: string;
+  title: string;
+  description: string | null;
+  severity: "INFO" | "WARNING" | "CRITICAL";
+  priority: "HIGH" | "MEDIUM" | "LOW" | null; // Story 6.5: 사용자 지정 중요도
+  isResolved: boolean;
+  resolvedAt: Date | null;
+  createdAt: Date;
+  transaction: {
+    id: string;
+    transactionDate: Date;
+    depositAmount: string | null;
+    withdrawalAmount: string | null;
+    memo: string | null;
+  } | null;
+  relatedTransactionIds: string[];
+  relatedCreditorNames: string | null;
+}
 
 // Case status badge colors (reused from Story 2.2)
 const statusColors: Record<string, string> = {
@@ -61,6 +119,7 @@ const CaseDetailPage: NextPage = () => {
   const router = useRouter();
   const { user } = useAuth();
   const { id } = router.query;
+  const { t, formatDate, formatCurrency } = useI18n();
 
   // tRPC utils for optimistic updates
   const utils = api.useUtils();
@@ -70,6 +129,14 @@ const CaseDetailPage: NextPage = () => {
     { id: id as string },
     {
       enabled: !!id, // Only fetch when id is available
+    }
+  );
+
+  // Story 6.2: Fetch findings for this case
+  const { data: findings } = api.findings.getFindingsForCase.useQuery(
+    { caseId: id as string, includeResolved: false },
+    {
+      enabled: !!id,
     }
   );
 
@@ -95,6 +162,64 @@ const CaseDetailPage: NextPage = () => {
     },
   });
 
+  // Story 6.1: 발견사항 분석 mutation
+  const analyzeFindingsMutation = api.findings.analyzeFindings.useMutation({
+    onSuccess: (data) => {
+      toast.success(
+        `${data.findingsCreated}개의 발견사항이 생성되었습니다 (${data.analysisDuration}ms)`
+      );
+      // Findings 목록 갱신
+      void utils.findings.getFindingsForCase.invalidate({ caseId: id as string });
+    },
+    onError: (err) => {
+      toast.error(err.message || "발견사항 분석에 실패했습니다");
+    },
+  });
+
+  // Story 7.1: Excel 내보내기 mutation
+  const exportMutation = api.export.exportFullAnalysisResult.useMutation({
+    onSuccess: () => {
+      toast.success("엑셀 파일이 다운로드되었습니다");
+    },
+    onError: (err) => {
+      toast.error(err.message || "내보내기에 실패했습니다");
+    },
+  });
+
+  // Story 7.2: 선택된 거래 내보내기 mutation
+  const exportSelectedMutation = api.export.exportSelectedTransactions.useMutation({
+    onSuccess: (data) => {
+      // AC4: 다운로드 피드백 메시지
+      const transactionCount = data.base64 ? 1 : 0; // 기본 구현 (향후 개선 여지)
+      toast.success(`선택한 거래가 엑셀 파일로 다운로드되었습니다 (${transactionCount}개)`);
+    },
+    onError: (err) => {
+      toast.error(err.message || "선택된 거래 내보내기에 실패했습니다");
+    },
+  });
+
+  // Story 7.2: 필터링된 거래 내보내기 mutation
+  const exportFilteredMutation = api.export.exportFilteredTransactions.useMutation({
+    onSuccess: () => {
+      // AC4: 다운로드 피드백 메시지
+      toast.success("필터링된 거래가 엑셀 파일로 다운로드되었습니다");
+    },
+    onError: (err) => {
+      toast.error(err.message || "필터링된 거래 내보내기에 실패했습니다");
+    },
+  });
+
+  // Story 7.3: 발견사항 내보내기 mutation
+  const exportFindingsMutation = api.export.exportFindings.useMutation({
+    onSuccess: () => {
+      // AC4: 다운로드 피드백 메시지
+      toast.success("발견사항 목록이 엑셀 파일로 다운로드되었습니다");
+    },
+    onError: (err) => {
+      toast.error(err.message || "발견사항 내보내기에 실패했습니다");
+    },
+  });
+
   // Notes state
   const [newNoteContent, setNewNoteContent] = useState("");
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -102,6 +227,80 @@ const CaseDetailPage: NextPage = () => {
 
   // Upload modal state
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+
+  // Story 6.2: Finding 클릭 상태 (관련 거래 하이라이트, 상세 모달)
+  const [selectedFinding, setSelectedFinding] = useState<Finding | null>(null);
+  const [isFindingDetailModalOpen, setIsFindingDetailModalOpen] = useState(false);
+
+  // Story 6.2: FindingCard 클릭 핸들러
+  const handleFindingClick = (finding: Finding) => {
+    setSelectedFinding(finding);
+    setIsFindingDetailModalOpen(true);
+  };
+
+  // Story 6.2: Finding 상세 모달 닫기
+  const closeFindingDetailModal = () => {
+    setIsFindingDetailModalOpen(false);
+    // 모달이 닫힐 때 하이라이트도 제거 (선택 사항)
+    // setSelectedFinding(null);
+  };
+
+  // Story 7.1/7.2/7.3: Excel 내보내기 핸들러
+  const handleExport = async (
+    option: string,
+    transactionIds?: string[],
+    selectedColumns?: string[],
+    findingFilters?: {
+      isResolved?: boolean;
+      severity?: "CRITICAL" | "WARNING" | "INFO";
+      priority?: "HIGH" | "MEDIUM" | "LOW";
+      sortBy?: "priority-severity-date" | "severity-date" | "date";
+    }
+  ) => {
+    let result;
+
+    // Story 7.2/7.3: 옵션별로 다른 mutation 호출
+    switch (option) {
+      case "selected":
+        result = await exportSelectedMutation.mutateAsync({
+          caseId: id as string,
+          transactionIds: transactionIds!,
+          selectedColumns,
+        });
+        break;
+      case "filtered":
+        // TODO: Story 8.2에서 필터 상태 관리 구현 후 전달
+        result = await exportFilteredMutation.mutateAsync({
+          caseId: id as string,
+          filters: {
+            // 빈 필터로 전체 내보내기 (임시)
+          },
+          selectedColumns,
+        });
+        break;
+      case "findings":
+        // Story 7.3: 발견사항 내보내기
+        result = await exportFindingsMutation.mutateAsync({
+          caseId: id as string,
+          filters: findingFilters,
+          sortBy: findingFilters?.sortBy ?? "priority-severity-date",
+        });
+        break;
+      case "full":
+      default:
+        result = await exportMutation.mutateAsync({
+          caseId: id as string,
+          option: option as "full" | "transactions" | "findings" | "fundFlow",
+        });
+        break;
+    }
+
+    // 다운로드 트리거 (Story 7.1/7.2 Task 5.2)
+    if (result) {
+      const { triggerDownload } = await import("~/lib/export/excel-export-helper");
+      triggerDownload(result);
+    }
+  };
 
   // Fetch notes for this case
   const { data: notes } = api.caseNote.getCaseNotes.useQuery(
@@ -282,7 +481,7 @@ const CaseDetailPage: NextPage = () => {
 
   return (
     <div className="container mx-auto py-8 px-4">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-[1920px] mx-auto">
         {/* Header with navigation */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">사건 상세</h1>
@@ -324,6 +523,33 @@ const CaseDetailPage: NextPage = () => {
                 />
               </DialogContent>
             </Dialog>
+
+            {/* Story 6.1: 발견사항 분석 버튼 */}
+            <Button
+              variant="default"
+              onClick={() =>
+                analyzeFindingsMutation.mutate({ caseId: id as string })
+              }
+              disabled={analyzeFindingsMutation.isPending}
+            >
+              <Search className="w-4 h-4 mr-2" />
+              {analyzeFindingsMutation.isPending
+                ? "분석 중..."
+                : "발견사항 분석"}
+            </Button>
+
+            {/* Story 7.1: Excel 내보내기 버튼 */}
+            <ExportOptionsModal
+              caseId={id as string}
+              onExport={handleExport}
+              isExporting={exportMutation.isPending}
+            >
+              <Button variant="outline">
+                <Download className="w-4 h-4 mr-2" />
+                내보내기
+              </Button>
+            </ExportOptionsModal>
+
             {/* Archive/Unarchive Button - Conditional Rendering */}
             {caseItem?.isArchived ? (
               <Button
@@ -364,255 +590,421 @@ const CaseDetailPage: NextPage = () => {
           </div>
         </div>
 
-        {/* Case Details Card */}
-        <Card className="p-6">
-          <div className="space-y-6">
-            {/* Case Number */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <h3 className="text-sm font-medium text-gray-500">사건번호</h3>
-                <p className="mt-1 text-lg font-semibold text-gray-900">
-                  {caseItem.caseNumber}
-                </p>
-              </div>
-
-              {/* Status */}
-              <div>
-                <h3 className="text-sm font-medium text-gray-500">상태</h3>
-                <div className="mt-1">
-                  <span
-                    className={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${
-                      statusColors[caseItem.status] ?? "bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    {getStatusLabel(caseItem.status)}
-                  </span>
-                </div>
-              </div>
-
-              {/* Filing Date */}
-              <div>
-                <h3 className="text-sm font-medium text-gray-500">접수일자</h3>
-                <p className="mt-1 text-lg text-gray-900">
-                  {caseItem.filingDate
-                    ? new Date(caseItem.filingDate).toLocaleDateString("ko-KR")
-                    : "-"}
-                </p>
-              </div>
-            </div>
-
-            <hr className="border-gray-200" />
-
-            {/* Debtor Name */}
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">채무자명</h3>
-              <p className="mt-1 text-lg text-gray-900">{caseItem.debtorName}</p>
-            </div>
-
-            {/* Court Name */}
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">법원명</h3>
-              <p className="mt-1 text-lg text-gray-900">
-                {caseItem.courtName ?? "-"}
-              </p>
-            </div>
-
-            <hr className="border-gray-200" />
-
-            {/* Lawyer Information */}
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">담당 변호사</h3>
-              <div className="mt-1">
-                <p className="text-lg font-medium text-gray-900">
-                  {caseItem.lawyer.name ?? caseItem.lawyer.email}
-                </p>
-                <p className="text-sm text-gray-500 mt-1">
-                  {caseItem.lawyer.email}
-                </p>
-              </div>
-            </div>
-
-            <hr className="border-gray-200" />
-
-            {/* Timestamps */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <h3 className="text-sm font-medium text-gray-500">생성일</h3>
-                <p className="mt-1 text-sm text-gray-600">
-                  {new Date(caseItem.createdAt).toLocaleString("ko-KR")}
-                </p>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-medium text-gray-500">수정일</h3>
-                <p className="mt-1 text-sm text-gray-600">
-                  {new Date(caseItem.updatedAt).toLocaleString("ko-KR")}
-                </p>
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        {/* Case Notes Section - Story 2.6 */}
-        <div className="mt-6">
-          <Card className="p-6">
-            <h2 className="text-2xl font-bold mb-4">사건 메모</h2>
-
-            {/* Add Note Form */}
-            <div className="mb-6">
-              <Label htmlFor="newNote">새 메모 추가</Label>
-              <Textarea
-                id="newNote"
-                placeholder="메모 내용을 입력하세요 (최대 1000자)"
-                value={newNoteContent}
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNewNoteContent(e.target.value)}
-                rows={3}
-                maxLength={1000}
-                className="mt-2"
-              />
-              <div className="flex justify-between items-center mt-2">
-                <p className="text-sm text-gray-500">
-                  {newNoteContent.length} / 1000자
-                </p>
-                <Button
-                  onClick={() =>
-                    createNoteMutation.mutate({
-                      caseId: id as string,
-                      content: newNoteContent.trim(), // Trim before sending to backend
-                    })
-                  }
-                  disabled={!newNoteContent.trim() || createNoteMutation.isPending}
-                >
-                  {createNoteMutation.isPending ? "추가 중..." : "메모 추가"}
-                </Button>
-              </div>
-            </div>
-
-            {/* Notes List */}
-            <div className="space-y-4">
-              {!notes || notes.length === 0 ? (
-                <div className="text-center py-8 bg-gray-50 rounded-lg">
-                  <p className="text-gray-600">등록된 메모가 없습니다</p>
-                </div>
+        {/* Story 6.2: Split View Layout - 왼쪽 40% 발견사항, 오른쪽 60% 사건 정보 */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          {/* 왼쪽 40%: 발견사항 목록 */}
+          <div className="lg:col-span-2">
+            <Card className="p-6">
+              <h2 className="text-2xl font-bold mb-4">발견사항</h2>
+              {findings && findings.length > 0 ? (
+                <FindingList
+                  findings={findings}
+                  onUpdate={() => {
+                    // Findings 목록 갱신
+                    void utils.findings.getFindingsForCase.invalidate({ caseId: id as string });
+                  }}
+                  onFindingClick={handleFindingClick}
+                />
               ) : (
-                notes.map((note) => (
-                  <Card key={note.id} className="p-4">
-                    {editingNoteId === note.id ? (
-                      /* Edit Mode */
-                      <div>
-                        <Label htmlFor={`edit-note-${note.id}`}>메모 수정</Label>
-                        <Textarea
-                          id={`edit-note-${note.id}`}
-                          value={editingNoteContent}
-                          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setEditingNoteContent(e.target.value)}
-                          rows={3}
-                          maxLength={1000}
-                          className="mt-2"
-                        />
-                        <div className="flex justify-between items-center mt-2">
-                          <p className="text-sm text-gray-500">
-                            {editingNoteContent.length} / 1000자
-                          </p>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              onClick={() => {
-                                setEditingNoteId(null);
-                                setEditingNoteContent("");
-                              }}
-                            >
-                              취소
-                            </Button>
-                            <Button
-                              onClick={() =>
-                                updateNoteMutation.mutate({
-                                  id: note.id,
-                                  content: editingNoteContent.trim(), // Trim before sending to backend
-                                })
-                              }
-                              disabled={
-                                !editingNoteContent.trim() ||
-                                updateNoteMutation.isPending
-                              }
-                            >
-                              {updateNoteMutation.isPending
-                                ? "저장 중..."
-                                : "저장"}
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      /* View Mode */
-                      <div>
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <p className="font-medium text-gray-900">
-                              {note.author.name ?? note.author.email}
+                <div className="text-center py-8 bg-gray-50 rounded-lg">
+                  <p className="text-gray-600">발견사항이 없습니다</p>
+                  <p className="text-sm text-gray-500 mt-2">
+                    &apos;발견사항 분석&apos; 버튼을 클릭하여 분석을 시작하세요
+                  </p>
+                </div>
+              )}
+            </Card>
+          </div>
+
+          {/* 오른쪽 60%: 사건 정보 및 메모 */}
+          <div className="lg:col-span-3 space-y-6">
+            {/* Case Details Card */}
+            <Card className="p-6">
+              <div className="space-y-6">
+                {/* Case Number */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">사건번호</h3>
+                    <p className="mt-1 text-lg font-semibold text-gray-900">
+                      {caseItem.caseNumber}
+                    </p>
+                  </div>
+
+                  {/* Status */}
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">상태</h3>
+                    <div className="mt-1">
+                      <span
+                        className={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${
+                          statusColors[caseItem.status] ?? "bg-gray-100 text-gray-800"
+                        }`}
+                      >
+                        {getStatusLabel(caseItem.status)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Filing Date */}
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">접수일자</h3>
+                    <p className="mt-1 text-lg text-gray-900">
+                      {caseItem.filingDate
+                        ? new Date(caseItem.filingDate).toLocaleDateString("ko-KR")
+                        : "-"}
+                    </p>
+                  </div>
+                </div>
+
+                <hr className="border-gray-200" />
+
+                {/* Debtor Name */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">채무자명</h3>
+                  <p className="mt-1 text-lg text-gray-900">{caseItem.debtorName}</p>
+                </div>
+
+                {/* Court Name */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">법원명</h3>
+                  <p className="mt-1 text-lg text-gray-900">
+                    {caseItem.courtName ?? "-"}
+                  </p>
+                </div>
+
+                <hr className="border-gray-200" />
+
+                {/* Lawyer Information */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">담당 변호사</h3>
+                  <div className="mt-1">
+                    <p className="text-lg font-medium text-gray-900">
+                      {caseItem.lawyer.name ?? caseItem.lawyer.email}
+                    </p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {caseItem.lawyer.email}
+                    </p>
+                  </div>
+                </div>
+
+                <hr className="border-gray-200" />
+
+                {/* Timestamps */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">생성일</h3>
+                    <p className="mt-1 text-sm text-gray-600">
+                      {new Date(caseItem.createdAt).toLocaleString("ko-KR")}
+                    </p>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">수정일</h3>
+                    <p className="mt-1 text-sm text-gray-600">
+                      {new Date(caseItem.updatedAt).toLocaleString("ko-KR")}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* Case Notes Section - Story 2.6 */}
+            <Card className="p-6">
+              <h2 className="text-2xl font-bold mb-4">사건 메모</h2>
+
+              {/* Add Note Form */}
+              <div className="mb-6">
+                <Label htmlFor="newNote">새 메모 추가</Label>
+                <Textarea
+                  id="newNote"
+                  placeholder="메모 내용을 입력하세요 (최대 1000자)"
+                  value={newNoteContent}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNewNoteContent(e.target.value)}
+                  rows={3}
+                  maxLength={1000}
+                  className="mt-2"
+                />
+                <div className="flex justify-between items-center mt-2">
+                  <p className="text-sm text-gray-500">
+                    {newNoteContent.length} / 1000자
+                  </p>
+                  <Button
+                    onClick={() =>
+                      createNoteMutation.mutate({
+                        caseId: id as string,
+                        content: newNoteContent.trim(), // Trim before sending to backend
+                      })
+                    }
+                    disabled={!newNoteContent.trim() || createNoteMutation.isPending}
+                  >
+                    {createNoteMutation.isPending ? "추가 중..." : "메모 추가"}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Notes List */}
+              <div className="space-y-4">
+                {!notes || notes.length === 0 ? (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg">
+                    <p className="text-gray-600">등록된 메모가 없습니다</p>
+                  </div>
+                ) : (
+                  notes.map((note) => (
+                    <Card key={note.id} className="p-4">
+                      {editingNoteId === note.id ? (
+                        /* Edit Mode */
+                        <div>
+                          <Label htmlFor={`edit-note-${note.id}`}>메모 수정</Label>
+                          <Textarea
+                            id={`edit-note-${note.id}`}
+                            value={editingNoteContent}
+                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setEditingNoteContent(e.target.value)}
+                            rows={3}
+                            maxLength={1000}
+                            className="mt-2"
+                          />
+                          <div className="flex justify-between items-center mt-2">
+                            <p className="text-sm text-gray-500">
+                              {editingNoteContent.length} / 1000자
                             </p>
-                            <p className="text-xs text-gray-500">
-                              {new Date(note.createdAt).toLocaleString("ko-KR")}
-                            </p>
-                          </div>
-                          {note.authorId === user?.id && (
                             <div className="flex gap-2">
                               <Button
                                 variant="outline"
-                                size="sm"
                                 onClick={() => {
-                                  setEditingNoteId(note.id);
-                                  setEditingNoteContent(note.content);
+                                  setEditingNoteId(null);
+                                  setEditingNoteContent("");
                                 }}
-                                aria-label={`메모 수정: ${note.content.substring(0, 20)}${note.content.length > 20 ? "..." : ""}`}
                               >
-                                수정
+                                취소
                               </Button>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button
-                                    variant="destructive"
-                                    size="sm"
-                                    disabled={deleteNoteMutation.isPending}
-                                    aria-label={`메모 삭제: ${note.content.substring(0, 20)}${note.content.length > 20 ? "..." : ""}`}
-                                  >
-                                    삭제
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>메모 삭제</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      이 메모를 삭제하시겠습니까? 이 작업은 되돌릴 수
-                                      없습니다.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>취소</AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={() =>
-                                        deleteNoteMutation.mutate({ id: note.id })
-                                      }
+                              <Button
+                                onClick={() =>
+                                  updateNoteMutation.mutate({
+                                    id: note.id,
+                                    content: editingNoteContent.trim(), // Trim before sending to backend
+                                  })
+                                }
+                                disabled={
+                                  !editingNoteContent.trim() ||
+                                  updateNoteMutation.isPending
+                                }
+                              >
+                                {updateNoteMutation.isPending
+                                  ? "저장 중..."
+                                  : "저장"}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        /* View Mode */
+                        <div>
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <p className="font-medium text-gray-900">
+                                {note.author.name ?? note.author.email}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {new Date(note.createdAt).toLocaleString("ko-KR")}
+                              </p>
+                            </div>
+                            {note.authorId === user?.id && (
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditingNoteId(note.id);
+                                    setEditingNoteContent(note.content);
+                                  }}
+                                  aria-label={`메모 수정: ${note.content.substring(0, 20)}${note.content.length > 20 ? "..." : ""}`}
+                                >
+                                  수정
+                                </Button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      variant="destructive"
+                                      size="sm"
+                                      disabled={deleteNoteMutation.isPending}
+                                      aria-label={`메모 삭제: ${note.content.substring(0, 20)}${note.content.length > 20 ? "..." : ""}`}
                                     >
                                       삭제
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </div>
-                          )}
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>메모 삭제</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        이 메모를 삭제하시겠습니까? 이 작업은 되돌릴 수
+                                        없습니다.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>취소</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() =>
+                                          deleteNoteMutation.mutate({ id: note.id })
+                                        }
+                                      >
+                                        삭제
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            )}
+                          </div>
+                          <p className="text-gray-700 whitespace-pre-wrap">
+                            {note.content}
+                          </p>
                         </div>
-                        <p className="text-gray-700 whitespace-pre-wrap">
-                          {note.content}
-                        </p>
-                      </div>
-                    )}
-                  </Card>
-                ))
-              )}
-            </div>
-          </Card>
+                      )}
+                    </Card>
+                  ))
+                )}
+              </div>
+            </Card>
+          </div>
         </div>
       </div>
+
+      {/* Story 6.2: Finding 상세 모달 */}
+      <Dialog open={isFindingDetailModalOpen} onOpenChange={setIsFindingDetailModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold flex items-center gap-2">
+              {selectedFinding?.title}
+              {selectedFinding && (
+                <span
+                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                    selectedFinding.severity === "CRITICAL"
+                      ? "bg-red-100 text-red-700"
+                      : selectedFinding.severity === "WARNING"
+                      ? "bg-amber-100 text-amber-700"
+                      : "bg-orange-100 text-orange-700"
+                  }`}
+                >
+                  {selectedFinding.severity}
+                </span>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedFinding?.findingType} • {selectedFinding && formatDate(selectedFinding.createdAt)}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedFinding && (
+            <div className="space-y-4">
+              {/* 설명 */}
+              {selectedFinding.description && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 mb-2">설명</h3>
+                  <p className="text-sm text-gray-600 whitespace-pre-wrap bg-gray-50 p-3 rounded-md">
+                    {selectedFinding.description}
+                  </p>
+                </div>
+              )}
+
+              {/* 관련 채권자명 */}
+              {selectedFinding.relatedCreditorNames && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 mb-2">관련 채권자</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {(() => {
+                      try {
+                        const creditors = JSON.parse(selectedFinding.relatedCreditorNames) as string[];
+                        return creditors.map((creditor, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center rounded-md bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700"
+                          >
+                            {creditor}
+                          </span>
+                        ));
+                      } catch {
+                        return (
+                          <span className="text-sm text-gray-600">
+                            {selectedFinding.relatedCreditorNames}
+                          </span>
+                        );
+                      }
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              {/* 관련 거래 ID */}
+              {selectedFinding.relatedTransactionIds && selectedFinding.relatedTransactionIds.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 mb-2">
+                    관련 거래 ({selectedFinding.relatedTransactionIds.length}건)
+                  </h3>
+                  <div className="bg-gray-50 p-3 rounded-md space-y-2">
+                    {selectedFinding.relatedTransactionIds.map((txId) => (
+                      <div
+                        key={txId}
+                        className="text-sm font-mono text-gray-700 bg-white px-3 py-2 rounded border"
+                      >
+                        {txId}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 단일 거래 연결 정보 */}
+              {selectedFinding.transaction && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 mb-2">연결된 거래</h3>
+                  <div className="bg-gray-50 p-3 rounded-md space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">거래일:</span>
+                      <span className="font-medium">
+                        {formatDate(selectedFinding.transaction.transactionDate)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">메모:</span>
+                      <span className="font-medium">
+                        {selectedFinding.transaction.memo ?? "-"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">입금액:</span>
+                      <span className="font-medium text-blue-600">
+                        {selectedFinding.transaction.depositAmount
+                          ? formatCurrency(Number(selectedFinding.transaction.depositAmount))
+                          : "-"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">출금액:</span>
+                      <span className="font-medium text-red-600">
+                        {selectedFinding.transaction.withdrawalAmount
+                          ? formatCurrency(Number(selectedFinding.transaction.withdrawalAmount))
+                          : "-"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 해결 정보 */}
+              {selectedFinding.isResolved && selectedFinding.resolvedAt && (
+                <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 p-3 rounded-md">
+                  <span className="font-medium">✓ 해결됨:</span>
+                  <span>{formatDate(selectedFinding.resolvedAt)}</span>
+                </div>
+              )}
+
+              {/* Story 6.3: 메모 섹션 (AC1, AC6) */}
+              <div className="border-t pt-4">
+                <FindingNoteSection findingId={selectedFinding.id} />
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

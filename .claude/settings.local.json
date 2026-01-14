@@ -39,7 +39,14 @@
       "Bash(npm test:*)",
       "Bash(npm run build:*)",
       "Bash(index.d.ts)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "SlashCommand(/bmad:bmm:workflows:create-story 5-4-linkage-visualization)",
+      "SlashCommand(/bmad:bmm:workflows:create-story 5-5-tracking-filtering)",
+      "SlashCommand(/bmad:bmm:workflows:dev-story 5-5-tracking-filtering)",
+      "SlashCommand(/bmad:bmm:workflows:code-review)",
+      "SlashCommand(/bmad:bmm:workflows:create-story:*)",
+      "SlashCommand(/bmad:bmm:workflows:dev-story:*)",
+      "Bash(cat:*)"
     ]
   }
 }

@@ -56,6 +56,10 @@ import { BatchEditDialog } from "./molecules/batch-edit-dialog"; // Story 4.7
 import { ReportErrorDialog } from "./report-error-dialog"; // Story 4.8
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { ArrowUpCircle, ArrowDownCircle } from "lucide-react";
+import { api } from "~/utils/api";
+import FundSourceTraceResult, { type TracingResult } from "./molecules/FundSourceTraceResult"; // Story 5.1
+import FundDestinationTraceResult from "./molecules/FundDestinationTraceResult"; // Story 5.2
 import {
   Select,
   SelectContent,
@@ -72,6 +76,13 @@ import {
   TableHeader,
   TableRow,
 } from "./ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 
 interface Transaction {
   id: string;
@@ -123,12 +134,14 @@ interface TransactionTableProps {
   pagination?: PaginationMetadata;
   onPageChange?: (page: number) => void;
   onTagsUpdated?: () => void; // Story 4.6
+  caseId?: string; // Story 5.1: Fund source tracing requires caseId
+  onExportSelected?: (transactionIds: string[]) => void; // Story 7.2: 선택 내보내기
 }
 
 type SortField = "date" | "depositAmount" | "withdrawalAmount" | "confidenceScore";
 type SortOrder = "asc" | "desc" | null;
 
-export function TransactionTable({ transactions, pagination, onPageChange, onTagsUpdated }: TransactionTableProps) {
+export function TransactionTable({ transactions, pagination, onPageChange, onTagsUpdated, caseId, onExportSelected }: TransactionTableProps) {
   const { t, formatMessage, formatDate, formatCurrency } = useI18n();
 
   // URL 기반 상태 관리 (HIGH #2, MEDIUM #7)
@@ -153,6 +166,23 @@ export function TransactionTable({ transactions, pagination, onPageChange, onTag
 
   // Story 4.7: 일괄 수정 다이얼로그 상태
   const [isBatchEditDialogOpen, setIsBatchEditDialogOpen] = useState(false);
+
+  // Story 5.1: 자금 출처 추적 상태
+  const [traceTransaction, setTraceTransaction] = useState<{ id: string; memo: string | null } | null>(null);
+  const [traceResult, setTraceResult] = useState<TracingResult | null>(null);
+  const [traceDepth, setTraceDepth] = useState(1);
+  const [isTracing, setIsTracing] = useState(false);
+  const [traceError, setTraceError] = useState<string | null>(null);
+
+  // Story 5.2: 자금 사용처 추적 상태
+  const [traceDestTransaction, setTraceDestTransaction] = useState<{ id: string; memo: string | null } | null>(null);
+  const [traceDestResult, setTraceDestResult] = useState<TracingResult | null>(null);
+  const [traceDestDepth, setTraceDestDepth] = useState(1);
+  const [isTracingDest, setIsTracingDest] = useState(false);
+  const [traceDestError, setTraceDestError] = useState<string | null>(null);
+
+  // tRPC utils for manual query execution
+  const utils = api.useUtils();
 
   // 정렬 상태를 URL에서 읽기 (HIGH #2)
   const sortField = (searchParams!.get("sortBy") as SortField) ?? "date";
@@ -392,6 +422,24 @@ export function TransactionTable({ transactions, pagination, onPageChange, onTag
         })}
       </div>
 
+      {/* Story 7.2: 선택 내보내기 버튼 (Task 1.3) */}
+      {selectedTransactionIds.size > 0 && (
+        <Button
+          size="sm"
+          onClick={() => {
+            // ExportOptionsModal이 열리도록 props로 전달
+            // 부모 컴포넌트에서 onExportSelected 호출
+            if (onExportSelected) {
+              onExportSelected(Array.from(selectedTransactionIds));
+            }
+          }}
+          disabled={selectedTransactionIds.size === 0}
+          className="ml-auto"
+        >
+          선택 내보내기 ({selectedTransactionIds.size}개)
+        </Button>
+      )}
+
       {/* 테이블 */}
       <div className="border rounded-lg overflow-hidden">
         <Table>
@@ -480,12 +528,14 @@ export function TransactionTable({ transactions, pagination, onPageChange, onTag
               <TableHead>태그</TableHead>
               {/* Story 4.8: 오류 보고 컬럼 */}
               <TableHead>오류 보고</TableHead>
+              {/* Story 5.1 & 5.2: 자금 추적 컬럼 */}
+              {caseId && <TableHead>자금 추적</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {sortedTransactions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={14} className="text-center py-8 text-gray-500">
+                <TableCell colSpan={caseId ? 15 : 14} className="text-center py-8 text-gray-500">
                   {t("transaction.filter.noTransactions")}
                 </TableCell>
               </TableRow>
@@ -657,6 +707,79 @@ export function TransactionTable({ transactions, pagination, onPageChange, onTag
                       }
                     />
                   </TableCell>
+                  {/* Story 5.1 & 5.2: 자금 추적 버튼 */}
+                  {caseId && (
+                    <TableCell>
+                      <div className="flex gap-1">
+                        {/* Story 5.1: 자금 출처 추적 (입금 거래) */}
+                        {tx.depositAmount && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              setTraceTransaction({ id: tx.id, memo: tx.memo });
+                              setTraceResult(null);
+                              setTraceDepth(1);
+                              setIsTracing(true);
+                              setTraceError(null);
+
+                              try {
+                                const result = await utils.fundFlow.traceUpstream.fetch({
+                                  transactionId: tx.id,
+                                  caseId,
+                                  maxDepth: 1,
+                                  amountTolerance: 0.1,
+                                });
+                                setTraceResult(result);
+                              } catch (error) {
+                                setTraceError(error instanceof Error ? error.message : "추적 실패");
+                              } finally {
+                                setIsTracing(false);
+                              }
+                            }}
+                            disabled={isTracing}
+                            title="자금 출처 추적"
+                          >
+                            <ArrowUpCircle className="w-4 h-4 mr-1" />
+                            출처
+                          </Button>
+                        )}
+                        {/* Story 5.2: 자금 사용처 추적 (출금 거래) */}
+                        {tx.withdrawalAmount && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              setTraceDestTransaction({ id: tx.id, memo: tx.memo });
+                              setTraceDestResult(null);
+                              setTraceDestDepth(1);
+                              setIsTracingDest(true);
+                              setTraceDestError(null);
+
+                              try {
+                                const result = await utils.fundFlow.traceDownstream.fetch({
+                                  transactionId: tx.id,
+                                  caseId,
+                                  maxDepth: 1,
+                                  amountTolerance: 0.1,
+                                });
+                                setTraceDestResult(result);
+                              } catch (error) {
+                                setTraceDestError(error instanceof Error ? error.message : "추적 실패");
+                              } finally {
+                                setIsTracingDest(false);
+                              }
+                            }}
+                            disabled={isTracingDest}
+                            title="자금 사용처 추적"
+                          >
+                            <ArrowDownCircle className="w-4 h-4 mr-1" />
+                            사용처
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             )}
@@ -711,6 +834,120 @@ export function TransactionTable({ transactions, pagination, onPageChange, onTag
           onTagsUpdated?.();
         }}
       />
+
+      {/* Story 5.1: 자금 출처 추적 다이얼로그 */}
+      {caseId && traceTransaction && (
+        <Dialog
+          open={!!traceTransaction}
+          onOpenChange={(open) => {
+            if (!open) {
+              setTraceTransaction(null);
+              setTraceResult(null);
+              setTraceDepth(1);
+            }
+          }}
+        >
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <ArrowUpCircle className="h-5 w-5 text-green-600" />
+                자금 출처 추적
+              </DialogTitle>
+              <DialogDescription>
+                {traceTransaction.memo
+                  ? `"${traceTransaction.memo}" 거래의 자금 출처를 추적합니다`
+                  : "선택한 거래의 자금 출처를 추적합니다"}
+              </DialogDescription>
+            </DialogHeader>
+
+            <FundSourceTraceResult
+              result={traceResult}
+              isLoading={isTracing}
+              error={traceError}
+              depth={traceDepth}
+              onContinueTracing={async () => {
+                if (!traceTransaction || !caseId) return;
+
+                const newDepth = traceDepth + 1;
+                setTraceDepth(newDepth);
+                setIsTracing(true);
+                setTraceError(null);
+
+                try {
+                  const result = await utils.fundFlow.traceUpstream.fetch({
+                    transactionId: traceTransaction.id,
+                    caseId,
+                    maxDepth: newDepth,
+                    amountTolerance: 0.1,
+                  });
+                  setTraceResult(result);
+                } catch (error) {
+                  setTraceError(error instanceof Error ? error.message : "추적 실패");
+                } finally {
+                  setIsTracing(false);
+                }
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Story 5.2: 자금 사용처 추적 다이얼로그 */}
+      {caseId && traceDestTransaction && (
+        <Dialog
+          open={!!traceDestTransaction}
+          onOpenChange={(open) => {
+            if (!open) {
+              setTraceDestTransaction(null);
+              setTraceDestResult(null);
+              setTraceDestDepth(1);
+            }
+          }}
+        >
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <ArrowDownCircle className="h-5 w-5 text-orange-600" />
+                자금 사용처 추적
+              </DialogTitle>
+              <DialogDescription>
+                {traceDestTransaction.memo
+                  ? `"${traceDestTransaction.memo}" 거래의 자금 사용처를 추적합니다`
+                  : "선택한 거래의 자금 사용처를 추적합니다"}
+              </DialogDescription>
+            </DialogHeader>
+
+            <FundDestinationTraceResult
+              result={traceDestResult}
+              isLoading={isTracingDest}
+              error={traceDestError}
+              depth={traceDestDepth}
+              onContinueTracing={async () => {
+                if (!traceDestTransaction || !caseId) return;
+
+                const newDepth = traceDestDepth + 1;
+                setTraceDestDepth(newDepth);
+                setIsTracingDest(true);
+                setTraceDestError(null);
+
+                try {
+                  const result = await utils.fundFlow.traceDownstream.fetch({
+                    transactionId: traceDestTransaction.id,
+                    caseId,
+                    maxDepth: newDepth,
+                    amountTolerance: 0.1,
+                  });
+                  setTraceDestResult(result);
+                } catch (error) {
+                  setTraceDestError(error instanceof Error ? error.message : "추적 실패");
+                } finally {
+                  setIsTracingDest(false);
+                }
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* [MEDIUM #7] 페이지네이션 컨트롤 */}
       {pagination && (

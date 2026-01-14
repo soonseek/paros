@@ -1151,4 +1151,201 @@ export const transactionRouter = createTRPCRouter({
 
       return resolved;
     }),
+
+  /**
+   * 다차원 검색으로 거래를 검색합니다.
+   *
+   * Story 8.1: 다차원 검색 구현 (Task 9: tRPC 라우터 구현)
+   *
+   * QUERY /api/trpc/transaction.search
+   *
+   * @param caseId - 사건 ID
+   * @param keyword - 키워드 (선택적)
+   * @param startDate - 시작일 (선택적)
+   * @param endDate - 종료일 (선택적)
+   * @param minAmount - 최소금액 (선택적)
+   * @param maxAmount - 최대금액 (선택적)
+   * @param tags - 태그 목록 (선택적)
+   * @param page - 페이지 번호 (기본값: 1)
+   * @param pageSize - 페이지당 건수 (기본값: 50, 최대: 100)
+   * @returns 검색된 거래 목록과 페이지네이션 정보
+   *
+   * @throws FORBIDDEN if user lacks permission
+   */
+  search: protectedProcedure
+    .input(
+      z.object({
+        caseId: z.string().min(1, "사건 ID는 필수 항목입니다"),
+        keyword: z.string().optional(),
+        startDate: z.date().optional(),
+        endDate: z.date().optional(),
+        minAmount: z.number().nonnegative().optional(),
+        maxAmount: z.number().nonnegative().optional(),
+        tags: z.array(z.string()).optional(),
+        page: z.number().min(1).default(1),
+        pageSize: z.number().min(1).max(100).default(50),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const {
+        caseId,
+        keyword,
+        startDate,
+        endDate,
+        minAmount,
+        maxAmount,
+        tags,
+        page,
+        pageSize,
+      } = input;
+      const userId = ctx.userId;
+
+      // 1. RBAC: Case lawyer 또는 Admin만 조회 가능 (Task 9.2)
+      const user = await ctx.db.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "사용자를 찾을 수 없습니다.",
+        });
+      }
+
+      // 사건 조회
+      const caseRecord = await ctx.db.case.findUnique({
+        where: { id: caseId },
+      });
+
+      if (!caseRecord) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "사건을 찾을 수 없습니다.",
+        });
+      }
+
+      // 권한 검증 (Epic 4 패턴 재사용)
+      assertTransactionAccess({
+        userId,
+        userRole: user.role,
+        caseLawyerId: caseRecord.lawyerId,
+      });
+
+      // 2. Prisma where 절 동적 구성 (Task 9.3)
+      const where: Record<string, unknown> = { caseId };
+
+      // 키워드 검색 (AC1: case-insensitive)
+      if (keyword) {
+        where.memo = {
+          contains: keyword,
+          mode: "insensitive",
+        };
+      }
+
+      // 날짜 범위 검색 (AC2)
+      if (startDate || endDate) {
+        where.transactionDate = {};
+        if (startDate) {
+          (where.transactionDate as Record<string, Date>).gte = startDate;
+        }
+        if (endDate) {
+          (where.transactionDate as Record<string, Date>).lte = endDate;
+        }
+      }
+
+      // 금액 범위 검색 (AC3: 입금액 OR 출금액)
+      if (minAmount !== undefined || maxAmount !== undefined) {
+        where.OR = [
+          { depositAmount: {} },
+          { withdrawalAmount: {} },
+        ];
+
+        if (minAmount !== undefined) {
+          const depositAmountMin = { gte: minAmount };
+          const withdrawalAmountMin = { gte: minAmount };
+          (where.OR as Array<Record<string, unknown>>)[0].depositAmount = depositAmountMin;
+          (where.OR as Array<Record<string, unknown>>)[1].withdrawalAmount = withdrawalAmountMin;
+        }
+
+        if (maxAmount !== undefined) {
+          const depositAmountMax = { lte: maxAmount };
+          const withdrawalAmountMax = { lte: maxAmount };
+          (where.OR as Array<Record<string, unknown>>)[0].depositAmount = depositAmountMax;
+          (where.OR as Array<Record<string, unknown>>)[1].withdrawalAmount = withdrawalAmountMax;
+        }
+      }
+
+      // 태그 검색 (AC4: OR 조건)
+      if (tags && tags.length > 0) {
+        where.tags = {
+          some: {
+            tag: {
+              name: {
+                in: tags,
+              },
+            },
+          },
+        };
+      }
+
+      // 3. N+1 최적화 (Epic 7 패턴 재사용: Task 9.2)
+      // 태그 필터 시에만 태그 포함
+      const includeTags = tags && tags.length > 0;
+
+      const [transactions, totalCount] = await Promise.all([
+        ctx.db.transaction.findMany({
+          where,
+          orderBy: [{ transactionDate: "desc" }],
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+          select: {
+            id: true,
+            transactionDate: true,
+            depositAmount: true,
+            withdrawalAmount: true,
+            balance: true,
+            memo: true,
+            category: true,
+            subcategory: true,
+            confidenceScore: true,
+            importantTransaction: true,
+            importantTransactionType: true,
+            transactionNature: true,
+            creditorName: true,
+            collateralType: true,
+            isManuallyClassified: true,
+            originalCategory: true,
+            originalSubcategory: true,
+            manualClassificationDate: true,
+            manualClassifiedBy: true,
+            version: true,
+            // 태그는 필터 시에만 포함 (N+1 방지)
+            ...(includeTags && {
+              tags: {
+                select: {
+                  tag: {
+                    select: {
+                      id: true,
+                      name: true,
+                    },
+                  },
+                },
+              },
+            }),
+          },
+        }),
+        ctx.db.transaction.count({ where }),
+      ]);
+
+      return {
+        transactions,
+        pagination: {
+          page,
+          pageSize,
+          totalCount,
+          totalPages: Math.ceil(totalCount / pageSize),
+          hasMore: page * pageSize < totalCount,
+        },
+      };
+    }),
 });

@@ -62,7 +62,14 @@
     "collateralChange": "담보 변경",
     "seizure": "압류",
     "largeAmount": "대규모 금액",
-    "suspiciousPattern": "의심스러운 패턴"
+    "suspiciousPattern": "의심스러운 패턴",
+    "types": {
+      "PREFERENCE_REPAYMENT": "악의성 의심: 대출 후 짧은 기간 내 담보제공",
+      "PRIORITY_REPAYMENT_VIOLATION": "우선변제권 침해 가능성",
+      "COLLATERAL_TIMING_ISSUE": "담보권 설정 시점 이슈",
+      "COLLATERAL_DUPLICATE": "동일 담보물 중복 설정 의심",
+      "COLLATERAL_DISCHARGE": "담보권 해지 확인"
+    }
   },
   "transaction": {
     "table": {
@@ -151,6 +158,28 @@
     "failed": "분류 실패",
     "error": "분류 중 오류가 발생했습니다",
     "retry": "다시 시도"
+  },
+  "fundFlowFilter": {
+    "title": "자금 흐름 필터",
+    "ariaLabel": "자금 흐름 추적 필터 패널",
+    "dateRange": "날짜 범위",
+    "startDate": "시작일",
+    "endDate": "종료일",
+    "amountRange": "금액 범위",
+    "minAmount": "최소금액",
+    "maxAmount": "최대금액",
+    "tags": "태그",
+    "selectTags": "태그 선택",
+    "transactionNature": "거래 성격",
+    "selectNature": "거래 성격 선택",
+    "importantOnly": "중요 거래만 보기",
+    "apply": "필터 적용",
+    "reset": "필터 초기화",
+    "save": "필터 저장",
+    "activeFilters": "활성 필터",
+    "filterCount": "{count}개 필터 활성",
+    "noActiveFilters": "활성화된 필터 없음",
+    "clear": "제거"
   },
   "format": {
     "date": "yyyy. MM. dd.",

@@ -55,6 +55,7 @@ model User {
     uploadedDocuments        Document[]                      // Documents uploaded by this user
     classificationFeedbacks  ClassificationFeedback[]         // Story 4.8: Classification feedback
     classificationErrors    ClassificationError[]            // Story 4.8: Classification errors
+    savedFilters             SavedFilter[]                   // Story 5.5: Saved filters for fund flow tracking
     createdAt                DateTime        @default(now())
     updatedAt                DateTime        @updatedAt
 
@@ -253,6 +254,12 @@ model Transaction {
     feedbacks        ClassificationFeedback[]          // Story 4.8: Classification feedback (일대다)
     errors           ClassificationError[]             // Story 4.8: Classification errors (일대다)
 
+    // Epic 5: 자금 흐름 추적 관계
+    upstreamRelations    TransactionRelation[] @relation("UpstreamRelations")    // 상류(출처) 거래 관계
+    downstreamRelations  TransactionRelation[] @relation("DownstreamRelations")  // 하류(사용처) 거래 관계
+    upstreamChains      TransactionChain[]     @relation("UpstreamChains")      // 상류 체인 (일대다)
+    downstreamChains    TransactionChain[]     @relation("DownstreamChains")    // 하류 체인 (일대다)
+
     createdAt        DateTime  @default(now())
     updatedAt        DateTime  @updatedAt
 
@@ -270,7 +277,7 @@ model Transaction {
     @@map("transactions")
 }
 
-// Finding Model (Story 4.3: 발견사항 관리)
+// Finding Model (Story 4.3, Epic 6: 발견사항 관리)
 model Finding {
     id                String      @id @default(cuid())
     caseId            String
@@ -278,21 +285,46 @@ model Finding {
     transactionId     String?
     transaction       Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
 
+    // Epic 6: 다중 거래 연결 지원 (자동 발견사항 식별용)
+    relatedTransactionIds String[]   // JSON array: 관련된 모든 거래 ID
+    relatedCreditorNames  String?   // JSON array: 관련 채권자 이름 목록
+
     findingType       String      // IMPORTANT_TRANSACTION, PRIORITY_REPAYMENT, COLLATERAL_CHANGE, etc.
     title             String
     description       String?     @db.Text
     severity          String      @default("INFO") // INFO, WARNING, CRITICAL
+    priority          String?     // Story 6.5: "HIGH", "MEDIUM", "LOW" or null (사용자 지정 중요도)
     isResolved        Boolean     @default(false)
     resolvedAt        DateTime?
 
     createdAt         DateTime    @default(now())
     updatedAt         DateTime    @updatedAt
 
+    // Epic 6: FindingNote relation (Story 6.3)
+    notes             FindingNote[]
+
     @@index([caseId])
     @@index([transactionId])
     @@index([findingType])
+    @@index([severity])
+    @@index([priority])           // Story 6.5: priority 인덱스 추가
     @@index([isResolved])
     @@map("findings")
+}
+
+// FindingNote Model (Epic 6, Story 6.3: 발견사항 메모 추가)
+model FindingNote {
+    id          String   @id @default(cuid())
+    findingId   String
+    content     String   @db.Text
+    createdBy   String
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    finding     Finding  @relation(fields: [findingId], references: [id], onDelete: Cascade)
+
+    @@index([findingId])
+    @@map("finding_notes")
 }
 
 // Tag Model (Story 4.6: 태그 추가 및 삭제)
@@ -436,4 +468,81 @@ model ClassificationError {
     @@index([resolved])
     @@index([userId])
     @@map("classification_errors")
+}
+
+// Epic 5: 자금 흐름 추적 (Fund Flow Tracking)
+
+// Transaction Relation Type Enum
+enum TransactionRelationType {
+    DIRECT_TRANSFER    // 직접 이체 (명확한 연결)
+    PROBABLE_TRANSFER  // 추정 이체 (금액/날짜 유사도 기반)
+    RELATED           // 관련 거래 (같은 채권자/담보)
+}
+
+// TransactionRelation Model (거래 간 연결 관계)
+model TransactionRelation {
+    id              String                   @id @default(uuid())
+    caseId          String                                       // Case ID (필터링 최적화)
+    sourceTxId      String                                       // 상류(출처) 거래 ID
+    sourceTx        Transaction             @relation("DownstreamRelations", fields: [sourceTxId], references: [id], onDelete: Cascade)
+    targetTxId      String                                       // 하류(사용처) 거래 ID
+    targetTx        Transaction             @relation("UpstreamRelations", fields: [targetTxId], references: [id], onDelete: Cascade)
+
+    relationType    TransactionRelationType @default(DIRECT_TRANSFER)
+    confidence      Float                   @default(1.0)         // 연결 신뢰도 (0.0 ~ 1.0)
+    matchReason     String?     @db.Text                        // 연결 사유 (금액 일치, 날짜 근접, 채권자 일치 등)
+    distance        Int          @default(1)                    // 거래 간 거리 (1: 직접 연결, 2+: 간접 연결)
+
+    createdAt       DateTime    @default(now())
+    updatedAt       DateTime    @updatedAt
+
+    @@unique([sourceTxId, targetTxId])                           // 중복 방지
+    @@index([caseId])
+    @@index([sourceTxId])
+    @@index([targetTxId])
+    @@index([relationType])
+    @@index([confidence])
+    @@map("transaction_relations")
+}
+
+// TransactionChain Model (사전 계산된 자금 흐름 체인)
+model TransactionChain {
+    id              String   @id @default(uuid())
+    caseId          String                                // Case ID (필터링 최적화)
+    startTxId       String                                // 체인 시작 거래 ID
+    startTx         Transaction @relation("UpstreamChains", fields: [startTxId], references: [id], onDelete: Cascade)
+    endTxId         String                                // 체인 끝 거래 ID
+    endTx           Transaction @relation("DownstreamChains", fields: [endTxId], references: [id], onDelete: Cascade)
+
+    chainType       String                                // UPSTREAM(상류 추적), DOWNSTREAM(하류 추적)
+    chainDepth      Int          @default(1)              // 체인 깊이 (최대 5레벨)
+    path            String       @db.Text                 // 거래 경로 (CSV: "tx1,tx2,tx3,tx4,tx5")
+    totalAmount     Decimal?     @db.Decimal(20, 4)       // 총 금액 합계
+
+    createdAt       DateTime     @default(now())
+    updatedAt       DateTime     @updatedAt
+
+    @@index([caseId])
+    @@index([startTxId])
+    @@index([endTxId])
+    @@index([chainType])
+    @@index([chainDepth])
+    @@map("transaction_chains")
+}
+
+// SavedFilter Model (Story 5.5: 추적 필터링 - 필터 저장, Story 8.2: 다차원 검색 필터 저장)
+model SavedFilter {
+    id          String   @id @default(uuid())
+    userId      String
+    name        String
+    filters     Json                              // FundFlowFilters 또는 ExtendedSearchFilters 직렬화
+    filterType  String?                          // SEARCH (Story 8.2), FUND_FLOW (Story 5.5), null for legacy
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+    user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@unique([userId, name])
+    @@index([userId])
+    @@index([filterType])
+    @@map("saved_filters")
 }

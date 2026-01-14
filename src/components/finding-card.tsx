@@ -2,6 +2,7 @@
  * Finding Card Component
  *
  * Story 4.3: 중요 거래 자동 식별
+ * Story 6.1: 자동 발견사항 식별 (다중 거래 지원)
  *
  * 발견사항(Finding)을 표시하는 카드 컴포넌트
  * - 발견사항 유형, 제목, 설명 표시
@@ -9,12 +10,13 @@
  * - 해결 상태 표시
  * - 해결/미해결 토글 기능
  * - 연결된 거래 정보 표시
+ * - Story 6.1: 다중 거래 ID 및 채권자명 표시
  */
 
 "use client";
 
 import { useState } from "react";
-import { CheckCircle, XCircle, ChevronDown, ChevronUp, AlertCircle } from "lucide-react";
+import { CheckCircle, XCircle, ChevronDown, ChevronUp, AlertCircle, Users } from "lucide-react";
 import { useI18n } from "~/lib/i18n/index";
 import { SeverityBadge } from "./important-transaction-badge";
 import { Button } from "./ui/button";
@@ -26,6 +28,7 @@ import {
   CardTitle,
 } from "./ui/card";
 import { api } from "~/utils/api";
+import { PrioritySelector } from "./atoms/priority-selector";
 
 interface Transaction {
   id: string;
@@ -41,19 +44,26 @@ interface Finding {
   title: string;
   description: string | null;
   severity: "INFO" | "WARNING" | "CRITICAL";
+  priority: "HIGH" | "MEDIUM" | "LOW" | null; // Story 6.5: 사용자 지정 중요도
   isResolved: boolean;
   resolvedAt: Date | null;
   createdAt: Date;
   transaction: Transaction | null;
+  // Story 6.1: 다중 거래 지원
+  relatedTransactionIds: string[];
+  relatedCreditorNames: string | null; // JSON 문자열: ["채권자1", "채권자2"]
 }
 
 interface FindingCardProps {
   finding: Finding;
+  caseId: string; // Story 6.5: PrioritySelector에 필요
   onResolve?: (findingId: string) => void;
   onUnresolve?: (findingId: string) => void;
+  // Story 6.2: 클릭 핸들러 (관련 거래 하이라이트, 상세 모달)
+  onClick?: (finding: Finding) => void;
 }
 
-export function FindingCard({ finding, onResolve, onUnresolve }: FindingCardProps) {
+export function FindingCard({ finding, caseId, onResolve, onUnresolve, onClick }: FindingCardProps) {
   const { t, formatDate, formatCurrency } = useI18n();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isResolving, setIsResolving] = useState(false);
@@ -87,30 +97,59 @@ export function FindingCard({ finding, onResolve, onUnresolve }: FindingCardProp
     }
   };
 
-  // 심각도별 배경색 스타일
+  // Story 6.2: 심각도별 색상 스타일 (AC 요구사항 준수)
   const getSeverityBgColor = () => {
     if (finding.isResolved) return "";
 
     switch (finding.severity) {
       case "CRITICAL":
-        return "bg-red-50 border-red-200";
+        return "bg-red-50 border-red-600";
       case "WARNING":
-        return "bg-yellow-50 border-yellow-200";
+        return "bg-amber-50 border-amber-600";
       case "INFO":
-        return "bg-blue-50 border-blue-200";
+        return "bg-orange-50 border-orange-600";
       default:
         return "";
     }
   };
 
+  // Story 6.2: 클릭 핸들러
+  const handleCardClick = () => {
+    onClick?.(finding);
+  };
+
   return (
-    <Card className={`transition-all ${finding.isResolved ? "opacity-60" : ""} ${getSeverityBgColor()}`}>
+    <Card
+      className={`transition-all cursor-pointer hover:shadow-md ${finding.isResolved ? "opacity-60" : ""} ${getSeverityBgColor()}`}
+      onClick={handleCardClick}
+      role="button"
+      tabIndex={0}
+      aria-label={`발견사항: ${finding.title}`}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleCardClick();
+        }
+      }}
+    >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 space-y-1">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <CardTitle className="text-lg">{finding.title}</CardTitle>
               <SeverityBadge severity={finding.severity} size="sm" />
+              {/* Story 6.5: 중요도 선택 컴포넌트 */}
+              <div onClick={(e) => e.stopPropagation()}>
+                <PrioritySelector
+                  findingId={finding.id}
+                  currentPriority={finding.priority}
+                  onUpdate={() => {
+                    // PrioritySelector's onUpdate doesn't pass findingId,
+                    // but FindingCard's onResolve expects it
+                    onResolve?.(finding.id);
+                  }}
+                />
+              </div>
               {finding.isResolved && (
                 <span
                   className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700"
@@ -132,7 +171,10 @@ export function FindingCard({ finding, onResolve, onUnresolve }: FindingCardProp
             <Button
               variant="outline"
               size="sm"
-              onClick={handleResolve}
+              onClick={(e) => {
+                e.stopPropagation(); // Story 6.2: 카드 클릭 이벤트 전파 방지
+                handleResolve();
+              }}
               disabled={isResolving}
               aria-label={t("finding.resolve")}
             >
@@ -143,7 +185,10 @@ export function FindingCard({ finding, onResolve, onUnresolve }: FindingCardProp
             <Button
               variant="ghost"
               size="sm"
-              onClick={handleUnresolve}
+              onClick={(e) => {
+                e.stopPropagation(); // Story 6.2: 카드 클릭 이벤트 전파 방지
+                handleUnresolve();
+              }}
               disabled={isUnresolving}
               aria-label={t("finding.unresolve")}
             >
@@ -162,12 +207,63 @@ export function FindingCard({ finding, onResolve, onUnresolve }: FindingCardProp
           </div>
         )}
 
-        {/* 연결된 거래 정보 */}
+        {/* Story 6.1: 관련 채권자명 표시 (다중 거래 Finding) */}
+        {finding.relatedCreditorNames && (
+          <div className="border rounded-md p-3 bg-gray-50">
+            <div className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+              <Users className="w-4 h-4" aria-hidden="true" />
+              관련 채권자
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {(() => {
+                try {
+                  const creditors = JSON.parse(finding.relatedCreditorNames) as string[];
+                  return creditors.map((creditor, idx) => (
+                    <span
+                      key={idx}
+                      className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700"
+                    >
+                      {creditor}
+                    </span>
+                  ));
+                } catch {
+                  return (
+                    <span className="text-xs text-gray-500">
+                      {finding.relatedCreditorNames}
+                    </span>
+                  );
+                }
+              })()}
+            </div>
+          </div>
+        )}
+
+        {/* Story 6.1: 관련 거래 ID 표시 */}
+        {finding.relatedTransactionIds && finding.relatedTransactionIds.length > 0 && (
+          <div className="text-xs text-gray-600">
+            <span className="font-medium">관련 거래:</span> {finding.relatedTransactionIds.length}건
+            {finding.relatedTransactionIds.length <= 3 && (
+              <span className="ml-2 text-gray-500">
+                ({finding.relatedTransactionIds.join(", ")})
+              </span>
+            )}
+            {finding.relatedTransactionIds.length > 3 && (
+              <span className="ml-2 text-gray-500">
+                (외 {finding.relatedTransactionIds.length - 3}건)
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* 연결된 거래 정보 (단일 거래) */}
         {finding.transaction && (
           <div className="border rounded-md p-3 bg-gray-50">
             <button
               type="button"
-              onClick={() => setIsExpanded(!isExpanded)}
+              onClick={(e) => {
+                e.stopPropagation(); // Story 6.2: 카드 클릭 이벤트 전파 방지
+                setIsExpanded(!isExpanded);
+              }}
               className="flex items-center justify-between w-full text-left"
               aria-expanded={isExpanded}
               aria-label={`거래 정보 ${isExpanded ? "접기" : "펼치기"}`}
@@ -226,10 +322,11 @@ export function FindingCard({ finding, onResolve, onUnresolve }: FindingCardProp
  */
 interface FindingListProps {
   findings: Finding[];
+  caseId: string; // Story 6.5: FindingCard에 caseId 전달 필요
   onUpdate?: () => void;
 }
 
-export function FindingList({ findings, onUpdate }: FindingListProps) {
+export function FindingList({ findings, caseId, onUpdate }: FindingListProps) {
   const { t } = useI18n();
 
   if (findings.length === 0) {
@@ -278,6 +375,7 @@ export function FindingList({ findings, onUpdate }: FindingListProps) {
           <FindingCard
             key={finding.id}
             finding={finding}
+            caseId={caseId}
             onResolve={onUpdate}
             onUnresolve={onUpdate}
           />

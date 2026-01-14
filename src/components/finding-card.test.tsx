@@ -79,9 +79,12 @@ describe("FindingCard", () => {
     title: "대출 실행 - 대출 실행 감지",
     description: "매칭된 키워드: 대출 실행",
     severity: "WARNING" as const,
+    priority: null as "HIGH" | "MEDIUM" | "LOW" | null, // Story 6.5
     isResolved: false,
     resolvedAt: null,
     createdAt: new Date("2024-01-01"),
+    relatedTransactionIds: ["tx-1"],
+    relatedCreditorNames: null,
     transaction: {
       id: "tx-1",
       transactionDate: new Date("2024-01-01"),
@@ -92,7 +95,7 @@ describe("FindingCard", () => {
   };
 
   it("Finding 카드 렌더링", () => {
-    render(<FindingCard finding={mockFinding} />, { wrapper });
+    render(<FindingCard finding={mockFinding} caseId="case-1" />, { wrapper });
 
     expect(screen.getByText("대출 실행 - 대출 실행 감지")).toBeInTheDocument();
     expect(screen.getByText(/매칭된 키워드/)).toBeInTheDocument();
@@ -100,21 +103,21 @@ describe("FindingCard", () => {
   });
 
   it("미해결 Finding은 해결 버튼 표시", () => {
-    render(<FindingCard finding={mockFinding} />, { wrapper });
+    render(<FindingCard finding={mockFinding} caseId="case-1" />, { wrapper });
 
     expect(screen.getByText("해결")).toBeInTheDocument();
   });
 
   it("해결된 Finding은 해제 버튼 표시", () => {
     const resolvedFinding = { ...mockFinding, isResolved: true, resolvedAt: new Date() };
-    render(<FindingCard finding={resolvedFinding} />, { wrapper });
+    render(<FindingCard finding={resolvedFinding} caseId="case-1" />, { wrapper });
 
     expect(screen.getByText("미해결 상태로 변경")).toBeInTheDocument();
   });
 
   it("해결 버튼 클릭 시 onResolve 호출", async () => {
     const onResolve = vi.fn();
-    render(<FindingCard finding={mockFinding} onResolve={onResolve} />, { wrapper });
+    render(<FindingCard finding={mockFinding} caseId="case-1" onResolve={onResolve} />, { wrapper });
 
     const resolveButton = screen.getByText("해결");
     await fireEvent.click(resolveButton);
@@ -124,13 +127,13 @@ describe("FindingCard", () => {
   });
 
   it("연결된 거래 정보 표시", () => {
-    render(<FindingCard finding={mockFinding} />, { wrapper });
+    render(<FindingCard finding={mockFinding} caseId="case-1" />, { wrapper });
 
     expect(screen.getByText("거래일자:")).toBeInTheDocument();
   });
 
   it("거래 정보 확장 토글", () => {
-    render(<FindingCard finding={mockFinding} />, { wrapper });
+    render(<FindingCard finding={mockFinding} caseId="case-1" />, { wrapper });
 
     // 초기 상태는 접혀있음
     expect(screen.queryByText("적요:")).not.toBeInTheDocument();
@@ -145,14 +148,14 @@ describe("FindingCard", () => {
 
   it("CRITICAL 심각도는 빨간 배경", () => {
     const criticalFinding = { ...mockFinding, severity: "CRITICAL" as const };
-    const { container } = render(<FindingCard finding={criticalFinding} />, { wrapper });
+    const { container } = render(<FindingCard finding={criticalFinding} caseId="case-1" />, { wrapper });
 
     const card = container.querySelector(".bg-red-50");
     expect(card).toBeInTheDocument();
   });
 
   it("WARNING 심각도는 노란 배경", () => {
-    const { container } = render(<FindingCard finding={mockFinding} />, { wrapper });
+    const { container } = render(<FindingCard finding={mockFinding} caseId="case-1" />, { wrapper });
 
     const card = container.querySelector(".bg-yellow-50");
     expect(card).toBeInTheDocument();
@@ -160,7 +163,7 @@ describe("FindingCard", () => {
 
   it("INFO 심각도는 파란 배경", () => {
     const infoFinding = { ...mockFinding, severity: "INFO" as const };
-    const { container } = render(<FindingCard finding={infoFinding} />, { wrapper });
+    const { container } = render(<FindingCard finding={infoFinding} caseId="case-1" />, { wrapper });
 
     const card = container.querySelector(".bg-blue-50");
     expect(card).toBeInTheDocument();
@@ -168,7 +171,7 @@ describe("FindingCard", () => {
 
   it("해결된 Finding은 투명도 60%", () => {
     const resolvedFinding = { ...mockFinding, isResolved: true };
-    const { container } = render(<FindingCard finding={resolvedFinding} />, { wrapper });
+    const { container } = render(<FindingCard finding={resolvedFinding} caseId="case-1" />, { wrapper });
 
     const card = container.querySelector(".opacity-60");
     expect(card).toBeInTheDocument();
@@ -184,9 +187,12 @@ describe("FindingList", () => {
         title: "대출 실행 감지",
         description: "매칭된 키워드: 대출 실행",
         severity: "WARNING" as const,
+        priority: null as "HIGH" | "MEDIUM" | "LOW" | null, // Story 6.5
         isResolved: false,
         resolvedAt: null,
         createdAt: new Date(),
+        relatedTransactionIds: ["tx-1"],
+        relatedCreditorNames: null,
         transaction: null,
       },
       {
@@ -195,14 +201,17 @@ describe("FindingList", () => {
         title: "압류 감지",
         description: "매칭된 키워드: 압류",
         severity: "CRITICAL" as const,
+        priority: null as "HIGH" | "MEDIUM" | "LOW" | null, // Story 6.5
         isResolved: true,
         resolvedAt: new Date(),
         createdAt: new Date(),
+        relatedTransactionIds: ["tx-2"],
+        relatedCreditorNames: null,
         transaction: null,
       },
     ];
 
-    render(<FindingList findings={findings} />, { wrapper });
+    render(<FindingList findings={findings} caseId="case-1" />, { wrapper });
 
     expect(screen.getByText("대출 실행 감지")).toBeInTheDocument();
     expect(screen.getByText("압류 감지")).toBeInTheDocument();
@@ -210,7 +219,7 @@ describe("FindingList", () => {
   });
 
   it("빈 목록은 메시지 표시", () => {
-    render(<FindingList findings={[]} />, { wrapper });
+    render(<FindingList findings={[]} caseId="case-1" />, { wrapper });
 
     expect(screen.getByText(/발견사항 없음/)).toBeInTheDocument();
   });
@@ -223,9 +232,12 @@ describe("FindingList", () => {
         title: "해결된 Finding",
         description: null,
         severity: "INFO" as const,
+        priority: null as "HIGH" | "MEDIUM" | "LOW" | null, // Story 6.5
         isResolved: true,
         resolvedAt: new Date(),
         createdAt: new Date(),
+        relatedTransactionIds: ["tx-1"],
+        relatedCreditorNames: null,
         transaction: null,
       },
       {
@@ -234,14 +246,17 @@ describe("FindingList", () => {
         title: "미해결 Finding",
         description: "압류 감지",
         severity: "CRITICAL" as const,
+        priority: null as "HIGH" | "MEDIUM" | "LOW" | null, // Story 6.5
         isResolved: false,
         resolvedAt: null,
         createdAt: new Date(),
+        relatedTransactionIds: ["tx-2"],
+        relatedCreditorNames: null,
         transaction: null,
       },
     ];
 
-    render(<FindingList findings={findings} />, { wrapper });
+    render(<FindingList findings={findings} caseId="case-1" />, { wrapper });
 
     const cards = screen.getAllByText(/(해결된 Finding|미해결 Finding)/);
     expect(cards[0]).toContainText("미해결 Finding");
@@ -256,9 +271,12 @@ describe("FindingList", () => {
         title: "INFO Finding",
         description: null,
         severity: "INFO" as const,
+        priority: null as "HIGH" | "MEDIUM" | "LOW" | null, // Story 6.5
         isResolved: false,
         resolvedAt: null,
         createdAt: new Date(),
+        relatedTransactionIds: ["tx-1"],
+        relatedCreditorNames: null,
         transaction: null,
       },
       {
@@ -267,9 +285,12 @@ describe("FindingList", () => {
         title: "WARNING Finding",
         description: null,
         severity: "WARNING" as const,
+        priority: null as "HIGH" | "MEDIUM" | "LOW" | null, // Story 6.5
         isResolved: false,
         resolvedAt: null,
         createdAt: new Date(),
+        relatedTransactionIds: ["tx-2"],
+        relatedCreditorNames: null,
         transaction: null,
       },
       {
@@ -278,14 +299,17 @@ describe("FindingList", () => {
         title: "CRITICAL Finding",
         description: null,
         severity: "CRITICAL" as const,
+        priority: null as "HIGH" | "MEDIUM" | "LOW" | null, // Story 6.5
         isResolved: false,
         resolvedAt: null,
         createdAt: new Date(),
+        relatedTransactionIds: ["tx-3"],
+        relatedCreditorNames: null,
         transaction: null,
       },
     ];
 
-    render(<FindingList findings={findings} />, { wrapper });
+    render(<FindingList findings={findings} caseId="case-1" />, { wrapper });
 
     const cards = screen.getAllByText(/(INFO Finding|WARNING Finding|CRITICAL Finding)/);
     expect(cards[0]).toContainText("CRITICAL Finding");

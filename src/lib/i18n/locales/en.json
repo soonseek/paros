@@ -62,7 +62,14 @@
     "collateralChange": "Collateral Change",
     "seizure": "Seizure",
     "largeAmount": "Large Amount",
-    "suspiciousPattern": "Suspicious Pattern"
+    "suspiciousPattern": "Suspicious Pattern",
+    "types": {
+      "PREFERENCE_REPAYMENT": "Suspicious of Bad Faith: Collateral Provided Shortly After Loan",
+      "PRIORITY_REPAYMENT_VIOLATION": "Potential Priority Repayment Right Violation",
+      "COLLATERAL_TIMING_ISSUE": "Collateral Right Timing Issue",
+      "COLLATERAL_DUPLICATE": "Duplicate Collateral Setup Suspicion",
+      "COLLATERAL_DISCHARGE": "Collateral Right Discharge Confirmation"
+    }
   },
   "transaction": {
     "table": {
@@ -151,6 +158,28 @@
     "failed": "Classification failed",
     "error": "An error occurred during classification",
     "retry": "Retry"
+  },
+  "fundFlowFilter": {
+    "title": "Fund Flow Filter",
+    "ariaLabel": "Fund flow tracking filter panel",
+    "dateRange": "Date Range",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "amountRange": "Amount Range",
+    "minAmount": "Min Amount",
+    "maxAmount": "Max Amount",
+    "tags": "Tags",
+    "selectTags": "Select Tags",
+    "transactionNature": "Transaction Nature",
+    "selectNature": "Select Transaction Nature",
+    "importantOnly": "Show Important Only",
+    "apply": "Apply Filter",
+    "reset": "Reset Filter",
+    "save": "Save Filter",
+    "activeFilters": "Active Filters",
+    "filterCount": "{count} filters active",
+    "noActiveFilters": "No active filters",
+    "clear": "Remove"
   },
   "format": {
     "date": "MMM dd, yyyy",
