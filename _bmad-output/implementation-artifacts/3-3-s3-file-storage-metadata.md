@@ -113,7 +113,7 @@ const s3Client = new S3Client({
   },
 });
 
-export const S3_BUCKET = process.env.S3_BUCKET_NAME || "pharos-bmad-files";
+export const S3_BUCKET = process.env.S3_BUCKET_NAME || "paros-bmad-files";
 
 /**
  * S3에 파일 업로드
@@ -499,7 +499,7 @@ DATABASE_URL="postgresql://..."
 AWS_ACCESS_KEY_ID="your-access-key"
 AWS_SECRET_ACCESS_KEY="your-secret-key"
 AWS_REGION="ap-northeast-2"
-S3_BUCKET_NAME="pharos-bmad-files"
+S3_BUCKET_NAME="paros-bmad-files"
 ```
 
 ### Project Structure Notes
@@ -713,7 +713,7 @@ function initializeS3Client(): S3Client {
 // 모듈 로드 시 초기화 (즉시 실패로 빠른 감지)
 const s3Client = initializeS3Client();
 
-export const S3_BUCKET = process.env.S3_BUCKET_NAME ?? "pharos-bmad-files";
+export const S3_BUCKET = process.env.S3_BUCKET_NAME ?? "paros-bmad-files";
 
 // 테스트용 모킹 헬퍼
 export function __TEST__overrideS3Client(mockClient: S3Client) {

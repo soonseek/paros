@@ -1,10 +1,10 @@
-# Pharos BMAD
+# paros BMAD
 
 **Business Money Analysis & Detection** - 법률 사건 금융 거래 분석 플랫폼
 
 ## 개요
 
-Pharos BMAD는 변호사와 법률 사무소를 위한 AI 기반 금융 거래 분석 시스템입니다. 엑셀, CSV, PDF 파일에서 거래 내역을 자동으로 추출하고 분류하여 사건 분석을 효율화합니다.
+paros BMAD는 변호사와 법률 사무소를 위한 AI 기반 금융 거래 분석 시스템입니다. 엑셀, CSV, PDF 파일에서 거래 내역을 자동으로 추출하고 분류하여 사건 분석을 효율화합니다.
 
 ### 주요 기능
 
@@ -136,7 +136,7 @@ npm run db:studio     # Prisma Studio
 ### 프로젝트 구조
 
 ```
-pharos-bmad/
+paros-bmad/
 ├── prisma/
 │   └── schema.prisma          # 데이터베이스 스키마
 ├── public/                    # 정적 파일
@@ -188,10 +188,10 @@ vercel
 
 ```bash
 # Docker 이미지 빌드
-docker build -t pharos-bmad .
+docker build -t paros-bmad .
 
 # 컨테이너 실행
-docker run -p 3000:3000 --env-file .env pharos-bmad
+docker run -p 3000:3000 --env-file .env paros-bmad
 ```
 
 ## 라이선스
@@ -200,4 +200,4 @@ docker run -p 3000:3000 --env-file .env pharos-bmad
 
 ---
 
-**Pharos BMAD** - 법률 사건 분석의 새로운 기준
+**paros BMAD** - 법률 사건 분석의 새로운 기준

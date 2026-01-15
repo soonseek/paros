@@ -16,7 +16,7 @@ import { randomUUID } from "crypto";
  * - AWS_ACCESS_KEY_ID: AWS access key ID (required)
  * - AWS_SECRET_ACCESS_KEY: AWS secret access key (required)
  * - AWS_REGION: AWS region (default: ap-northeast-2)
- * - S3_BUCKET_NAME: S3 bucket name (default: pharos-bmad-files)
+ * - S3_BUCKET_NAME: S3 bucket name (default: paros-bmad-files)
  */
 
 /**
@@ -53,7 +53,7 @@ function initializeS3Client(): S3Client {
 const s3Client = initializeS3Client();
 
 // S3 bucket name from environment variable
-export const S3_BUCKET = process.env.S3_BUCKET_NAME ?? "pharos-bmad-files";
+export const S3_BUCKET = process.env.S3_BUCKET_NAME ?? "paros-bmad-files";
 
 /**
  * Upload a file to S3 with improved directory structure
@@ -96,8 +96,12 @@ export async function uploadFileToS3(
     console.log(`[S3 Upload Success] File uploaded: ${s3Key}`);
     return s3Key;
   } catch (error) {
-    console.error("[S3 Upload Error]", error);
-    throw new Error("S3 파일 업로드 실패");
+    console.error("[S3 Upload Error - Details]", error);
+    // Extract actual error message
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorCode = (error as { Code?: string }).Code || "Unknown";
+    console.error(`[S3 Error] Code: ${errorCode}, Message: ${errorMessage}`);
+    throw new Error(`S3 업로드 실패: ${errorMessage} (Code: ${errorCode})`);
   }
 }
 

@@ -154,6 +154,9 @@ model FileAnalysisResult {
     headerRowIndex  Int                                        // Header row index (0-based)
     totalRows       Int                                        // Total number of rows
 
+    // Extracted raw data (JSON storage for reuse)
+    extractedData   Json?                                      // { headers: string[], rows: string[][] }
+
     // Analysis metadata
     detectedFormat  String                                     // excel, csv, pdf
     hasHeaders      Boolean  @default(true)                    // Has header row

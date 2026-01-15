@@ -158,7 +158,7 @@ const config = {
     },
     output: {
       value:
-        "C:\\Users\\송민정\\ClaudecodeProjects\\pharos-bmad\\pharos-t3\\generated\\prisma",
+        "C:\\Users\\송민정\\ClaudecodeProjects\\paros-bmad\\paros-t3\\generated\\prisma",
       fromEnvVar: null,
     },
     config: {
@@ -173,7 +173,7 @@ const config = {
     ],
     previewFeatures: [],
     sourceFilePath:
-      "C:\\Users\\송민정\\ClaudecodeProjects\\pharos-bmad\\pharos-t3\\prisma\\schema.prisma",
+      "C:\\Users\\송민정\\ClaudecodeProjects\\paros-bmad\\paros-t3\\prisma\\schema.prisma",
     isCustomOutput: true,
   },
   relativeEnvPaths: {

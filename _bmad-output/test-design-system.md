@@ -1,6 +1,6 @@
 # System-Level Test Design Document
 
-**Project:** pharos-bmad (법률 전문가를 위한 AI 기반 회생 파산 분석 시스템)
+**Project:** paros-bmad (법률 전문가를 위한 AI 기반 회생 파산 분석 시스템)
 **Date:** 2026-01-14
 **Author:** Murat (Master Test Architect)
 **Mode:** System-Level Test Design (전체 시스템 포괄)

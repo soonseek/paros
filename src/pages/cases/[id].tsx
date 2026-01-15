@@ -1,13 +1,16 @@
 import { type NextPage } from "next";
 import { useRouter } from "next/router";
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Upload, Search, Loader2, Download } from "lucide-react";
 
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
+import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
 import { Label } from "~/components/ui/label";
 import { FindingList } from "~/components/molecules/finding-list";
+import { TransactionTable } from "~/components/transaction-table";
+import { AIChatAssistant } from "~/components/ai-chat-assistant";
 import { FindingNoteList } from "~/components/molecules/finding-note-list";
 import { FindingNoteForm } from "~/components/molecules/finding-note-form";
 import {
@@ -124,8 +127,15 @@ const CaseDetailPage: NextPage = () => {
   // tRPC utils for optimistic updates
   const utils = api.useUtils();
 
+  // Handle SSR hydration
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Fetch case details
-  const { data: caseItem, isPending, error } = api.case.getCaseById.useQuery(
+  const { data: caseItem, isPending, error, refetch } = api.case.getCaseById.useQuery(
     { id: id as string },
     {
       enabled: !!id, // Only fetch when id is available
@@ -139,6 +149,38 @@ const CaseDetailPage: NextPage = () => {
       enabled: !!id,
     }
   );
+
+  // Fetch documents for this case (for file filtering)
+  const { data: documents } = api.file.getDocumentsForCase.useQuery(
+    { caseId: id as string },
+    {
+      enabled: !!id,
+    }
+  );
+
+  // State for selected document
+  const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
+
+  // Fetch transactions for selected document
+  const { data: transactionsData, isLoading: transactionsLoading } = api.transaction.search.useQuery(
+    {
+      caseId: id as string,
+      ...(selectedDocumentId && { documentId: selectedDocumentId }),
+    },
+    {
+      enabled: !!id,
+    }
+  );
+
+  // Memoize transactions for AI Chat Assistant (performance optimization)
+  const memoizedTransactions = useMemo(() => {
+    return (transactionsData?.transactions ?? []).map(tx => ({
+      ...tx,
+      depositAmount: tx.depositAmount ? String(tx.depositAmount) : null,
+      withdrawalAmount: tx.withdrawalAmount ? String(tx.withdrawalAmount) : null,
+      balance: tx.balance ? String(tx.balance) : null,
+    }));
+  }, [transactionsData?.transactions]);
 
   // Archive mutation
   const archiveMutation = api.case.archiveCase.useMutation({
@@ -159,6 +201,21 @@ const CaseDetailPage: NextPage = () => {
     },
     onError: (err) => {
       toast.error(err.message || "사건 복원에 실패했습니다");
+    },
+  });
+
+  // Delete transactions mutation
+  const deleteTransactionsMutation = api.transaction.deleteByDocument.useMutation({
+    onSuccess: (data, variables) => {
+      toast.success(data.message || "거래내역이 삭제되었습니다");
+      // Refresh transactions - include documentId if filtering by document
+      void utils.transaction.search.invalidate({
+        caseId: id as string,
+        ...(selectedDocumentId && { documentId: selectedDocumentId }),
+      });
+    },
+    onError: (err) => {
+      toast.error(err.message || "거래내역 삭제에 실패했습니다");
     },
   });
 
@@ -435,29 +492,48 @@ const CaseDetailPage: NextPage = () => {
     },
   });
 
-  // Redirect to login if not authenticated
-  if (!user) {
-    void router.push("/auth/login");
-    return null;
+  // Redirect to login if not authenticated (client-side only)
+  useEffect(() => {
+    if (mounted && !user) {
+      void router.push("/login");
+    }
+  }, [mounted, user, router]);
+
+  // Handle errors and redirect immediately (prevents unnecessary rendering, client-side only)
+  useEffect(() => {
+    if (mounted && error) {
+      const errorCode = error.data?.code;
+
+      if (errorCode === "NOT_FOUND") {
+        toast.error("사건을 찾을 수 없습니다");
+        void router.push("/cases");
+      } else if (errorCode === "FORBIDDEN") {
+        toast.error("권한이 없습니다");
+        void router.push("/cases");
+      } else {
+        // Generic error
+        toast.error(error.message || "사건을 불러오는데 실패했습니다");
+      }
+    }
+  }, [mounted, error, router]);
+
+  // Prevent SSR hydration mismatch
+  if (!mounted) {
+    return (
+      <div className="container mx-auto py-8 px-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-center justify-center py-12 bg-gray-50 rounded-lg">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3" />
+            <p className="text-gray-600">로딩 중...</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
-  // Handle errors and redirect immediately (prevents unnecessary rendering)
-  if (error) {
-    const errorCode = error.data?.code;
-
-    if (errorCode === "NOT_FOUND") {
-      toast.error("사건을 찾을 수 없습니다");
-      void router.push("/cases");
-      return null;
-    } else if (errorCode === "FORBIDDEN") {
-      toast.error("권한이 없습니다");
-      void router.push("/cases");
-      return null;
-    } else {
-      // Generic error
-      toast.error(error.message || "사건을 불러오는데 실패했습니다");
-      return null;
-    }
+  // Skip rendering if redirecting
+  if (!user || error) {
+    return null;
   }
 
   // Loading state
@@ -514,11 +590,17 @@ const CaseDetailPage: NextPage = () => {
                 <FileUploadZone
                   caseId={id as string}
                   onFilesSelected={(files) => {
-                    // File upload logic will be implemented in Story 3.3 (S3 upload)
-                    // For now, just show the selected files
-                    toast.success(
-                      `${files.length}개 파일이 선택되었습니다. 업로드 기능은 Story 3.3에서 구현됩니다.`
-                    );
+                    // Story 3.3: Files are uploaded to S3 via FileUploadZone
+                    // Just notify user of successful selection
+                    if (files.length > 0) {
+                      toast.success(
+                        `${files.length}개 파일이 처리되었습니다. 분석이 진행 중입니다...`
+                      );
+                    }
+                  }}
+                  onUploadSuccess={(documentId) => {
+                    // Story 3.5+: Refresh case data when file upload completes
+                    void refetch();
                   }}
                 />
               </DialogContent>
@@ -590,12 +672,81 @@ const CaseDetailPage: NextPage = () => {
           </div>
         </div>
 
+        {/* 거래내역 테이블 - Max height with scroll */}
+        <Card className="p-6 mb-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold">거래내역</h2>
+            {documents && documents.length > 0 && (
+              <div className="flex gap-2 items-center">
+                <select
+                  value={selectedDocumentId ?? "all"}
+                  onChange={(e) => setSelectedDocumentId(e.target.value === "all" ? null : e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                >
+                  <option value="all">전체 파일</option>
+                  {documents.map((doc) => (
+                    <option key={doc.id} value={doc.id}>
+                      {doc.originalFileName}
+                    </option>
+                  ))}
+                </select>
+                {selectedDocumentId && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={async () => {
+                      if (confirm("선택한 파일의 거래내역을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.")) {
+                        await deleteTransactionsMutation.mutateAsync({
+                          documentId: selectedDocumentId,
+                        });
+                      }
+                    }}
+                  >
+                    삭제
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="max-h-[600px] overflow-y-auto">
+            {transactionsLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : transactionsData?.transactions && transactionsData.transactions.length > 0 ? (
+              <TransactionTable
+                transactions={transactionsData.transactions}
+                caseId={id as string}
+                onTagsUpdated={() => {
+                  void utils.transaction.search.invalidate({
+                    caseId: id as string,
+                    ...(selectedDocumentId && { documentId: selectedDocumentId }),
+                  });
+                }}
+              />
+            ) : (
+              <div className="text-center py-8 bg-gray-50 rounded-lg">
+                <p className="text-gray-600">거래내역이 없습니다</p>
+                <p className="text-sm text-gray-500 mt-2">
+                  거래내역서 파일을 업로드하여 데이터를 가져오세요
+                </p>
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* AI 어시스턴트 - 거래내역 질의응답 */}
+        <AIChatAssistant
+          caseId={id as string}
+          transactions={memoizedTransactions}
+        />
+
         {/* Story 6.2: Split View Layout - 왼쪽 40% 발견사항, 오른쪽 60% 사건 정보 */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* 왼쪽 40%: 발견사항 목록 */}
           <div className="lg:col-span-2">
             <Card className="p-6">
-              <h2 className="text-2xl font-bold mb-4">발견사항</h2>
+              <h2 className="text-xl font-bold mb-4">발견사항</h2>
               {findings && findings.length > 0 ? (
                 <FindingList
                   findings={findings}
@@ -606,11 +757,8 @@ const CaseDetailPage: NextPage = () => {
                   onFindingClick={handleFindingClick}
                 />
               ) : (
-                <div className="text-center py-8 bg-gray-50 rounded-lg">
-                  <p className="text-gray-600">발견사항이 없습니다</p>
-                  <p className="text-sm text-gray-500 mt-2">
-                    &apos;발견사항 분석&apos; 버튼을 클릭하여 분석을 시작하세요
-                  </p>
+                <div className="text-center py-4 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-gray-600">발견사항이 없습니다</p>
                 </div>
               )}
             </Card>

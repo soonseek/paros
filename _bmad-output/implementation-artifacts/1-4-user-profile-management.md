@@ -261,7 +261,7 @@ src/
 
 **이메일 변경 인증 메일 형식 (Story 1.1 패턴 재사용):**
 ```
-제목: [Pharos BMAD] 이메일 변경 인증
+제목: [paros BMAD] 이메일 변경 인증
 
 본문:
 안녕하세요,
@@ -295,7 +295,7 @@ SMTP_HOST="smtp.gmail.com"
 SMTP_PORT="587"
 SMTP_USER="your-email@gmail.com"
 SMTP_PASS="your-app-password"
-EMAIL_FROM="Pharos BMAD <noreply@pharos-bmad.com>"
+EMAIL_FROM="paros BMAD <noreply@paros-bmad.com>"
 
 # Application
 NEXT_PUBLIC_APP_URL="http://localhost:3000"

@@ -6,11 +6,11 @@ inputDocuments:
   - "_bmad-output/planning-artifacts/ux-design-specification.md"
 ---
 
-# pharos-bmad - Epic Breakdown
+# paros-bmad - Epic Breakdown
 
 ## Overview
 
-This document provides the complete epic and story breakdown for pharos-bmad, decomposing the requirements from the PRD, UX Design if it exists, and Architecture requirements into implementable stories.
+This document provides the complete epic and story breakdown for paros-bmad, decomposing the requirements from the PRD, UX Design if it exists, and Architecture requirements into implementable stories.
 
 ## Requirements Inventory
 

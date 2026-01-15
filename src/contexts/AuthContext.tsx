@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
+import { useRouter } from "next/router";
 import type { ReactNode } from "react";
 
 interface User {
@@ -19,19 +20,40 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
 
-  // 컴포넌트 마운트时 sessionStorage에서 복원 (XSS 완화, 메모리 우선)
+  // 컴포넌트 마운트시 sessionStorage 또는 쿠키에서 복원 (새로고침 대응)
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const storedUser = sessionStorage.getItem("user");
-      const storedToken = sessionStorage.getItem("access_token");
+      // 먼저 sessionStorage 시도
+      let storedUser = sessionStorage.getItem("user");
+      let storedToken = sessionStorage.getItem("access_token");
+
+      // sessionStorage에 토큰이 없으면 쿠키에서 시도
+      if (!storedToken) {
+        const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+          const [key, value] = cookie.trim().split('=');
+          acc[key] = value;
+          return acc;
+        }, {} as Record<string, string>);
+
+        if (cookies.accessToken) {
+          storedToken = cookies.accessToken;
+        }
+      }
 
       if (storedUser && storedToken) {
         try {
           setUser(JSON.parse(storedUser));
           setAccessToken(storedToken);
+
+          // 쿠키에 토큰이 없으면 저장 (새로고침 후 유지)
+          // 7일 (604800초)로 연장
+          if (!document.cookie.includes('accessToken=')) {
+            document.cookie = `accessToken=${storedToken}; path=/; max-age=604800; sameSite=strict`;
+          }
         } catch {
           // 파싱 실패시 무시
         }
@@ -47,6 +69,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (typeof window !== "undefined") {
       sessionStorage.setItem("user", JSON.stringify(newUser));
       sessionStorage.setItem("access_token", newToken);
+
+      // 쿠키에도 저장 (SSE 연결을 위해 - EventSource는 Authorization 헤더를 지원하지 않음)
+      // 7일 (604800초)로 연장
+      document.cookie = `accessToken=${newToken}; path=/; max-age=604800; sameSite=strict`;
     }
   };
 
@@ -57,6 +83,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (typeof window !== "undefined") {
       sessionStorage.removeItem("user");
       sessionStorage.removeItem("access_token");
+
+      // 쿠키도 삭제
+      document.cookie = "accessToken=; path=/; max-age=0; sameSite=strict";
     }
   };
 

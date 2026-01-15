@@ -1176,6 +1176,7 @@ export const transactionRouter = createTRPCRouter({
     .input(
       z.object({
         caseId: z.string().min(1, "사건 ID는 필수 항목입니다"),
+        documentId: z.string().optional(), // Filter by specific document
         keyword: z.string().optional(),
         startDate: z.date().optional(),
         endDate: z.date().optional(),
@@ -1183,12 +1184,13 @@ export const transactionRouter = createTRPCRouter({
         maxAmount: z.number().nonnegative().optional(),
         tags: z.array(z.string()).optional(),
         page: z.number().min(1).default(1),
-        pageSize: z.number().min(1).max(100).default(50),
+        pageSize: z.number().min(1).default(10000),
       })
     )
     .query(async ({ ctx, input }) => {
       const {
         caseId,
+        documentId,
         keyword,
         startDate,
         endDate,
@@ -1233,6 +1235,11 @@ export const transactionRouter = createTRPCRouter({
 
       // 2. Prisma where 절 동적 구성 (Task 9.3)
       const where: Record<string, unknown> = { caseId };
+
+      // 필터 by document (파일별 거래내역)
+      if (documentId) {
+        where.documentId = documentId;
+      }
 
       // 키워드 검색 (AC1: case-insensitive)
       if (keyword) {
@@ -1346,6 +1353,95 @@ export const transactionRouter = createTRPCRouter({
           totalPages: Math.ceil(totalCount / pageSize),
           hasMore: page * pageSize < totalCount,
         },
+      };
+    }),
+
+  /**
+   * Delete all transactions for a specific document
+   *
+   * Used when user wants to remove all transactions from a specific uploaded file
+   *
+   * @param documentId - Document ID to delete transactions for
+   * @returns Number of deleted transactions
+   *
+   * @throws FORBIDDEN if user lacks permission
+   */
+  deleteByDocument: protectedProcedure
+    .input(
+      z.object({
+        documentId: z.string().min(1, "문서 ID는 필수 항목입니다"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { documentId } = input;
+      const userId = ctx.userId;
+
+      // 1. Check if document exists and get case info
+      const document = await ctx.db.document.findUnique({
+        where: { id: documentId },
+        select: {
+          id: true,
+          caseId: true,
+          case: {
+            select: {
+              lawyerId: true,
+            },
+          },
+        },
+      });
+
+      if (!document) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "문서를 찾을 수 없습니다",
+        });
+      }
+
+      // 2. RBAC: Check permissions
+      const user = await ctx.db.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
+
+      if (document.case.lawyerId !== userId && user?.role !== "ADMIN") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "이 문서의 거래내역을 삭제할 권한이 없습니다",
+        });
+      }
+
+      // DEBUG: Check if transactions exist for this documentId
+      const existingTransactions = await ctx.db.transaction.findMany({
+        where: { documentId },
+        select: { id: true, documentId: true },
+        take: 5,
+      });
+
+      console.log(`[Delete Transactions] Document ID: ${documentId}`);
+      console.log(`[Delete Transactions] Found ${existingTransactions.length} transactions before delete`);
+      if (existingTransactions.length > 0) {
+        console.log(`[Delete Transactions] Sample transactions:`, existingTransactions.map(t => ({ id: t.id, documentId: t.documentId })));
+      }
+
+      // Also check all transactions for this case
+      const allCaseTransactions = await ctx.db.transaction.findMany({
+        where: { caseId: document.caseId },
+        select: { id: true, documentId: true },
+      });
+
+      console.log(`[Delete Transactions] Total transactions in case: ${allCaseTransactions.length}`);
+      console.log(`[Delete Transactions] Unique document IDs in case:`, [...new Set(allCaseTransactions.map(t => t.documentId))]);
+
+      // 3. Delete all transactions for this document
+      const result = await ctx.db.transaction.deleteMany({
+        where: { documentId },
+      });
+
+      console.log(`[Delete Transactions] Deleted ${result.count} transactions for document ${documentId}`);
+
+      return {
+        deletedCount: result.count,
+        message: `${result.count}건의 거래내역이 삭제되었습니다`,
       };
     }),
 });

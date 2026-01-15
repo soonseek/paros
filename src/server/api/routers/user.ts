@@ -54,30 +54,18 @@ export const userRouter = createTRPCRouter({
       // Hash password
       const hashedPassword = await hashPassword(password);
 
-      // Generate verification token
-      const token = generateVerificationToken();
-      const tokenExpires = getTokenExpiration();
-
-      // Create user
+      // Create user with isActive: true (email verification disabled)
       const user = await ctx.db.user.create({
         data: {
           email,
           password: hashedPassword,
-          emailVerificationToken: token,
-          emailVerificationExpires: tokenExpires,
-          isActive: false,
+          isActive: true, // 이메일 인증 비활성화: 바로 활성화
         },
-      });
-
-      // Send verification email
-      await sendVerificationEmail({
-        to: email,
-        token,
       });
 
       return {
         success: true,
-        message: "인증 이메일을 발송했습니다",
+        message: "회원가입이 완료되었습니다",
         userId: user.id,
       };
     }),
@@ -185,14 +173,6 @@ export const userRouter = createTRPCRouter({
         throw new TRPCError({
           code: "UNAUTHORIZED",
           message: `이메일 또는 비밀번호가 올바르지 않습니다. 남은 시도 횟수: ${rateLimitCheck.remainingAttempts || MAX_ATTEMPTS - 1}`,
-        });
-      }
-
-      // Check if user account is active (email verified)
-      if (!user.isActive) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "이메일 또는 비밀번호가 올바르지 않습니다",
         });
       }
 

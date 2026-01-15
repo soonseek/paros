@@ -210,7 +210,7 @@ src/
 
 **비밀번호 재설정 이메일 형식:**
 ```
-제목: [Pharos BMAD] 비밀번호 재설정
+제목: [paros BMAD] 비밀번호 재설정
 
 본문:
 안녕하세요,
@@ -224,7 +224,7 @@ src/
 요청하지 않으셨다면 이 이메일을 무시하세요.
 
 감사합니다,
-Pharos BMAD 팀
+paros BMAD 팀
 ```
 
 **개발 환경 콘솔 출력:**
@@ -256,7 +256,7 @@ SMTP_HOST="smtp.gmail.com"
 SMTP_PORT="587"
 SMTP_USER="your-email@gmail.com"
 SMTP_PASS="your-app-password"
-EMAIL_FROM="Pharos BMAD <noreply@pharos-bmad.com>"
+EMAIL_FROM="paros BMAD <noreply@paros-bmad.com>"
 
 # Application
 NEXT_PUBLIC_APP_URL="http://localhost:3000"

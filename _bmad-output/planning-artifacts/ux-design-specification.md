@@ -6,7 +6,7 @@ lastStep: 14
 date: 2026-01-07
 ---
 
-# UX Design Specification pharos-bmad
+# UX Design Specification paros-bmad
 
 **Author:** Soonseek
 **Date:** 2026-01-07

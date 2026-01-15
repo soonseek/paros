@@ -1,6 +1,6 @@
 import { type NextPage } from "next";
 import { useRouter } from "next/router";
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -49,6 +49,13 @@ const CaseEditPage: NextPage = () => {
   const { user } = useAuth();
   const { id } = router.query;
 
+  // Handle SSR hydration
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Fetch current case data
   const { data: caseItem, isPending } = api.case.getCaseById.useQuery(
     { id: id as string },
@@ -96,9 +103,29 @@ const CaseEditPage: NextPage = () => {
     }
   }, [caseItem, reset]);
 
-  // Redirect to login if not authenticated
+  // Redirect to login if not authenticated (client-side only)
+  useEffect(() => {
+    if (mounted && !user) {
+      void router.push("/login");
+    }
+  }, [mounted, user, router]);
+
+  // Prevent SSR hydration mismatch
+  if (!mounted) {
+    return (
+      <div className="container mx-auto py-8 px-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-center justify-center py-12 bg-gray-50 rounded-lg">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3" />
+            <p className="text-gray-600">로딩 중...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Skip rendering if redirecting
   if (!user) {
-    void router.push("/auth/login");
     return null;
   }
 

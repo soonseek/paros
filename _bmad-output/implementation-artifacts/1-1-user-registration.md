@@ -299,7 +299,7 @@ SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=your-email@gmail.com
 SMTP_PASS=your-app-password
-EMAIL_FROM=Pharos BMAD <noreply@pharos-bmad.com>
+EMAIL_FROM=paros BMAD <noreply@paros-bmad.com>
 
 # 또는 Resend
 RESEND_API_KEY=re_xxxxxxxxx

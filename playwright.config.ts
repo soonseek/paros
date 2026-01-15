@@ -4,7 +4,7 @@ import { defineConfig, devices } from '@playwright/test';
  * Playwright Test Configuration
  *
  * Framework: Playwright with TypeScript
- * Project: pharos-bmad (AI 기반 회생 파산 분석 시스템)
+ * Project: paros-bmad (AI 기반 회생 파산 분석 시스템)
  *
  * @see https://playwright.dev/docs/test-configuration
  */

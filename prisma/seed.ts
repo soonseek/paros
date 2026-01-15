@@ -32,7 +32,7 @@ async function main() {
   const adminUser = await prisma.user.create({
     data: {
       id: "admin-user-1",
-      email: "admin@pharos-bmad.com",
+      email: "admin@paros-bmad.com",
       name: "관리자",
       password: await bcrypt.hash("admin123", 10),
       role: "ADMIN",
@@ -44,7 +44,7 @@ async function main() {
   const lawyerUser = await prisma.user.create({
     data: {
       id: "lawyer-user-1",
-      email: "lawyer@pharos-bmad.com",
+      email: "lawyer@paros-bmad.com",
       name: "김변호사",
       password: await bcrypt.hash("lawyer123", 10),
       role: "LAWYER",
@@ -204,8 +204,8 @@ async function main() {
   console.log(`  - Transactions: ${testTransactions.length}`);
   console.log(`  - Classification Jobs: 1`);
   console.log("\n🔑 Test Credentials:");
-  console.log(`  Admin: admin@pharos-bmad.com / admin123`);
-  console.log(`  Lawyer: lawyer@pharos-bmad.com / lawyer123`);
+  console.log(`  Admin: admin@paros-bmad.com / admin123`);
+  console.log(`  Lawyer: lawyer@paros-bmad.com / lawyer123`);
 }
 
 main()

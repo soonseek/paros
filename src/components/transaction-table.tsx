@@ -519,11 +519,6 @@ export function TransactionTable({ transactions, pagination, onPageChange, onTag
               <TableHead className="text-right">{t("transaction.table.balance")}</TableHead>
               <TableHead>{t("transaction.table.category")}</TableHead>
               <TableHead>{t("importantTransaction.important")}</TableHead>
-              <TableHead>{t("transaction.table.confidence")}</TableHead>
-              {/* Story 4.4: 거래 성격 및 관련 정보 */}
-              <TableHead>{t("transactionNature.label")}</TableHead>
-              <TableHead>{t("transactionNature.creditorName")}</TableHead>
-              <TableHead>{t("transactionNature.collateralType")}</TableHead>
               {/* Story 4.6: 태그 컬럼 */}
               <TableHead>태그</TableHead>
               {/* Story 4.8: 오류 보고 컬럼 */}
@@ -632,42 +627,6 @@ export function TransactionTable({ transactions, pagination, onPageChange, onTag
                         }
                         size="sm"
                       />
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {/* [AC2] 신뢰도 표시 */}
-                    <ConfidenceBadge
-                      confidenceScore={tx.confidenceScore}
-                      size="sm"
-                    />
-                  </TableCell>
-                  {/* Story 4.4: 거래 성격 배지 */}
-                  <TableCell>
-                    <TransactionNatureBadge
-                      nature={tx.transactionNature}
-                      creditorName={tx.creditorName}
-                      collateralType={tx.collateralType as "MORTGAGE" | "LIEN" | "POSSESSION" | null}
-                      size="sm"
-                    />
-                  </TableCell>
-                  {/* Story 4.4: 채권자명 (CREDITOR일 때만 표시) */}
-                  <TableCell>
-                    {tx.transactionNature === "CREDITOR" ? (
-                      <span className="text-sm">{tx.creditorName ?? "-"}</span>
-                    ) : (
-                      <span className="text-sm text-gray-300">-</span>
-                    )}
-                  </TableCell>
-                  {/* Story 4.4: 담보 유형 (COLLATERAL일 때만 표시) */}
-                  <TableCell>
-                    {tx.transactionNature === "COLLATERAL" ? (
-                      <span className="text-sm">
-                        {tx.collateralType
-                          ? t(`transactionNature.collateralTypes.${tx.collateralType}`)
-                          : "-"}
-                      </span>
-                    ) : (
-                      <span className="text-sm text-gray-300">-</span>
                     )}
                   </TableCell>
                   {/* Story 4.6: 태그 셀 */}

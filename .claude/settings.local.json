@@ -8,7 +8,7 @@
       "Bash(copy:*)",
       "Bash(cp:*)",
       "Bash(if:*)",
-      "Bash(then mkdir -p \"C:\\Users\\송민정\\ClaudecodeProjects\\pharos-bmad\\_bmad-output\\planning-artifacts\")",
+      "Bash(then mkdir -p \"C:\\Users\\송민정\\ClaudecodeProjects\\paros-bmad\\_bmad-output\\planning-artifacts\")",
       "Bash(fi:*)",
       "WebSearch",
       "SlashCommand(/bmad:bmm:workflows:create-story)",
@@ -46,7 +46,10 @@
       "SlashCommand(/bmad:bmm:workflows:code-review)",
       "SlashCommand(/bmad:bmm:workflows:create-story:*)",
       "SlashCommand(/bmad:bmm:workflows:dev-story:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(npx next lint:*)",
+      "Bash(timeout:*)",
+      "Bash(ping:*)"
     ]
   }
 }

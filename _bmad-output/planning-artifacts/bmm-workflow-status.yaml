@@ -15,7 +15,7 @@
 #   - skipped: Optional/conditional workflow that was skipped
 
 generated: "2026-01-06"
-project: "pharos-bmad"
+project: "paros-bmad"
 project_type: "Legal Tech AI System - AI Copilots for Bankruptcy/Rehabilitation Law Firms"
 selected_track: "bmad-method"
 field_type: "greenfield"

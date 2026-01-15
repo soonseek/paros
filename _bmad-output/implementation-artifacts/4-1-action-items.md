@@ -2,7 +2,7 @@
 
 **생성 날짜**: 2026-01-10  
 **리뷰어**: Amelia (Developer Agent)  
-**프로젝트**: Pharos BMAD  
+**프로젝트**: paros BMAD  
 **대상**: Story 4.1 - AI 기반 거래 자동 분류  
 
 ---
@@ -369,7 +369,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 
 ### 지원되는 AI 공급자
 
-Pharos BMAD는 거래 분류를 위해 3가지 AI 공급자를 지원합니다:
+paros BMAD는 거래 분류를 위해 3가지 AI 공급자를 지원합니다:
 
 #### 옵션 A: Upstage Solar (한국어 최적화, 권장)
 

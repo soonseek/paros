@@ -2,7 +2,7 @@
 
 **리뷰어**: Amelia (개발자 에이전트)  
 **리뷰 날짜**: 2026-01-10  
-**프로젝트**: Pharos BMAD  
+**프로젝트**: paros BMAD  
 **상태**: 🔴 **주요 개선사항 필요** 
 
 ---
@@ -613,7 +613,7 @@ ANTHROPIC_API_KEY=your_anthropic_api_key
    
    ### 1. Choose an AI Provider
    
-   Pharos BMAD supports three AI providers for transaction classification:
+   paros BMAD supports three AI providers for transaction classification:
    
    #### Option A: Upstage Solar (Recommended for Korean)
    ```bash

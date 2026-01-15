@@ -119,7 +119,7 @@ export interface ChainRow {
  */
 export function createWorkbook(): ExcelJS.Workbook {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = 'Pharos BMad System';
+  workbook.creator = 'paros BMad System';
   workbook.created = new Date();
   return workbook;
 }

@@ -1,7 +1,7 @@
 # Implementation Readiness Assessment Report
 
 **Date:** 2026-01-14
-**Project:** pharos-bmad
+**Project:** paros-bmad
 
 ---
 

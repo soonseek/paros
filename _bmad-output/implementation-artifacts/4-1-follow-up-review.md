@@ -2,7 +2,7 @@
 
 **리뷰 날짜**: 2026-01-10 (2차 리뷰)  
 **리뷰어**: Amelia (Developer Agent)  
-**프로젝트**: Pharos BMAD  
+**프로젝트**: paros BMAD  
 **대상**: Story 4.1 - AI 기반 거래 자동 분류  
 
 ---

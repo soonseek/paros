@@ -258,7 +258,7 @@ import ExcelJS from 'exceljs';
 export function createWorkbook(): ExcelJS.Workbook {
   const workbook = new ExcelJS.Workbook();
   workbook.properties.title = '자금 흐름 추적 결과';
-  workbook.properties.author = 'Pharos BMAD';
+  workbook.properties.author = 'paros BMAD';
   return workbook;
 }
 

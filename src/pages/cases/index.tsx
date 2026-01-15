@@ -64,7 +64,7 @@ const CasesIndexPage: NextPage = () => {
 
   // Redirect to login if not authenticated
   if (!user) {
-    void router.push("/auth/login");
+    void router.push("/login");
     return null;
   }
 

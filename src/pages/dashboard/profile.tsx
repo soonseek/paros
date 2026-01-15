@@ -161,7 +161,7 @@ export default function ProfilePage() {
       {/* Header */}
       <header className="border-b bg-white">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-gray-900">Pharos BMAD</h1>
+          <h1 className="text-xl font-bold text-gray-900">paros BMAD</h1>
           <div className="flex items-center gap-4">
             <Button
               variant="outline"

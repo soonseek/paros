@@ -9,7 +9,7 @@ brainstormingCount: 0
 projectDocsCount: 0
 ---
 
-# Product Requirements Document - pharos-bmad
+# Product Requirements Document - paros-bmad
 
 **Author:** Soonseek
 **Date:** 2026-01-07

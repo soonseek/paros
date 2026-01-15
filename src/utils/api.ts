@@ -4,12 +4,14 @@
  *
  * We also create a few inference helpers for input and output types.
  */
-import { httpBatchLink, loggerLink, TRPCClientError } from "@trpc/client";
+import { httpBatchLink, loggerLink } from "@trpc/client";
 import { createTRPCNext } from "@trpc/next";
 import { type inferRouterInputs, type inferRouterOutputs } from "@trpc/server";
 import superjson from "superjson";
+import { toast } from "sonner";
 
 import { type AppRouter } from "~/server/api/root";
+import type { TRPCClientErrorLike } from "@trpc/client";
 
 const getBaseUrl = () => {
   if (typeof window !== "undefined") return ""; // browser should use relative url
@@ -59,6 +61,36 @@ export const api = createTRPCNext<AppRouter>({
           },
         }),
       ],
+      /**
+       * React Query configuration for global error handling
+       */
+      reactQueryConfig: {
+        /**
+         * Global error handler for queries and mutations
+         * This will catch all tRPC errors including UNAUTHORIZED (401)
+         */
+        onError: (error) => {
+          console.log("[tRPC Error detected]", error);
+
+          // Check if this is an UNAUTHORIZED error
+          if (error instanceof Error) {
+            const errorMessage = error.message;
+            if (errorMessage.includes("UNAUTHORIZED") || errorMessage.includes("로그인이 필요합니다")) {
+              console.error("[Auth] 401 detected - redirecting to login...");
+
+              // Clear auth storage
+              if (typeof window !== "undefined") {
+                sessionStorage.removeItem("user");
+                sessionStorage.removeItem("access_token");
+                document.cookie = "accessToken=; path=/; max-age=0; sameSite=strict";
+
+                // Redirect immediately to login
+                window.location.href = "/login";
+              }
+            }
+          }
+        },
+      },
     };
   },
   /**
@@ -83,3 +115,26 @@ export type RouterInputs = inferRouterInputs<AppRouter>;
  * @example type HelloOutput = RouterOutputs['example']['hello']
  */
 export type RouterOutputs = inferRouterOutputs<AppRouter>;
+
+/**
+ * Handle UNAUTHORIZED (401) errors globally
+ * Clear auth storage and redirect to login
+ */
+export function handleUnauthorizedError() {
+  console.error("[Auth] Unauthorized - clearing session and redirecting to login...");
+
+  if (typeof window !== "undefined") {
+    // Clear auth storage
+    sessionStorage.removeItem("user");
+    sessionStorage.removeItem("access_token");
+    document.cookie = "accessToken=; path=/; max-age=0; sameSite=strict";
+
+    // Show toast notification
+    toast.error("로그인이 만료되었습니다. 다시 로그인해주세요.");
+
+    // Redirect to login page after a short delay
+    setTimeout(() => {
+      window.location.href = "/login";
+    }, 1000);
+  }
+}

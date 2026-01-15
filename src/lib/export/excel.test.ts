@@ -45,7 +45,7 @@ describe('Excel Export Utility', () => {
 
       // THEN: Workbook is created with correct metadata
       expect(workbook).toBeInstanceOf(ExcelJS.Workbook);
-      expect(workbook.creator).toBe('Pharos BMad System');
+      expect(workbook.creator).toBe('paros BMad System');
       expect(workbook.created).toBeInstanceOf(Date);
     });
 

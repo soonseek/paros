@@ -25,6 +25,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { verifyAccessToken } from "~/lib/jwt";
 import { db } from "~/server/db";
 import { canAccessCase } from "~/lib/rbac";
+import * as cookie from "cookie";
 
 /**
  * Main SSE handler for file upload progress
@@ -55,9 +56,18 @@ export default async function handler(
       return;
     }
 
-    // Extract and verify Access Token from Authorization header
+    // Extract and verify Access Token from Authorization header or Cookie
+    let accessToken: string | undefined;
+
+    // Try Authorization header first
     const authHeader = req.headers.authorization;
-    const accessToken = authHeader?.replace("Bearer ", "");
+    if (authHeader) {
+      accessToken = authHeader.replace("Bearer ", "");
+    } else {
+      // Fallback to cookie (EventSource doesn't support custom headers)
+      const parsedCookies = cookies.parse(req.headers.cookie ?? "");
+      accessToken = parsedCookies.accessToken;
+    }
 
     if (!accessToken) {
       res.status(401).json({ error: "인증이 필요합니다" });

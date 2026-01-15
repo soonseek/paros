@@ -8,15 +8,6 @@ import { analyzeFileStructure } from "~/lib/file-analyzer";
 import { extractAndSaveTransactions, type ColumnMapping } from "~/lib/data-extractor";
 import type { Prisma, PrismaClient } from "@prisma/client";
 
-// pdf-parse doesn't have proper TypeScript types, using require with type assertion
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require("pdf-parse") as (buffer: Buffer) => Promise<{
-  numPages?: number;
-  numpages?: number;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  [key: string]: any;
-}>;
-
 /**
  * File Management Router
  *
@@ -184,47 +175,9 @@ export const fileRouter = createTRPCRouter({
           }
         }
 
-        // PDF validation (MEDIUM-2: Add timeout and page limit)
-        if (fileType === "application/pdf") {
-          // Implement timeout for PDF parsing
-          const pdfPromise = pdfParse(buffer) as Promise<{
-            numPages?: number;
-            numpages?: number;
-          }>;
-
-          // Create timeout promise
-          const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => {
-              reject(new Error("PDF parsing timeout"));
-            }, FILE_VALIDATION.PDF_PARSING_TIMEOUT_MS);
-          });
-
-          // Race between parsing and timeout
-          const data = (await Promise.race([pdfPromise, timeoutPromise])) as {
-            numPages?: number;
-            numpages?: number;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            [key: string]: any;
-          };
-
-          const pageCount = data.numPages ?? data.numpages ?? 0;
-
-          // Validate page count
-          if (!pageCount) {
-            throw new TRPCError({
-              code: "BAD_REQUEST",
-              message: "PDF 파일에 페이지가 없습니다",
-            });
-          }
-
-          // MEDIUM-2: Enforce maximum page limit
-          if (pageCount > FILE_VALIDATION.MAX_pdf_PAGES) {
-            throw new TRPCError({
-              code: "BAD_REQUEST",
-              message: `PDF 파일이 너무 큽니다 (${pageCount}페이지). 최대 ${FILE_VALIDATION.MAX_pdf_PAGES}페이지까지 지원합니다`,
-            });
-          }
-        }
+        // PDF validation: File signature is already validated by validateFileSignature()
+        // Actual PDF parsing will be done by Upstage AI API in Story 3.4 (analyzeFile)
+        // No local parsing needed here
 
         // Validation successful
         return {
@@ -417,39 +370,10 @@ export const fileRouter = createTRPCRouter({
           }
         }
 
-        if (fileType === "application/pdf") {
-          const pdfPromise = pdfParse(buffer) as Promise<{
-            numPages?: number;
-            numpages?: number;
-          }>;
+        // PDF validation: File signature already validated above
+        // PDF parsing will be handled by Upstage AI API in analyzeFile
+        // No local parsing needed here
 
-          const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => {
-              reject(new Error("PDF parsing timeout"));
-            }, FILE_VALIDATION.PDF_PARSING_TIMEOUT_MS);
-          });
-
-          const data = (await Promise.race([pdfPromise, timeoutPromise])) as {
-            numPages?: number;
-            numpages?: number;
-          };
-
-          const pageCount = data.numPages ?? data.numpages ?? 0;
-
-          if (!pageCount) {
-            throw new TRPCError({
-              code: "BAD_REQUEST",
-              message: "PDF 파일에 페이지가 없습니다",
-            });
-          }
-
-          if (pageCount > FILE_VALIDATION.MAX_pdf_PAGES) {
-            throw new TRPCError({
-              code: "BAD_REQUEST",
-              message: `PDF 파일이 너무 큽니다 (${pageCount}페이지). 최대 ${FILE_VALIDATION.MAX_pdf_PAGES}페이지까지 지원합니다`,
-            });
-          }
-        }
       } catch (error) {
         if (error instanceof TRPCError) {
           throw error;
@@ -692,6 +616,7 @@ export const fileRouter = createTRPCRouter({
             hasHeaders: analysisData.hasHeaders,
             confidence: analysisData.confidence,
             errorMessage: analysisData.errorMessage,
+            extractedData: analysisData.extractedData as Prisma.InputJsonValue, // Save extracted data for reuse
             ...(analysisData.errorDetails && {
               errorDetails: analysisData.errorDetails as Prisma.InputJsonValue,
             }),
@@ -881,9 +806,11 @@ export const fileRouter = createTRPCRouter({
       }
 
       // MEDIUM-2 FIX: Validate required columns before extraction (LOW-1 also)
-      const columnMapping = analysisResult.columnMapping as ColumnMapping;
+      // Note: columnMapping in DB is stored as string→string (e.g., { date: "거래일" })
+      // We'll validate based on keys, not values
+      const rawColumnMapping = analysisResult.columnMapping as Record<string, string>;
 
-      if (columnMapping.date === undefined) {
+      if (!rawColumnMapping.date) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message:
@@ -892,9 +819,9 @@ export const fileRouter = createTRPCRouter({
       }
 
       if (
-        columnMapping.deposit === undefined &&
-        columnMapping.withdrawal === undefined &&
-        columnMapping.balance === undefined
+        !rawColumnMapping.deposit &&
+        !rawColumnMapping.withdrawal &&
+        !rawColumnMapping.balance
       ) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -967,8 +894,10 @@ export const fileRouter = createTRPCRouter({
         const extractionPromise = performExtraction(
           ctx,
           document,
-          columnMapping,
-          analysisResult.headerRowIndex
+          rawColumnMapping,
+          analysisResult.headerRowIndex,
+          document.mimeType,
+          analysisResult // Pass analysisResult for extractedData
         );
 
         const timeoutPromise = new Promise<never>((_, reject) => {
@@ -1241,6 +1170,65 @@ export const fileRouter = createTRPCRouter({
         message: "파일이 삭제되었습니다",
       };
     }),
+
+  /**
+   * Get all documents for a case
+   *
+   * @param caseId - Case ID
+   * @returns Array of documents for the case
+   *
+   * @throws FORBIDDEN if user lacks permission
+   */
+  getDocumentsForCase: protectedProcedure
+    .input(
+      z.object({
+        caseId: z.string().min(1, "사건 ID는 필수 항목입니다"),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { caseId } = input;
+      const userId = ctx.userId;
+
+      // RBAC: Check user permissions
+      const user = await ctx.db.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
+
+      const caseRecord = await ctx.db.case.findUnique({
+        where: { id: caseId },
+        select: { lawyerId: true },
+      });
+
+      if (!caseRecord) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "사건을 찾을 수 없습니다",
+        });
+      }
+
+      if (caseRecord.lawyerId !== userId && user?.role !== "ADMIN") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "이 사건의 문서를 조회할 권한이 없습니다",
+        });
+      }
+
+      // Get all documents for this case
+      const documents = await ctx.db.document.findMany({
+        where: { caseId },
+        orderBy: { uploadedAt: "desc" },
+        select: {
+          id: true,
+          originalFileName: true,
+          mimeType: true,
+          fileSize: true,
+          uploadedAt: true,
+        },
+      });
+
+      return documents;
+    }),
 });
 
 /**
@@ -1248,15 +1236,19 @@ export const fileRouter = createTRPCRouter({
  *
  * @param ctx - tRPC context
  * @param document - Document record
- * @param columnMapping - Column mapping from file analysis
+ * @param columnMapping - Column mapping from file analysis (string→string format)
  * @param headerRowIndex - Header row index
+ * @param mimeType - MIME type to detect file format (Excel/CSV vs PDF)
+ * @param analysisResult - FileAnalysisResult containing extractedData
  * @returns Extraction result
  */
 async function performExtraction(
   ctx: { db: PrismaClient },
   document: { id: string; s3Key: string; caseId: string },
-  columnMapping: ColumnMapping,
-  headerRowIndex: number
+  columnMapping: Record<string, string>,
+  headerRowIndex: number,
+  mimeType: string,
+  analysisResult: { extractedData?: { headers: string[]; rows: string[][] } }
 ): Promise<{
   extractedCount: number;
   skippedCount: number;
@@ -1268,28 +1260,53 @@ async function performExtraction(
   // Download file from S3
   const fileBuffer = await downloadFileFromS3(s3Key);
 
-  // Parse Excel/CSV file
-  const workbook = XLSX.read(fileBuffer, { type: "buffer" });
+  let rawData: unknown[][];
+  let headerRow: string[];
 
-  if (!workbook.SheetNames.length) {
-    throw new Error("엑셀 파일에 시트가 없습니다");
+  // Check if we have extractedData from analyzeFile (reuse to avoid calling Upstage API again)
+  if (analysisResult.extractedData) {
+    console.log("[Extract Data] Reusing extracted data from analyzeFile...");
+    const extractedData = analysisResult.extractedData as { headers: string[]; rows: string[][] };
+    rawData = [extractedData.headers, ...extractedData.rows];
+    headerRow = extractedData.headers;
+    console.log(`[Extract Data] Reused ${extractedData.rows.length} rows from previous extraction`);
+  } else if (mimeType.includes("pdf")) {
+    // Fallback: Use Upstage API to parse PDF (if extractedData not available)
+    console.log("[PDF Extraction] Using Upstage API to extract table data...");
+    const { parsePdfWithUpstage } = await import("~/lib/pdf-ocr");
+    const tableData = await parsePdfWithUpstage(fileBuffer);
+
+    // Convert table data to rawData format (array of arrays)
+    // First row is headers, rest are data rows
+    rawData = [tableData.headers, ...tableData.rows];
+    headerRow = tableData.headers;
+    console.log(`[PDF Extraction] Converted ${tableData.totalRows} rows to rawData format`);
+  } else {
+    // Parse Excel/CSV file
+    const workbook = XLSX.read(fileBuffer, { type: "buffer" });
+
+    if (!workbook.SheetNames.length) {
+      throw new Error("엑셀 파일에 시트가 없습니다");
+    }
+
+    const sheetName = workbook.SheetNames[0];
+    if (!sheetName) {
+      throw new Error("첫 번째 시트를 찾을 수 없습니다");
+    }
+
+    const worksheet = workbook.Sheets[sheetName];
+    if (!worksheet) {
+      throw new Error("워크시트를 찾을 수 없습니다");
+    }
+
+    // Convert to array of arrays (raw data with header)
+    rawData = XLSX.utils.sheet_to_json(worksheet, {
+      header: 1,
+      defval: "",
+    }) as unknown[][];
+
+    headerRow = rawData[0] as string[];
   }
-
-  const sheetName = workbook.SheetNames[0];
-  if (!sheetName) {
-    throw new Error("첫 번째 시트를 찾을 수 없습니다");
-  }
-
-  const worksheet = workbook.Sheets[sheetName];
-  if (!worksheet) {
-    throw new Error("워크시트를 찾을 수 없습니다");
-  }
-
-  // Convert to array of arrays (raw data with header)
-  const rawData = XLSX.utils.sheet_to_json(worksheet, {
-    header: 1,
-    defval: "",
-  }) as unknown[][];
 
   if (rawData.length === 0) {
     throw new Error("파일에 데이터가 없습니다");
@@ -1301,13 +1318,24 @@ async function performExtraction(
     data: { status: "saving" },
   });
 
+  // Convert columnMapping from string→string to ColumnMapping (number) for extractAndSaveTransactions
+  const numericColumnMapping: ColumnMapping = {};
+  for (const [key, columnName] of Object.entries(columnMapping)) {
+    if (typeof columnName === "string") {
+      const index = headerRow.indexOf(columnName);
+      if (index !== -1) {
+        (numericColumnMapping as Record<string, number>)[key] = index;
+      }
+    }
+  }
+
   // Extract and save transactions
   const extractionResult = await extractAndSaveTransactions(
     ctx.db,
     documentId,
     caseId,
     rawData,
-    columnMapping,
+    numericColumnMapping,
     headerRowIndex
   );
 

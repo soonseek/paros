@@ -16,16 +16,16 @@ import { api } from "~/utils/api";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Skeleton } from "./ui/skeleton";
-import { useSession } from "next-auth/react";
+import { useAuth } from "~/contexts/AuthContext";
 
 /**
  * 학습 통계 대시보드 컴포넌트
  */
 export function LearningStatsDashboard() {
-  const { data: session } = useSession();
+  const { user } = useAuth();
 
   // ADMIN 권한 체크
-  const isAdmin = (session?.user as any)?.role === "ADMIN";
+  const isAdmin = user?.role === "ADMIN";
 
   // 학습 통계 조회
   const { data: stats, isLoading } = api.analytics.getLearningStats.useQuery(

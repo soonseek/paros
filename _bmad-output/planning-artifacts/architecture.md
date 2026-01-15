@@ -2,7 +2,7 @@
 stepsCompleted: [1, 2, 3, 4, 5, 6, 7, 8]
 inputDocuments: ["_bmad-output/planning-artifacts/prd.md", "_bmad-output/planning-artifacts/ux-design-specification.md"]
 workflowType: 'architecture'
-project_name: 'pharos-bmad'
+project_name: 'paros-bmad'
 user_name: 'Soonseek'
 date: '2026-01-07'
 status: 'complete'
@@ -258,7 +258,7 @@ npm install @google-cloud/documentai
 
 **초기 프로젝트 구조 (T3 Stack 생성 후):**
 ```
-pharos-bmad/
+paros-bmad/
 ├── src/
 │   ├── app/              # Next.js App Router
 │   ├── server/           # tRPC 서버, Prisma 클라이언트
@@ -1202,7 +1202,7 @@ model user {
 ### Complete Project Directory Structure
 
 ```
-pharos-bmad/
+paros-bmad/
 ├── README.md
 ├── package.json
 ├── next.config.js
@@ -1374,7 +1374,7 @@ pharos-bmad/
 - Components: `src/components/organisms/FileUploader.tsx`
 - tRPC: `src/server/api/routers/file.ts`
 - Utilities: `src/lib/file-processor.ts`
-- Storage: AWS S3 (pharos-bmad-files 버킷)
+- Storage: AWS S3 (paros-bmad-files 버킷)
 
 **2. 자동 분석 및 패턴 인식 (FR7-FR12):**
 - tRPC: `src/server/api/routers/analysis.ts`
@@ -1714,7 +1714,7 @@ MVP 이후에 고려할 수 있는 향상 사항:
 
 1. **T3 Stack 설치:**
    ```bash
-   npm create t3-app@latest pharos-bmad
+   npm create t3-app@latest paros-bmad
    # 선택: Next.js, TypeScript, Tailwind, tRPC, Prisma, ESLint
    # 미선택: next-auth
    ```
@@ -1762,7 +1762,7 @@ MVP 이후에 고려할 수 있는 향상 사항:
 
 ## Conclusion
 
-이 Architecture Decision Document는 **pharos-bmad** 프로젝트의 완전한 아키텍처를 정의합니다.
+이 Architecture Decision Document는 **paros-bmad** 프로젝트의 완전한 아키텍처를 정의합니다.
 
 **문서 버전:**
 - 작성일: 2026-01-07
@@ -1811,13 +1811,13 @@ MVP 이후에 고려할 수 있는 향상 사항:
 ### Implementation Handoff
 
 **For AI Agents:**
-이 아키텍처 문서는 **pharos-bmad** 프로젝트 구현을 위한 완전한 가이드입니다. 문서화된 모든 결정, 패턴, 구조를 정확히 따르십시오.
+이 아키텍처 문서는 **paros-bmad** 프로젝트 구현을 위한 완전한 가이드입니다. 문서화된 모든 결정, 패턴, 구조를 정확히 따르십시오.
 
 **First Implementation Priority:**
 
 1. **T3 Stack 설치:**
    ```bash
-   npm create t3-app@latest pharos-bmad
+   npm create t3-app@latest paros-bmad
    # 선택: Next.js, TypeScript, Tailwind, tRPC, Prisma, ESLint
    # 미선택: next-auth
    ```

@@ -165,13 +165,19 @@ export function useRealtimeProgress(
 
   // Auto-connect on mount and disconnect on unmount
   useEffect(() => {
+    // Only connect if documentId is provided
+    if (!documentId) {
+      console.log("[SSE] No documentId provided, skipping connection");
+      return;
+    }
+
     connect();
 
     // Cleanup on unmount
     return () => {
       disconnect();
     };
-  }, [connect, disconnect]);
+  }, [connect, disconnect, documentId]);
 
   return {
     progress,

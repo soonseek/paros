@@ -1210,4 +1210,4 @@ git commit -m "feat: Story 2.1 - Case registration (WIP)"
 *Story created: 2026-01-08*
 *Review follow-ups completed: 2026-01-08*
 *Author: Claude Sonnet 4.5*
-*Project: Pharos BMAD*
+*Project: paros BMAD*

@@ -1,16 +1,17 @@
 /**
  * File Structure Analyzer
  *
- * Story 3.4: Analyzes uploaded financial transaction files (Excel/CSV) to detect structure.
+ * Story 3.4: Analyzes uploaded financial transaction files (Excel/CSV/PDF) to detect structure.
  *
  * Features:
- * - Automatic file format detection (Excel/CSV)
+ * - Automatic file format detection (Excel/CSV/PDF)
+ * - PDF OCR using Upstage Solar Document Parse API
  * - Column header identification with bilingual support (Korean/English)
  * - Confidence scoring (0.0 ~ 1.0) based on match quality
  * - Required column validation (date column is mandatory)
  * - Header row detection
  *
- * MVP Scope: Excel/CSV only (PDF OCR deferred to Story 3.6)
+ * MVP Scope: Excel/CSV + PDF with Upstage OCR
  */
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
@@ -25,6 +26,7 @@ import {
   getMissingRequiredColumns,
   getColumnTypeLabel,
 } from "./column-mapping";
+import { parsePdfWithUpstage } from "./pdf-ocr";
 
 /**
  * Analysis result interface
@@ -42,6 +44,9 @@ export interface AnalysisResult {
   detectedFormat: "excel" | "csv" | "pdf";
   hasHeaders: boolean;
   confidence: number; // 0.0 ~ 1.0
+
+  // Extracted raw data (for reuse in extractData)
+  extractedData?: { headers: string[]; rows: string[][] };
 
   // Error information
   errorMessage?: string;
@@ -79,10 +84,8 @@ export async function analyzeFileStructure(
     const detectedFormat = detectFileFormat(mimeType);
 
     // Parse file based on format
-    const { headers, totalRows, headerRowIndex } = await parseFile(
-      fileBuffer,
-      detectedFormat
-    );
+    const parsedData = await parseFile(fileBuffer, detectedFormat);
+    const { headers, totalRows, headerRowIndex, extractedData } = parsedData;
 
     // Detect column types
     const detectedColumns = detectColumns(headers);
@@ -111,6 +114,7 @@ export async function analyzeFileStructure(
       detectedFormat,
       hasHeaders: true,
       confidence,
+      extractedData, // Include extracted raw data
       ...(missingRequired.length > 0 && {
         errorMessage: `필수 열이 누락되었습니다: ${missingRequired.map(getColumnTypeLabel).join(", ")}`,
         errorDetails: { missingRequired },
@@ -173,9 +177,23 @@ async function parseFile(
   headers: string[];
   totalRows: number;
   headerRowIndex: number;
+  extractedData?: { headers: string[]; rows: string[][] }; // Raw extracted data
 }> {
   if (format === "pdf") {
-    throw new Error("PDF 파일 분석은 Story 3.6에서 지원됩니다");
+    // Use Upstage API to parse PDF
+    console.log("[PDF Analysis] Starting Upstage Document Parse API...");
+    const tableData = await parsePdfWithUpstage(fileBuffer);
+    console.log(`[PDF Analysis] Extracted ${tableData.totalRows} rows`);
+
+    return {
+      headers: tableData.headers,
+      totalRows: tableData.totalRows,
+      headerRowIndex: 0, // PDF tables typically have headers in first row
+      extractedData: {
+        headers: tableData.headers,
+        rows: tableData.rows,
+      }, // Save raw data for reuse
+    };
   }
 
   // Parse Excel/CSV file using xlsx library

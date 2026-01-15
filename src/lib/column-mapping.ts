@@ -36,7 +36,7 @@ export const COLUMN_MAPPING: Record<
   { korean: string[]; english: string[]; priority: number }
 > = {
   [ColumnType.DATE]: {
-    korean: ["날짜", "거래일자", "일자", "交易日期"],
+    korean: ["날짜", "거래일", "거래일자", "일자", "交易日期"],
     english: ["Date", "Transaction Date", "Trx Date", "Trade Date"],
     priority: 1, // Required field
   },
