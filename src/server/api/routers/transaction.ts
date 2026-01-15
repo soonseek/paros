@@ -1410,34 +1410,37 @@ export const transactionRouter = createTRPCRouter({
         });
       }
 
-      // DEBUG: Check if transactions exist for this documentId
-      const existingTransactions = await ctx.db.transaction.findMany({
+      // 3. Check if transactions exist for this document
+      const existingCount = await ctx.db.transaction.count({
         where: { documentId },
-        select: { id: true, documentId: true },
-        take: 5,
       });
 
-      console.log(`[Delete Transactions] Document ID: ${documentId}`);
-      console.log(`[Delete Transactions] Found ${existingTransactions.length} transactions before delete`);
-      if (existingTransactions.length > 0) {
-        console.log(`[Delete Transactions] Sample transactions:`, existingTransactions.map(t => ({ id: t.id, documentId: t.documentId })));
+      if (existingCount === 0) {
+        // No transactions to delete - check if document exists
+        const docExists = await ctx.db.document.findUnique({
+          where: { id: documentId },
+          select: { id: true, originalFileName: true, status: true },
+        });
+
+        if (!docExists) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "문서를 찾을 수 없습니다",
+          });
+        }
+
+        // Document exists but has no transactions
+        return {
+          deletedCount: 0,
+          message: `삭제할 거래내역이 없습니다. '${docExists.originalFileName}' 파일은 존재하지만 거래 데이터가 없습니다.`,
+          documentStatus: docExists.status,
+        };
       }
 
-      // Also check all transactions for this case
-      const allCaseTransactions = await ctx.db.transaction.findMany({
-        where: { caseId: document.caseId },
-        select: { id: true, documentId: true },
-      });
-
-      console.log(`[Delete Transactions] Total transactions in case: ${allCaseTransactions.length}`);
-      console.log(`[Delete Transactions] Unique document IDs in case:`, [...new Set(allCaseTransactions.map(t => t.documentId))]);
-
-      // 3. Delete all transactions for this document
+      // 4. Delete all transactions for this document
       const result = await ctx.db.transaction.deleteMany({
         where: { documentId },
       });
-
-      console.log(`[Delete Transactions] Deleted ${result.count} transactions for document ${documentId}`);
 
       return {
         deletedCount: result.count,

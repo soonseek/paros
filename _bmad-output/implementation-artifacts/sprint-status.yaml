@@ -113,3 +113,26 @@ development_status:
   8-1-multidimensional-search-implementation: done  # 2026-01-14: Story 완료 - 다차원 검색 (키워드, 날짜, 금액, 태그), tRPC 서버사이드 검색 완료, 60개 테스트 통과, 코드 리뷰 이슈 해결 (HIGH #1, #3 완료, 나머지는 Story 8.2로 연기)
   8-2-complex-filtering-implementation: done  # 2026-01-14: 완료 - 복합 필터링 구현, 8개 필터 (기본 4개 + 추가 4개), 클라이언트사이드 필터링, URL 파라미터 동기화, savedFilters tRPC 라우터, SearchFilterPanel UI 확장. 139개 테스트 통과, 모든 AC 충족, 배포 준비 완료
   epic-8-retrospective: done  # 2026-01-14: Retrospective complete - epic-8-retro-2026-01-14.md, P0 Action Items 2개 (TransactionTable 통합 2시간, 필터 저장 UI 1시간), Epic 9 미정의
+
+# Bug Fixes - 2026-01-15
+# ====================
+# Sprint Change Proposal completed via correct-course workflow
+bug-fixes-2026-01-15: done  # 2026-01-15: 4 bugs fixed via correct-course workflow
+  - Issue #1: Authentication 401 error handler - Fixed with custom authLink in src/utils/api.ts
+  - Issue #2: Transaction deletion bug - Fixed with validation in src/server/api/routers/transaction.ts
+  - Issue #3: SSE empty documentId - Fixed with validation in src/hooks/use-realtime-progress.ts (done previously)
+  - Issue #4: Query invalidation after upload - Fixed in src/components/upload-zone.tsx
+  # See sprint-change-proposal-2026-01-15.md for full details
+
+# Netlify DB Deployment Setup - 2026-01-15
+# ===========================================
+# Netlify DB integration for one-command deployment
+netlify-db-setup: done  # 2026-01-15: Netlify DB deployment infrastructure configured
+  - Package: @netlify/neon installed for automatic database provisioning
+  - Configuration: netlify.toml created with build settings and plugins
+  - Environment: .env.example updated with Netlify DB variables documentation
+  - Scripts: Added netlify, netlify:build, netlify:deploy commands
+  - Documentation: docs/NETLIFY_DEPLOYMENT.md created
+  - Git: .gitignore updated for Netlify files (.netlify, netlify.toml.local)
+  - README: Updated with Netlify deployment section
+  # Ready for deployment with: npx netlify db init && npm run netlify:deploy

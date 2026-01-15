@@ -125,6 +125,9 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
     }
   );
 
+  // tRPC utils for query invalidation (Bugfix: Issue #4)
+  const utils = api.useUtils();
+
   // Story 3.5: Real-time progress tracking
   const { progress, stage, error: progressError } = useRealtimeProgress(
     caseId,
@@ -168,6 +171,21 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
               console.error("[Analysis Result Fetch Error]", error);
             }
           }
+
+          // Bugfix Issue #4: Invalidate queries to refresh transaction list
+          void (async () => {
+            try {
+              // Invalidate transaction queries to refresh the list
+              await utils.transaction.getByCase.invalidate({ caseId });
+              // Invalidate document list to refresh uploaded files
+              await utils.document.list.invalidate({ caseId });
+              // Invalidate file analysis status
+              await utils.file.getAnalysisStatus.invalidate({ caseId });
+              console.log("[Query Invalidation] All related queries invalidated after upload");
+            } catch (error) {
+              console.error("[Query Invalidation Error]", error);
+            }
+          })();
 
           toast.success("파일 분석이 완료되었습니다");
           // Reset analyzing document ID after completion

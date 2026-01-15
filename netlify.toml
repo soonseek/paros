@@ -1,0 +1,65 @@
+# Netlify Build Configuration for PHAROS (paros-bmad)
+#
+# This project uses:
+# - Next.js 15 with Pages Router
+# - Prisma ORM with Neon PostgreSQL (Netlify DB)
+# - tRPC for type-safe API
+# - Server-side rendering disabled (SPA mode)
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+# Environment variables for Netlify DB
+# These are automatically set when @netlify/neon is installed
+[build.environment]
+  NODE_VERSION = "20.12.2"
+  NPM_VERSION = "10.8.2"
+
+# Netlify Functions configuration (for tRPC API routes)
+[functions]
+  # Set Node.js version for functions
+  node_bundler = "esbuild"
+
+# Redirects for Next.js Pages Router
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Headers for security and CORS
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Specific headers for API routes
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization"
+
+# Plugins for Netlify DB
+[[plugins]]
+  package = "@netlify/neon"
+
+# Plugin configuration for automatic database provisioning
+[plugins.inputs]
+  # Automatically create database instance on build
+  # Database will be provisioned at:
+  # - netlify dev (local development)
+  # - netlify build (production build)
+  # - git push (CI/CD deployment)
+
+# Site configuration
+[site]
+  # Enable Netlify Identity for authentication (optional)
+  # identity_enabled = true
+
+  # Enable Git LFS for large files
+  # git_lfs_enabled = true

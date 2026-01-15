@@ -15,9 +15,10 @@ paros BMAD는 변호사와 법률 사무소를 위한 AI 기반 금융 거래 �
 
 ## 기술 스택
 
-- **Framework**: [Next.js 15](https://nextjs.org) (App Router)
+- **Framework**: [Next.js 15](https://nextjs.org) (Pages Router)
 - **Language**: [TypeScript](https://www.typescriptlang.org/)
 - **Database**: [PostgreSQL](https://www.postgresql.org/) + [Prisma ORM](https://www.prisma.io/)
+- **Deployment**: [Netlify](https://www.netlify.com/) + [Netlify DB (Neon)](https://docs.netlify.com/build/data-and-storage/netlify-db/)
 - **API**: [tRPC](https://trpc.io/) (타입 안전한 API)
 - **Authentication**: JWT (Custom implementation)
 - **Styling**: [Tailwind CSS](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/)
@@ -99,6 +100,44 @@ ANTHROPIC_API_KEY="your-anthropic-api-key"
 | **Upstage Solar** | 한국어 최적화, 빠른 응답 | 한국 거래 분류 (추천) | [console.upstage.ai](https://console.upstage.ai) |
 | **OpenAI GPT** | 다국어 지원, 높은 정확도 | 복잡한 분류 | [platform.openai.com](https://platform.openai.com/api-keys) |
 | **Anthropic Claude** | 긴 컨텍스트 창 | 대량 거래 분류 | [console.anthropic.com](https://console.anthropic.com) |
+
+## Netlify 배포
+
+### 빠른 시작
+
+Netlify DB (Neon PostgreSQL)를 사용하여 한 번의 명령어로 배포할 수 있습니다.
+
+```bash
+# 1. Netlify DB 초기화
+npx netlify db init
+
+# 2. Netlify에 배포
+npm run netlify:deploy
+```
+
+자세한 내용은 [Netlify Deployment Guide](docs/NETLIFY_DEPLOYMENT.md)를 참조하세요.
+
+### 주요 기능
+
+- **자동 데이터베이스 프로비저닝**: `@netlify/neon` 패키지로 자동 DB 생성
+- **환경 변수 자동 설정**: DATABASE_URL 등 필수 변수 자동 구성
+- **무료 7일 체험**: 데이터베이스 클레임 후 생산 사용 가능
+- **간단한 배포**: Git push만으로 자동 배포
+
+### 배포 스크립트
+
+```bash
+# 로컬 개발 (Netlify Dev)
+npm run netlify
+
+# 빌드
+npm run netlify:build
+
+# 프로덕션 배포
+npm run netlify:deploy
+```
+
+## 데이터베이스 마이그레이션
 
 ## 개발
 
