@@ -4,12 +4,12 @@
  *
  * We also create a few inference helpers for input and output types.
  */
-import { httpBatchLink, loggerLink, TRPCClientError } from "@trpc/client";
+import { httpBatchLink, loggerLink, TRPCClientError, TRPCLink } from "@trpc/client";
 import { createTRPCNext } from "@trpc/next";
 import { type inferRouterInputs, type inferRouterOutputs } from "@trpc/server";
 import superjson from "superjson";
 import { toast } from "sonner";
-import { type observable, type Operation, type NextLink } from "@trpc/client";
+import { observable } from "@trpc/server/observable";
 
 import { type AppRouter } from "~/server/api/root";
 
