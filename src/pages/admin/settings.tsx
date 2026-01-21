@@ -273,6 +273,76 @@ export default function AdminSettings() {
           </div>
         </Card>
 
+        {/* S3 설정 */}
+        <Card className="p-6 mb-6">
+          <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">
+            AWS S3 설정 (파일 저장소)
+          </h2>
+
+          {/* AWS Access Key ID */}
+          <div className="mb-6">
+            <Label htmlFor="aws-access-key" className="mb-2 block">
+              AWS Access Key ID
+            </Label>
+            <Input
+              id="aws-access-key"
+              type="password"
+              value={awsAccessKeyId}
+              onChange={(e) => setAwsAccessKeyId(e.target.value)}
+              placeholder="빈칸으로 두면 기존 값 유지"
+              data-testid="aws-access-key-input"
+            />
+          </div>
+
+          {/* AWS Secret Access Key */}
+          <div className="mb-6">
+            <Label htmlFor="aws-secret-key" className="mb-2 block">
+              AWS Secret Access Key
+            </Label>
+            <Input
+              id="aws-secret-key"
+              type="password"
+              value={awsSecretAccessKey}
+              onChange={(e) => setAwsSecretAccessKey(e.target.value)}
+              placeholder="빈칸으로 두면 기존 값 유지"
+              data-testid="aws-secret-key-input"
+            />
+          </div>
+
+          {/* AWS Region */}
+          <div className="mb-6">
+            <Label htmlFor="aws-region" className="mb-2 block">
+              AWS Region
+            </Label>
+            <Input
+              id="aws-region"
+              type="text"
+              value={awsRegion}
+              onChange={(e) => setAwsRegion(e.target.value)}
+              placeholder="예: ap-northeast-2"
+              data-testid="aws-region-input"
+            />
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+              서울: ap-northeast-2, 도쿄: ap-northeast-1
+            </p>
+          </div>
+
+          {/* S3 Bucket Name */}
+          <div className="mb-6">
+            <Label htmlFor="s3-bucket" className="mb-2 block">
+              S3 Bucket Name
+            </Label>
+            <Input
+              id="s3-bucket"
+              type="text"
+              value={awsS3BucketName}
+              onChange={(e) => setAwsS3BucketName(e.target.value)}
+              placeholder="예: paros-uploads"
+              data-testid="s3-bucket-input"
+            />
+          </div>
+        </Card>
+
         {/* 저장 버튼 */}
         <div className="flex justify-end gap-4">
           <Button
