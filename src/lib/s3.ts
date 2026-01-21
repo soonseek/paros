@@ -99,7 +99,7 @@ export async function uploadFileToS3(
   });
 
   try {
-    await s3Client.send(command);
+    await getS3Client().send(command);
     console.log(`[S3 Upload Success] File uploaded: ${s3Key}`);
     return s3Key;
   } catch (error) {
