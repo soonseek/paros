@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 
 import { api } from "~/utils/api";
 import { AuthProvider } from "~/contexts/AuthContext";
+import { ThemeProvider } from "~/contexts/ThemeContext";
 import { I18nProvider } from "~/lib/i18n/index";
 
 import "~/styles/globals.css";
