@@ -41,43 +41,68 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="border-b bg-white">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-gray-900">paros BMAD</h1>
-          <div className="relative">
-            <Button
-              variant="outline"
-              onClick={() => setShowUserMenu(!showUserMenu)}
-            >
-              {user?.name || user?.email || "사용자 메뉴"}
-            </Button>
-            {showUserMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-white border rounded-md shadow-lg z-10">
-                <div className="py-1">
-                  <button
-                    onClick={() => {
-                      router.push("/dashboard/profile");
-                      setShowUserMenu(false);
-                    }}
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    내 프로필
-                  </button>
-                  <button
-                    onClick={() => {
-                      handleLogout();
-                      setShowUserMenu(false);
-                    }}
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    disabled={logoutMutation.isPending}
-                  >
-                    {logoutMutation.isPending ? "로그아웃 중..." : "로그아웃"}
-                  </button>
-                </div>
-              </div>
+      <header className="border-b bg-white dark:bg-gray-800 dark:border-gray-700">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center flex-wrap gap-4">
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">paros BMAD</h1>
+          <div className="flex items-center gap-3">
+            <ThemeToggleButton />
+            {user?.role === 'ADMIN' && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => router.push("/admin/settings")}
+                title="관리자 설정"
+                data-testid="admin-settings-button"
+              >
+                <Settings className="h-5 w-5" />
+              </Button>
             )}
+            <div className="relative">
+              <Button
+                variant="outline"
+                onClick={() => setShowUserMenu(!showUserMenu)}
+              >
+                {user?.name || user?.email || "사용자 메뉴"}
+              </Button>
+              {showUserMenu && (
+                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-md shadow-lg z-10">
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        router.push("/dashboard/profile");
+                        setShowUserMenu(false);
+                      }}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      내 프로필
+                    </button>
+                    {user?.role === 'ADMIN' && (
+                      <button
+                        onClick={() => {
+                          router.push("/admin/settings");
+                          setShowUserMenu(false);
+                        }}
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      >
+                        관리자 설정
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        handleLogout();
+                        setShowUserMenu(false);
+                      }}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      disabled={logoutMutation.isPending}
+                    >
+                      {logoutMutation.isPending ? "로그아웃 중..." : "로그아웃"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
