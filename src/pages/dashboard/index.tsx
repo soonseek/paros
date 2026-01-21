@@ -1,5 +1,6 @@
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
+import { Settings } from "lucide-react";
 
 import { Button } from "~/components/ui/button";
 import {
@@ -11,6 +12,7 @@ import {
 } from "~/components/ui/card";
 import { api } from "~/utils/api";
 import { useAuth } from "~/contexts/AuthContext";
+import { ThemeToggleButton } from "~/components/theme-toggle";
 
 export default function DashboardPage() {
   const router = useRouter();
