@@ -156,7 +156,7 @@ export async function downloadFileFromS3(s3Key: string): Promise<Buffer> {
   });
 
   try {
-    const response = await s3Client.send(command);
+    const response = await getS3Client().send(command);
 
     // Handle streaming response and convert to Buffer
     if (!response.Body) {
