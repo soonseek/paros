@@ -128,7 +128,7 @@ export async function deleteFileFromS3(s3Key: string): Promise<void> {
   });
 
   try {
-    await s3Client.send(command);
+    await getS3Client().send(command);
     console.log(`[S3 Delete Success] File deleted: ${s3Key}`);
   } catch (error) {
     console.error("[S3 Delete Error]", error);
