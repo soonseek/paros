@@ -23,10 +23,10 @@ const getBaseUrl = () => {
  * Custom tRPC link to handle 401 UNAUTHORIZED errors globally
  * Intercepts responses and shows custom toast message before redirecting
  */
-const authLink = () =>
-  ({ next, op }: { next: NextLink; op: Operation }) =>
-    observable((observer) => {
-      next(op).subscribe({
+const authLink: TRPCLink<AppRouter> = () => {
+  return ({ next, op }) => {
+    return observable((observer) => {
+      const unsubscribe = next(op).subscribe({
         next: (value) => {
           // Check if response contains an UNAUTHORIZED error
           if (
@@ -73,7 +73,10 @@ const authLink = () =>
           observer.complete();
         },
       });
+      return unsubscribe;
     });
+  };
+};
 
 /** A set of type-safe react-query hooks for your tRPC API. */
 export const api = createTRPCNext<AppRouter>({
