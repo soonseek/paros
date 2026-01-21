@@ -31,6 +31,7 @@ export const appRouter = createTRPCRouter({
   file: fileRouter,
   post: postRouter,
   savedFilters: savedFiltersRouter, // Story 8.2
+  settings: settingsRouter, // Admin Settings
   tag: tagRouter, // Story 4.6
   transaction: transactionRouter,
   transactionChain: transactionChainRouter, // Story 5.3
