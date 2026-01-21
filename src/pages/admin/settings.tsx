@@ -102,6 +102,43 @@ export default function AdminSettings() {
         });
       }
 
+      // S3 설정 저장
+      if (awsAccessKeyId.trim()) {
+        await updateSetting.mutateAsync({
+          key: 'AWS_ACCESS_KEY_ID',
+          value: awsAccessKeyId.trim(),
+          category: 'GENERAL',
+          isEncrypted: true,
+        });
+      }
+
+      if (awsSecretAccessKey.trim()) {
+        await updateSetting.mutateAsync({
+          key: 'AWS_SECRET_ACCESS_KEY',
+          value: awsSecretAccessKey.trim(),
+          category: 'GENERAL',
+          isEncrypted: true,
+        });
+      }
+
+      if (awsRegion.trim()) {
+        await updateSetting.mutateAsync({
+          key: 'AWS_REGION',
+          value: awsRegion.trim(),
+          category: 'GENERAL',
+          isEncrypted: false,
+        });
+      }
+
+      if (awsS3BucketName.trim()) {
+        await updateSetting.mutateAsync({
+          key: 'AWS_S3_BUCKET_NAME',
+          value: awsS3BucketName.trim(),
+          category: 'GENERAL',
+          isEncrypted: false,
+        });
+      }
+
       toast.success('모든 설정이 저장되었습니다.');
     } catch (error) {
       console.error('설정 저장 실패:', error);
