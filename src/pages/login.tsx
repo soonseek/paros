@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { api } from "~/utils/api";
 import { useAuth } from "~/contexts/AuthContext";
+import { ThemeToggleButton } from "~/components/theme-toggle";
 
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
