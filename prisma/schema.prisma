@@ -549,3 +549,19 @@ model SavedFilter {
     @@index([filterType])
     @@map("saved_filters")
 }
+
+// System Settings Model - Admin configurable settings
+model SystemSetting {
+    id        String   @id @default(uuid())
+    key       String   @unique                   // Setting key (e.g., "AI_PROVIDER", "UPSTAGE_API_KEY")
+    value     String?  @db.Text                  // Encrypted value
+    category  String   @default("GENERAL")       // GENERAL, AI, EMAIL, etc.
+    isEncrypted Boolean @default(false)          // Whether value is encrypted
+    updatedBy String?                            // User who last updated
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([key])
+    @@index([category])
+    @@map("system_settings")
+}
