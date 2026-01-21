@@ -25,6 +25,13 @@ export default function AdminSettings() {
   const [upstageApiKey, setUpstageApiKey] = useState('');
   const [openaiApiKey, setOpenaiApiKey] = useState('');
   const [anthropicApiKey, setAnthropicApiKey] = useState('');
+  
+  // S3 설정
+  const [awsAccessKeyId, setAwsAccessKeyId] = useState('');
+  const [awsSecretAccessKey, setAwsSecretAccessKey] = useState('');
+  const [awsRegion, setAwsRegion] = useState('ap-northeast-2');
+  const [awsS3BucketName, setAwsS3BucketName] = useState('');
+  
   const [isSaving, setIsSaving] = useState(false);
 
   // 설정 조회
