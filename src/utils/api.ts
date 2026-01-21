@@ -32,8 +32,6 @@ export const api = createTRPCNext<AppRouter>({
             process.env.NODE_ENV === "development" ||
             (opts.direction === "down" && opts.result instanceof Error),
         }),
-        // Add auth error handling link before httpBatchLink
-        authLink(),
         httpBatchLink({
           /**
            * Transformer used for data de-serialization from the server.
