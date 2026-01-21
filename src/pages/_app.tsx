@@ -15,14 +15,16 @@ const geist = Geist({
 
 const MyApp: AppType = ({ Component, pageProps }) => {
   return (
-    <AuthProvider>
-      <I18nProvider>
-        <div className={geist.className}>
-          <Component {...pageProps} />
-          <Toaster richColors position="top-right" />
-        </div>
-      </I18nProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <I18nProvider>
+          <div className={geist.className}>
+            <Component {...pageProps} />
+            <Toaster richColors position="top-right" />
+          </div>
+        </I18nProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 };
 
