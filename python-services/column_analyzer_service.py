@@ -150,7 +150,7 @@ async def analyze_with_llm(content: str, is_pdf: bool = False, file_path: str = 
     
     if is_pdf and file_path:
         # PDF 파일 첨부
-        pdf_file = FileContentWithMimeType(file_path, "application/pdf")
+        pdf_file = FileContentWithMimeType("application/pdf", file_path)
         response = await chat.send_message(
             UserMessage(
                 text="첨부된 PDF 파일의 거래내역 테이블을 분석하고 컬럼 매핑을 JSON 형식으로 반환해주세요. JSON만 반환하고 다른 텍스트는 포함하지 마세요.",
