@@ -48,6 +48,13 @@ export interface AnalysisResult {
   // Extracted raw data (for reuse in extractData)
   extractedData?: { headers: string[]; rows: string[][] };
 
+  // LLM 분석 메타데이터 (LLM 분석 사용 시)
+  llmAnalysis?: {
+    transactionTypeMethod: string; // separate_columns, type_column, sign_in_type, amount_sign
+    memoContentType: string; // 입금자명, 계좌정보, 거래설명 등
+    reasoning: string; // 분석 근거
+  };
+
   // Error information
   errorMessage?: string;
   errorDetails?: Record<string, unknown>;
