@@ -480,10 +480,11 @@ export const fileRouter = createTRPCRouter({
     .input(
       z.object({
         documentId: z.string().min(1, "문서 ID는 필수 항목입니다"),
+        useLlmAnalysis: z.boolean().optional().default(false), // LLM 기반 분석 사용 여부
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const { documentId } = input;
+      const { documentId, useLlmAnalysis } = input;
       const userId = ctx.userId;
 
       // Step 1: Get Document with Case information
