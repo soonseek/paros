@@ -18,6 +18,12 @@ const config = {
     defaultLocale: "en",
   },
 
+  // Allow preview domain requests
+  allowedDevOrigins: [
+    'admin-paros.preview.emergentagent.com',
+    '*.preview.emergentagent.com',
+  ],
+
   // CORS headers for API routes
   async headers() {
     return [
