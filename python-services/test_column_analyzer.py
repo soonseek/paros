@@ -94,7 +94,7 @@ async def analyze_pdf(name: str, url: str):
             system_message=PROMPT
         ).with_model("gemini", "gemini-2.5-flash")
         
-        pdf_file = FileContentWithMimeType(pdf_path, "application/pdf")
+        pdf_file = FileContentWithMimeType("application/pdf", pdf_path)
         
         response = await chat.send_message(
             UserMessage(
