@@ -47,4 +47,7 @@ netlify.toml.local
 *.tsbuildinfo
 
 # idea files
-.idea
+.idea-e 
+# Environment files
+*.env
+*.env.*
