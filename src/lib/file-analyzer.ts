@@ -80,22 +80,42 @@ export async function analyzeFileStructure(
   mimeType: string
 ): Promise<AnalysisResult> {
   try {
+    console.log("[File Analysis] Starting analysis for MIME type:", mimeType);
+
     // Detect file format
     const detectedFormat = detectFileFormat(mimeType);
+    console.log("[File Analysis] Detected format:", detectedFormat);
 
     // Parse file based on format
     const parsedData = await parseFile(fileBuffer, detectedFormat);
     const { headers, totalRows, headerRowIndex, extractedData } = parsedData;
 
+    // DEBUG: Log detected headers
+    console.log("[File Analysis] Detected headers:", headers);
+    console.log("[File Analysis] Header row index:", headerRowIndex);
+    console.log("[File Analysis] Total rows:", totalRows);
+
     // Detect column types
     const detectedColumns = detectColumns(headers);
 
+    // DEBUG: Log detected columns
+    console.log("[File Analysis] Detected columns:", detectedColumns.map(col => ({
+      type: col.columnType,
+      name: col.columnName,
+      confidence: col.confidence
+    })));
+
     // Calculate confidence score
     const confidence = calculateConfidence(detectedColumns, headers.length);
+    console.log("[File Analysis] Confidence score:", confidence);
 
     // Check for missing required columns
     const detectedTypes = detectedColumns.map((col) => col.columnType);
     const missingRequired = getMissingRequiredColumns(detectedTypes);
+
+    if (missingRequired.length > 0) {
+      console.error("[File Analysis] Missing required columns:", missingRequired);
+    }
 
     // Build column mapping
     const columnMapping: Record<string, string> = {};
@@ -104,6 +124,8 @@ export async function analyzeFileStructure(
         columnMapping[detection.columnType] = detection.columnName;
       }
     }
+
+    console.log("[File Analysis] Final column mapping:", columnMapping);
 
     // Return analysis result
     return {

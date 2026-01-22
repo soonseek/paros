@@ -9,8 +9,6 @@ import { createTRPCNext } from "@trpc/next";
 import { type inferRouterInputs, type inferRouterOutputs } from "@trpc/server";
 import superjson from "superjson";
 import { toast } from "sonner";
-import { type observable, type Operation, type NextLink } from "@trpc/client";
-
 import { type AppRouter } from "~/server/api/root";
 
 const getBaseUrl = () => {
@@ -20,60 +18,25 @@ const getBaseUrl = () => {
 };
 
 /**
- * Custom tRPC link to handle 401 UNAUTHORIZED errors globally
- * Intercepts responses and shows custom toast message before redirecting
+ * Handle UNAUTHORIZED (401) errors globally
+ * Clear auth storage and redirect to login
  */
-const authLink = () =>
-  ({ next, op }: { next: NextLink; op: Operation }) =>
-    observable((observer) => {
-      next(op).subscribe({
-        next: (value) => {
-          // Check if response contains an UNAUTHORIZED error
-          if (
-            value &&
-            typeof value === "object" &&
-            "error" in value &&
-            value.error instanceof TRPCClientError
-          ) {
-            const error = value.error as TRPCClientError<AppRouter>;
+export function handleUnauthorizedError() {
+  console.error("[Auth] Unauthorized - clearing session and redirecting to login...");
 
-            // Check if this is a 401 UNAUTHORIZED error
-            if (error.data?.code === "UNAUTHORIZED") {
-              console.error("[Auth] 401 detected - handling globally...");
+  if (typeof window !== "undefined") {
+    // Clear auth storage
+    sessionStorage.removeItem("user");
+    sessionStorage.removeItem("access_token");
+    document.cookie = "accessToken=; path=/; max-age=0; sameSite=strict";
 
-              // Clear auth storage immediately
-              if (typeof window !== "undefined") {
-                sessionStorage.removeItem("user");
-                sessionStorage.removeItem("access_token");
-                document.cookie = "accessToken=; path=/; max-age=0; sameSite=strict";
-              }
+    // Show toast notification
+    toast.error("로그인이 만료되었습니다. 다시 로그인해주세요.");
 
-              // Show custom toast message (overrides server message)
-              toast.error("로그인이 만료되었습니다. 다시 로그인해주세요.");
-
-              // Redirect to login after 1 second
-              setTimeout(() => {
-                if (typeof window !== "undefined") {
-                  window.location.href = "/login";
-                }
-              }, 1000);
-
-              // Don't propagate the error to components
-              return;
-            }
-          }
-
-          // Pass through non-401 errors normally
-          observer.next(value);
-        },
-        error: (err) => {
-          observer.error(err);
-        },
-        complete: () => {
-          observer.complete();
-        },
-      });
-    });
+    // Redirect immediately (no delay)
+    window.location.href = "/login";
+  }
+}
 
 /** A set of type-safe react-query hooks for your tRPC API. */
 export const api = createTRPCNext<AppRouter>({
@@ -90,8 +53,6 @@ export const api = createTRPCNext<AppRouter>({
             process.env.NODE_ENV === "development" ||
             (opts.direction === "down" && opts.result instanceof Error),
         }),
-        // Add auth error handling link before httpBatchLink
-        authLink(),
         httpBatchLink({
           /**
            * Transformer used for data de-serialization from the server.
@@ -100,6 +61,20 @@ export const api = createTRPCNext<AppRouter>({
            */
           transformer: superjson,
           url: `${getBaseUrl()}/api/trpc`,
+          /**
+           * Custom fetch to handle 401 errors at HTTP level
+           */
+          async fetch(url, options) {
+            const response = await fetch(url, options);
+
+            // Check for 401 Unauthorized response
+            if (response.status === 401) {
+              console.error("[tRPC] HTTP 401 detected - handling unauthorized");
+              handleUnauthorizedError();
+            }
+
+            return response;
+          },
           /**
            * Add Authorization header with Access Token
            */
@@ -118,6 +93,72 @@ export const api = createTRPCNext<AppRouter>({
           },
         }),
       ],
+      /**
+       * Global error handler for tRPC queries and mutations
+       * Handles 401 UNAUTHORIZED errors globally
+       */
+      queryClientConfig: {
+        defaultOptions: {
+          queries: {
+            onError: (error) => {
+              console.error("[tRPC Query Error]", error);
+
+              // Check for 401 in multiple ways
+              if (error instanceof TRPCClientError) {
+                // Check tRPC error code
+                if (error.data?.code === "UNAUTHORIZED") {
+                  console.error("[tRPC] UNAUTHORIZED error detected");
+                  handleUnauthorizedError();
+                  return;
+                }
+
+                // Check HTTP status
+                if ((error as any).shape?.data?.httpStatus === 401) {
+                  console.error("[tRPC] HTTP 401 detected in error");
+                  handleUnauthorizedError();
+                  return;
+                }
+              }
+
+              // Generic 401 check
+              const errorStr = JSON.stringify(error);
+              if (errorStr.includes("401") || errorStr.includes("UNAUTHORIZED") || errorStr.includes("Unauthorized")) {
+                console.error("[tRPC] 401/UNAUTHORIZED detected in error string");
+                handleUnauthorizedError();
+              }
+            },
+          },
+          mutations: {
+            onError: (error) => {
+              console.error("[tRPC Mutation Error]", error);
+
+              // Check for 401 in multiple ways
+              if (error instanceof TRPCClientError) {
+                // Check tRPC error code
+                if (error.data?.code === "UNAUTHORIZED") {
+                  console.error("[tRPC] UNAUTHORIZED error detected");
+                  handleUnauthorizedError();
+                  return;
+                }
+
+                // Check HTTP status
+                if ((error as any).shape?.data?.httpStatus === 401) {
+                  console.error("[tRPC] HTTP 401 detected in error");
+                  handleUnauthorizedError();
+                  return;
+                }
+              }
+
+              // Generic 401 check
+              const errorStr = JSON.stringify(error);
+              if (errorStr.includes("401") || errorStr.includes("UNAUTHORIZED") || errorStr.includes("Unauthorized")) {
+                console.error("[tRPC] 401/UNAUTHORIZED detected in error string");
+                handleUnauthorizedError();
+              }
+            },
+          },
+        },
+      },
     };
   },
   /**
@@ -142,26 +183,3 @@ export type RouterInputs = inferRouterInputs<AppRouter>;
  * @example type HelloOutput = RouterOutputs['example']['hello']
  */
 export type RouterOutputs = inferRouterOutputs<AppRouter>;
-
-/**
- * Handle UNAUTHORIZED (401) errors globally
- * Clear auth storage and redirect to login
- */
-export function handleUnauthorizedError() {
-  console.error("[Auth] Unauthorized - clearing session and redirecting to login...");
-
-  if (typeof window !== "undefined") {
-    // Clear auth storage
-    sessionStorage.removeItem("user");
-    sessionStorage.removeItem("access_token");
-    document.cookie = "accessToken=; path=/; max-age=0; sameSite=strict";
-
-    // Show toast notification
-    toast.error("로그인이 만료되었습니다. 다시 로그인해주세요.");
-
-    // Redirect to login page after a short delay
-    setTimeout(() => {
-      window.location.href = "/login";
-    }, 1000);
-  }
-}
