@@ -581,7 +581,8 @@ export const fileRouter = createTRPCRouter({
       // Step 6: Analyze file structure
       let analysisData;
       try {
-        analysisData = await analyzeFileStructure(fileBuffer, document.mimeType);
+        // LLM 기반 분석 옵션 전달
+        analysisData = await analyzeFileStructure(fileBuffer, document.mimeType, useLlmAnalysis);
       } catch (error) {
         console.error("[File Analysis Error]", error);
 
