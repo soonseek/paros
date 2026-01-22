@@ -736,10 +736,12 @@ const CaseDetailPage: NextPage = () => {
         </Card>
 
         {/* AI 어시스턴트 - 거래내역 질의응답 */}
-        <AIChatAssistant
-          caseId={id as string}
-          transactions={memoizedTransactions}
-        />
+        <div className="mb-6">
+          <AIChatAssistant
+            caseId={id as string}
+            transactions={memoizedTransactions}
+          />
+        </div>
 
         {/* Story 6.2: Split View Layout - 왼쪽 40% 발견사항, 오른쪽 60% 사건 정보 */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">

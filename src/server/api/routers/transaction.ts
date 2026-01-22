@@ -1416,24 +1416,36 @@ export const transactionRouter = createTRPCRouter({
       });
 
       if (existingCount === 0) {
-        // No transactions to delete - check if document exists
-        const docExists = await ctx.db.document.findUnique({
+        // No transactions to delete - delete the document itself
+        const docToDelete = await ctx.db.document.findUnique({
           where: { id: documentId },
-          select: { id: true, originalFileName: true, status: true },
+          select: { id: true, originalFileName: true, s3Key: true },
         });
 
-        if (!docExists) {
+        if (!docToDelete) {
           throw new TRPCError({
             code: "NOT_FOUND",
             message: "문서를 찾을 수 없습니다",
           });
         }
 
-        // Document exists but has no transactions
+        // Delete from S3
+        try {
+          const { deleteFileFromS3 } = await import("~/lib/s3");
+          await deleteFileFromS3(docToDelete.s3Key);
+        } catch (error) {
+          console.error("[S3 Delete] Failed to delete file:", error);
+          // Continue with DB deletion even if S3 deletion fails
+        }
+
+        // Delete document from database
+        await ctx.db.document.delete({
+          where: { id: documentId },
+        });
+
         return {
           deletedCount: 0,
-          message: `삭제할 거래내역이 없습니다. '${docExists.originalFileName}' 파일은 존재하지만 거래 데이터가 없습니다.`,
-          documentStatus: docExists.status,
+          message: `'${docToDelete.originalFileName}' 파일이 삭제되었습니다. 거래 데이터가 없어 파일만 삭제되었습니다.`,
         };
       }
 

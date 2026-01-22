@@ -3,15 +3,17 @@
  *
  * 거래내역 질의응답을 위한 AI 어시스턴트 채팅 UI
  * 성능 최적화를 위해 별도 컴포넌트로 분리
+ * Enhanced with professional design and better UX
  */
 
 "use client";
 
-import { useState, useCallback, memo } from "react";
-import { Loader2 } from "lucide-react";
-import { Card } from "./ui/card";
+import { useState, useCallback, memo, useRef, useEffect } from "react";
+import { Loader2, Send, Bot, User, Copy, CheckCheck, Sparkles } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "./ui/card";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { api } from "~/utils/api";
 import { toast } from "sonner";
 
@@ -31,15 +33,29 @@ interface AIChatAssistantProps {
   transactions: Transaction[];
 }
 
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+}
+
 // React.memo로 불필요한 리렌더링 방지
 export const AIChatAssistant = memo<AIChatAssistantProps>(({ caseId, transactions }) => {
   const [chatInput, setChatInput] = useState("");
-  const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState("gpt-4o");
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const utils = api.useUtils();
   const chatMutation = api.chat.askAssistant.useMutation();
+
+  // Auto-scroll to bottom when new message arrives
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
 
   // useCallback으로 함수 메모이제이션
   const handleSendMessage = useCallback(async () => {
@@ -47,7 +63,12 @@ export const AIChatAssistant = memo<AIChatAssistantProps>(({ caseId, transaction
 
     const userMessage = chatInput.trim();
     setChatInput("");
-    setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    const userMsg: ChatMessage = { 
+      role: 'user', 
+      content: userMessage,
+      timestamp: new Date()
+    };
+    setChatMessages(prev => [...prev, userMsg]);
     setIsLoading(true);
 
     try {
@@ -58,12 +79,23 @@ export const AIChatAssistant = memo<AIChatAssistantProps>(({ caseId, transaction
         transactions,
       });
 
-      setChatMessages(prev => [...prev, { role: 'assistant', content: result.response }]);
+      const assistantMsg: ChatMessage = {
+        role: 'assistant',
+        content: result.response,
+        timestamp: new Date()
+      };
+      setChatMessages(prev => [...prev, assistantMsg]);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "AI 응답 실패");
-      setChatMessages(prev => [...prev, { role: 'assistant', content: "죄송합니다. AI 응답 생성 중 오류가 발생했습니다. 다시 시도해주세요." }]);
+      const errorMsg: ChatMessage = {
+        role: 'assistant',
+        content: "죄송합니다. AI 응답 생성 중 오류가 발생했습니다. 다시 시도해주세요.",
+        timestamp: new Date()
+      };
+      setChatMessages(prev => [...prev, errorMsg]);
     } finally {
       setIsLoading(false);
+      inputRef.current?.focus();
     }
   }, [chatInput, caseId, selectedModel, transactions, chatMutation]);
 
@@ -74,85 +106,208 @@ export const AIChatAssistant = memo<AIChatAssistantProps>(({ caseId, transaction
     }
   }, [handleSendMessage]);
 
-  return (
-    <Card className="p-6 mb-6">
-      <h2 className="text-xl font-bold mb-4">AI 어시스턴트</h2>
-      <div className="space-y-4">
-        {/* 모델 선택 */}
-        <div className="flex gap-2">
-          <select
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm flex-1"
-            value={selectedModel}
-            onChange={(e) => setSelectedModel(e.target.value)}
-          >
-            <optgroup label="OpenAI GPT (최신)">
-              <option value="gpt-4o">GPT-4o (OpenAI) - 추천</option>
-              <option value="gpt-4o-mini">GPT-4o Mini (OpenAI) - 빠름</option>
-            </optgroup>
-            <optgroup label="OpenAI GPT">
-              <option value="gpt-4-turbo">GPT-4 Turbo</option>
-              <option value="gpt-4">GPT-4</option>
-            </optgroup>
-            <optgroup label="Anthropic Claude">
-              <option value="claude-sonnet-4">Claude Sonnet 4 (Anthropic)</option>
-              <option value="claude-haiku">Claude Haiku (Anthropic) - 빠름</option>
-            </optgroup>
-          </select>
-        </div>
+  const handleCopy = useCallback((content: string, index: number) => {
+    navigator.clipboard.writeText(content).then(() => {
+      setCopiedIndex(index);
+      toast.success("메시지가 클립보드에 복사되었습니다");
+      setTimeout(() => setCopiedIndex(null), 2000);
+    });
+  }, []);
 
+  const suggestedQuestions = [
+    "가장 큰 입금액은 얼마인가요?",
+    "출금이 가장 많은 달은 언제인가요?",
+    "총 입금액과 출금액을 알려주세요",
+    "최근 30일간 거래 내역을 요약해주세요"
+  ];
+
+  return (
+    <Card>
+      <CardHeader className="border-b">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-4">
+            <div className="p-3 rounded-xl bg-primary/10 ring-4 ring-primary/5">
+              <Bot className="size-7 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-2xl font-bold flex items-center gap-2">
+                AI 어시스턴트
+                <Sparkles className="size-5 text-primary animate-pulse" />
+              </CardTitle>
+              <CardDescription className="text-base mt-1">
+                거래내역에 대해 질문하고 인사이트를 얻으세요
+              </CardDescription>
+            </div>
+          </div>
+          <Select value={selectedModel} onValueChange={setSelectedModel}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="gpt-4o">GPT-4o (추천)</SelectItem>
+              <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>
+              <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
+              <SelectItem value="gpt-4">GPT-4</SelectItem>
+              <SelectItem value="claude-sonnet-4">Claude Sonnet 4</SelectItem>
+              <SelectItem value="claude-haiku">Claude Haiku</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </CardHeader>
+
+      <CardContent className="p-0">
         {/* 채팅 메시지 영역 */}
-        <div className="bg-gray-50 rounded-lg p-4 max-h-[300px] overflow-y-auto">
+        <div className="h-[400px] overflow-y-auto p-6 space-y-4 scrollbar-thin">
           {chatMessages.length === 0 ? (
-            <p className="text-sm text-gray-600">
-              거래내역에 대해 질문하세요. 예: "가장 큰 입금액은 얼마인가요?", "출금이 가장 많은 달은 언제인가요?"
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {chatMessages.map((msg, idx) => (
-                <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] rounded-lg px-3 py-2 ${
-                    msg.role === 'user'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white border border-gray-200 text-gray-800'
-                  }`}>
-                    <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                  </div>
+            <div className="h-full flex flex-col items-center justify-center space-y-6">
+              <div className="text-center space-y-2">
+                <div className="p-4 rounded-full bg-muted inline-flex">
+                  <Bot className="size-8 text-muted-foreground" />
                 </div>
-              ))}
-              {isLoading && (
-                <div className="flex justify-start">
-                  <div className="bg-white border border-gray-200 rounded-lg px-3 py-2">
-                    <Loader2 className="h-4 w-4 animate-spin text-gray-600" />
+                <p className="text-sm text-muted-foreground">
+                  {transactions.length === 0 
+                    ? "거래내역이 로드되면 AI 어시스턴트를 사용할 수 있습니다"
+                    : "아래 추천 질문을 클릭하거나 직접 질문해보세요"
+                  }
+                </p>
+              </div>
+
+              {transactions.length > 0 && (
+                <div className="w-full max-w-md space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    추천 질문
+                  </p>
+                  <div className="grid grid-cols-1 gap-2">
+                    {suggestedQuestions.map((question, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          setChatInput(question);
+                          inputRef.current?.focus();
+                        }}
+                        className="text-left p-3 rounded-lg border border-border bg-card hover:bg-accent hover:border-primary/50 transition-colors text-sm"
+                      >
+                        {question}
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}
             </div>
+          ) : (
+            <>
+              {chatMessages.map((msg, idx) => (
+                <div 
+                  key={idx} 
+                  className={`flex gap-3 slide-up ${
+                    msg.role === 'user' ? 'justify-end' : 'justify-start'
+                  }`}
+                >
+                  {msg.role === 'assistant' && (
+                    <div className="shrink-0 mt-1 p-2 rounded-lg bg-primary/10 size-fit">
+                      <Bot className="size-4 text-primary" />
+                    </div>
+                  )}
+                  
+                  <div className={`flex flex-col gap-1 max-w-[80%] ${
+                    msg.role === 'user' ? 'items-end' : 'items-start'
+                  }`}>
+                    <div className={`relative group rounded-lg px-4 py-3 ${
+                      msg.role === 'user'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted border border-border text-foreground'
+                    }`}>
+                      <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                        {msg.content}
+                      </p>
+                      
+                      {msg.role === 'assistant' && (
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          className="absolute -right-2 -top-2 opacity-0 group-hover:opacity-100 transition-opacity bg-background border border-border shadow-sm"
+                          onClick={() => handleCopy(msg.content, idx)}
+                        >
+                          {copiedIndex === idx ? (
+                            <CheckCheck className="size-3 text-success" />
+                          ) : (
+                            <Copy className="size-3" />
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground px-1">
+                      {msg.timestamp.toLocaleTimeString('ko-KR', { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
+                    </span>
+                  </div>
+
+                  {msg.role === 'user' && (
+                    <div className="shrink-0 mt-1 p-2 rounded-lg bg-primary/10 size-fit">
+                      <User className="size-4 text-primary" />
+                    </div>
+                  )}
+                </div>
+              ))}
+              
+              {isLoading && (
+                <div className="flex gap-3 justify-start slide-up">
+                  <div className="shrink-0 mt-1 p-2 rounded-lg bg-primary/10 size-fit">
+                    <Bot className="size-4 text-primary" />
+                  </div>
+                  <div className="bg-muted border border-border rounded-lg px-4 py-3">
+                    <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </>
           )}
         </div>
 
         {/* 입력 영역 */}
-        <div className="flex gap-2">
-          <Input
-            placeholder="거래내역에 대해 질문하세요..."
-            className="flex-1"
-            disabled={transactions.length === 0 || isLoading}
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            onKeyPress={handleKeyPress}
-          />
-          <Button
-            disabled={transactions.length === 0 || isLoading || !chatInput.trim()}
-            onClick={handleSendMessage}
-          >
-            {isLoading ? '전송 중...' : '전송'}
-          </Button>
+        <div className="border-t bg-muted/20 p-6">
+          <div className="flex gap-3">
+            <Input
+              ref={inputRef}
+              placeholder={transactions.length === 0 
+                ? "거래내역 로드 후 사용 가능합니다..." 
+                : "거래내역에 대해 질문하세요..."
+              }
+              className="flex-1 h-12 text-base"
+              disabled={transactions.length === 0 || isLoading}
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              maxLength={500}
+            />
+            <Button
+              disabled={transactions.length === 0 || isLoading || !chatInput.trim()}
+              onClick={handleSendMessage}
+              size="lg"
+              className="shrink-0 px-6"
+            >
+              {isLoading ? (
+                <Loader2 className="size-5 animate-spin" />
+              ) : (
+                <Send className="size-5" />
+              )}
+              <span className="ml-2 font-semibold">전송</span>
+            </Button>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-sm text-muted-foreground">
+            <span className="font-medium">
+              {chatInput.length > 0 && `${chatInput.length}/500자`}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <kbd className="px-2 py-0.5 text-xs bg-muted border border-border rounded">Enter</kbd>
+              <span>로 전송</span>
+            </span>
+          </div>
         </div>
-        {transactions.length === 0 && (
-          <p className="text-xs text-gray-500">
-            * 거래내역이 로드되면 AI 어시스턴트를 사용할 수 있습니다
-          </p>
-        )}
-      </div>
+      </CardContent>
     </Card>
   );
 });

@@ -1,8 +1,8 @@
 import { useCallback, useState, useRef, useEffect } from "react";
 import { useDropzone, type FileRejection } from "react-dropzone";
 import { Button } from "~/components/ui/button";
-import { Card } from "~/components/ui/card";
-import { Upload, X, AlertCircle } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "~/components/ui/card";
+import { Upload, X, AlertCircle, FileText, FileSpreadsheet, FileCheck } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "~/utils/api";
 import { FILE_VALIDATION } from "~/lib/file-validation";
@@ -242,6 +242,7 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
             fileType: file.type,
             fileSize: file.size,
             fileBuffer,
+            allowDuplicates: true, // Allow duplicate file uploads
           });
 
           if (result.success) {
@@ -364,10 +365,19 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
     },
     multiple: true,
     maxSize: MAX_FILE_SIZE, // MEDIUM-1 fix: 50MB limit
+    disabled: isProcessing,
   });
 
   const removeFile = (index: number) => {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Helper to get file icon based on type
+  const getFileIcon = (fileName: string) => {
+    const ext = fileName.split('.').pop()?.toLowerCase();
+    if (ext === 'pdf') return FileText;
+    if (ext === 'csv' || ext === 'xls' || ext === 'xlsx') return FileSpreadsheet;
+    return FileCheck;
   };
 
   // Story 3.7: Handle document deletion
@@ -406,149 +416,200 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
 
   return (
     <>
-      <Card className="p-6">
-      <div
-        {...getRootProps()}
-        role="button"
-        tabIndex={0}
-        onKeyDown={handleKeyDown}
-        className={`
-          border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-colors
-          ${isDragActive ? "border-blue-500 bg-blue-50" : "border-gray-300 hover:border-gray-400"}
-          ${isProcessing ? "opacity-50 cursor-not-allowed" : ""}
-        `}
-        aria-label="파일 업로드 영역 - 드래그앤드롭 또는 클릭하여 파일 선택"
-      >
-        <input {...getInputProps()} ref={fileInputRef} />
-        {isProcessing ? (
-          <>
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
-            <p className="text-gray-600">파일 처리 중...</p>
-          </>
-        ) : (
-          <>
-            <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            {isDragActive ? (
-              <p className="text-blue-600 font-medium">파일을 놓아주세요...</p>
+      <Card>
+        <CardHeader>
+          <CardTitle className="heading-3">거래내역서 업로드</CardTitle>
+          <CardDescription>
+            파일을 업로드하여 자동으로 거래내역을 분석하세요
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div
+            {...getRootProps()}
+            role="button"
+            tabIndex={0}
+            onKeyDown={handleKeyDown}
+            className={`
+              relative border-2 border-dashed rounded-lg p-12 text-center cursor-pointer
+              transition-all duration-200 ease-in-out
+              ${isDragActive 
+                ? "border-primary bg-primary/5 scale-[1.02]" 
+                : "border-border hover:border-primary/50 hover:bg-accent/50"
+              }
+              ${isProcessing ? "opacity-60 cursor-not-allowed pointer-events-none" : ""}
+            `}
+            aria-label="파일 업로드 영역 - 드래그앤드롭 또는 클릭하여 파일 선택"
+          >
+            <input {...getInputProps()} ref={fileInputRef} />
+            {isProcessing ? (
+              <div className="flex flex-col items-center gap-4">
+                <div className="relative">
+                  <div className="animate-spin rounded-full h-12 w-12 border-3 border-primary/30 border-t-primary" />
+                </div>
+                <p className="text-sm font-medium text-muted-foreground">파일 처리 중...</p>
+              </div>
             ) : (
-              <>
-                <p className="text-gray-600 mb-2">
-                  파일을 드래그앤드롭하거나 클릭하여 선택하세요
-                </p>
-                <p className="text-sm text-gray-500">
-                  지원 형식: 엑셀(.xlsx, .xls), CSV, PDF (최대 50MB)
-                </p>
-              </>
+              <div className="flex flex-col items-center gap-4">
+                <div className={`
+                  rounded-full p-4 transition-colors
+                  ${isDragActive ? "bg-primary/10" : "bg-muted"}
+                `}>
+                  <Upload className={`size-8 transition-colors ${
+                    isDragActive ? "text-primary" : "text-muted-foreground"
+                  }`} />
+                </div>
+                {isDragActive ? (
+                  <div className="space-y-2">
+                    <p className="text-base font-semibold text-primary">
+                      파일을 놓아주세요
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-base font-medium text-foreground">
+                      파일을 드래그하거나{" "}
+                      <span className="text-primary underline">클릭하여 업로드</span>
+                    </p>
+                    <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1.5">
+                        <FileSpreadsheet className="size-4" />
+                        <span>Excel, CSV</span>
+                      </div>
+                      <div className="h-4 w-px bg-border" />
+                      <div className="flex items-center gap-1.5">
+                        <FileText className="size-4" />
+                        <span>PDF</span>
+                      </div>
+                      <div className="h-4 w-px bg-border" />
+                      <span>최대 50MB</span>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
-          </>
-        )}
-      </div>
+          </div>
 
-      {/* Error Messages */}
-      {fileErrors.length > 0 && (
-        <div className="mt-4 space-y-2">
-          {fileErrors.map((error, index) => (
-            <div
-              key={index}
-              className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-md"
-            >
-              <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
-              <p className="text-sm text-red-800">{error}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Story 3.5: Real-time Progress Display */}
-      {(analyzingDocumentId || completionData || failedDocumentId) && (
-        <div className="mt-4">
-          <ProgressBar
-            progress={progress}
-            stage={stage}
-            error={progressError}
-            completionData={completionData ?? undefined}
-            onRetry={failedDocumentId ? handleRetry : undefined}
-          />
-        </div>
-      )}
-
-      {/* Story 3.7: Uploaded Documents List with Preview/Delete Buttons */}
-      {uploadedDocuments.length > 0 && (
-        <div className="mt-4 space-y-2">
-          <h3 className="font-medium text-gray-900">
-            업로드된 파일 ({uploadedDocuments.length}개):
-          </h3>
-          {uploadedDocuments.map((doc) => (
-            <div
-              key={doc.id}
-              className="flex justify-between items-center p-3 bg-green-50 border border-green-200 rounded-md"
-            >
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">
-                  {doc.name}
-                </p>
-                <p className="text-xs text-gray-500">
-                  업로드: {doc.uploadedAt.toLocaleString("ko-KR")} | 상태:{" "}
-                  {doc.analysisStatus}
-                </p>
-              </div>
-              <div className="flex gap-2 ml-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPreviewDocument(doc)}
-                  disabled={analyzingDocumentId === doc.id}
+          {/* Error Messages */}
+          {fileErrors.length > 0 && (
+            <div className="mt-6 space-y-2">
+              {fileErrors.map((error, index) => (
+                <div
+                  key={index}
+                  className="flex items-start gap-3 p-3 bg-destructive/5 border border-destructive/20 rounded-lg"
                 >
-                  미리보기
-                </Button>
-                <FileDeleteButton
-                  documentId={doc.id}
-                  documentName={doc.name}
-                  analysisStatus={doc.analysisStatus}
-                  onDeleteSuccess={() => handleDeleteDocument(doc.id)}
-                />
-              </div>
+                  <AlertCircle className="size-5 text-destructive shrink-0 mt-0.5" />
+                  <p className="text-sm text-destructive">{error}</p>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+          )}
 
-      {/* Selected Files List */}
-      {selectedFiles.length > 0 && (
-        <div className="mt-4 space-y-2">
-          <h3 className="font-medium text-gray-900">
-            선택된 파일 ({selectedFiles.length}개):
-          </h3>
-          {selectedFiles.map((file, index) => (
-            <div
-              key={`${file.name}-${index}`}
-              className="flex justify-between items-center p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-colors"
-            >
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">
-                  {file.name}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {(file.size / 1024 / 1024).toFixed(2)} MB
-                </p>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  removeFile(index);
-                }}
-                disabled={isProcessing}
-                className="ml-2 text-gray-500 hover:text-red-600"
-                aria-label={`파일 제거: ${file.name}`}
-              >
-                <X className="h-4 w-4" />
-              </Button>
+          {/* Story 3.5: Real-time Progress Display */}
+          {(analyzingDocumentId || completionData || failedDocumentId) && (
+            <div className="mt-6">
+              <ProgressBar
+                progress={progress}
+                stage={stage}
+                error={progressError}
+                completionData={completionData ?? undefined}
+                onRetry={failedDocumentId ? handleRetry : undefined}
+              />
             </div>
-          ))}
-        </div>
-      )}
+          )}
+
+          {/* Story 3.7: Uploaded Documents List with Preview/Delete Buttons */}
+          {uploadedDocuments.length > 0 && (
+            <div className="mt-6 space-y-3">
+              <h3 className="text-sm font-semibold text-foreground">
+                업로드된 파일 ({uploadedDocuments.length}개)
+              </h3>
+              <div className="space-y-2">
+                {uploadedDocuments.map((doc) => {
+                  const FileIcon = getFileIcon(doc.name);
+                  return (
+                    <div
+                      key={doc.id}
+                      className="flex items-center gap-3 p-3 bg-success/5 border border-success/20 rounded-lg hover:bg-success/10 transition-colors"
+                    >
+                      <div className="shrink-0 p-2 rounded-md bg-success/10">
+                        <FileIcon className="size-5 text-success" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {doc.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {doc.uploadedAt.toLocaleString("ko-KR")}
+                        </p>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPreviewDocument(doc)}
+                          disabled={analyzingDocumentId === doc.id}
+                        >
+                          미리보기
+                        </Button>
+                        <FileDeleteButton
+                          documentId={doc.id}
+                          documentName={doc.name}
+                          analysisStatus={doc.analysisStatus}
+                          onDeleteSuccess={() => handleDeleteDocument(doc.id)}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Selected Files List */}
+          {selectedFiles.length > 0 && (
+            <div className="mt-6 space-y-3">
+              <h3 className="text-sm font-semibold text-foreground">
+                선택된 파일 ({selectedFiles.length}개)
+              </h3>
+              <div className="space-y-2">
+                {selectedFiles.map((file, index) => {
+                  const FileIcon = getFileIcon(file.name);
+                  return (
+                    <div
+                      key={`${file.name}-${index}`}
+                      className="flex items-center gap-3 p-3 bg-muted/50 border border-border rounded-lg hover:bg-muted transition-colors"
+                    >
+                      <div className="shrink-0 p-2 rounded-md bg-background">
+                        <FileIcon className="size-5 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {file.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {(file.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeFile(index);
+                        }}
+                        disabled={isProcessing}
+                        className="shrink-0"
+                        aria-label={`파일 제거: ${file.name}`}
+                      >
+                        <X className="size-4" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </CardContent>
       </Card>
 
       {/* Story 3.7: File Preview Modal */}
