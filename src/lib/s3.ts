@@ -29,7 +29,7 @@ function initializeS3Client(): S3Client {
   const region = process.env.AWS_REGION ?? "ap-northeast-2";
   const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
   const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
-  const bucketName = process.env.S3_BUCKET_NAME;
+  const bucketName = process.env.AWS_S3_BUCKET_NAME;
 
   // CRITICAL-1 FIX: Validate required environment variables (fail fast)
   if (!accessKeyId || !secretAccessKey) {
@@ -40,7 +40,7 @@ function initializeS3Client(): S3Client {
 
   // Validate bucket name in production
   if (process.env.NODE_ENV === "production" && !bucketName) {
-    throw new Error("S3_BUCKET_NAME 환경변수가 누락되었습니다");
+    throw new Error("AWS_S3_BUCKET_NAME 환경변수가 누락되었습니다");
   }
 
   return new S3Client({
@@ -49,11 +49,18 @@ function initializeS3Client(): S3Client {
   });
 }
 
-// Initialize S3 client at module load time (fail fast on missing credentials)
-const s3Client = initializeS3Client();
+// Lazy initialization - only create client when needed
+let s3Client: S3Client | null = null;
+
+function getS3Client(): S3Client {
+  if (!s3Client) {
+    s3Client = initializeS3Client();
+  }
+  return s3Client;
+}
 
 // S3 bucket name from environment variable
-export const S3_BUCKET = process.env.S3_BUCKET_NAME ?? "paros-bmad-files";
+export const S3_BUCKET = process.env.AWS_S3_BUCKET_NAME ?? "paros-bmad-files";
 
 /**
  * Upload a file to S3 with improved directory structure
@@ -92,7 +99,7 @@ export async function uploadFileToS3(
   });
 
   try {
-    await s3Client.send(command);
+    await getS3Client().send(command);
     console.log(`[S3 Upload Success] File uploaded: ${s3Key}`);
     return s3Key;
   } catch (error) {
@@ -121,7 +128,7 @@ export async function deleteFileFromS3(s3Key: string): Promise<void> {
   });
 
   try {
-    await s3Client.send(command);
+    await getS3Client().send(command);
     console.log(`[S3 Delete Success] File deleted: ${s3Key}`);
   } catch (error) {
     console.error("[S3 Delete Error]", error);
@@ -149,7 +156,7 @@ export async function downloadFileFromS3(s3Key: string): Promise<Buffer> {
   });
 
   try {
-    const response = await s3Client.send(command);
+    const response = await getS3Client().send(command);
 
     // Handle streaming response and convert to Buffer
     if (!response.Body) {
