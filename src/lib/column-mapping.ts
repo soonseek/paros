@@ -75,16 +75,16 @@ export const COLUMN_MAPPING: Record<
   [ColumnType.AMOUNT]: {
     korean: ["거래금액", "금액", "거래 금액", "이체금액"],
     english: ["Amount", "Transaction Amount", "Trx Amount"],
-    priority: 7,
+    priority: 3, // 입금/출금 분리형보다 낮은 우선순위
   },
   // 거래구분 컬럼 ([+]/[-] 표시)
   [ColumnType.TRANSACTION_TYPE]: {
     korean: ["거래구분", "구분", "거래 구분", "입출금구분", "유형"],
     english: ["Transaction Type", "Type", "Trx Type"],
-    priority: 8,
+    priority: 3, // AMOUNT와 함께 사용
   },
   [ColumnType.MEMO]: {
-    korean: ["적요", "메모", "내용", "거래내용", "상세", "적요 내용", "비고"],
+    korean: ["적요", "메모", "내용", "거래내용", "상세", "적요 내용", "비고", "계좌정보", "결제정보", "계좌 정보", "결제 정보"],
     english: [
       "Memo",
       "Description",
