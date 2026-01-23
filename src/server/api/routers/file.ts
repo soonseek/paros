@@ -1327,17 +1327,17 @@ async function performExtraction(
   // Convert columnMapping from string→string to ColumnMapping (number) for extractAndSaveTransactions
   const numericColumnMapping: ColumnMapping = {};
   for (const [key, columnName] of Object.entries(columnMapping)) {
+    // memoInAmountColumn은 boolean 값이므로 별도 처리
+    if (key === "memoInAmountColumn" && columnName === true) {
+      numericColumnMapping.memoInAmountColumn = true;
+      continue;
+    }
     if (typeof columnName === "string") {
       const index = headerRow.indexOf(columnName);
       if (index !== -1) {
         (numericColumnMapping as Record<string, number>)[key] = index;
       }
     }
-  }
-
-  // memoInAmountColumn 플래그 전달
-  if (analysisResult.llmAnalysis?.memoInAmountColumn) {
-    numericColumnMapping.memoInAmountColumn = true;
   }
 
   // Extract and save transactions
