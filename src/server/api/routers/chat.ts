@@ -92,10 +92,8 @@ export const chatRouter = createTRPCRouter({
         }
       });
 
-      // 거래내역 요약 (최대 500건 - 대출 추적에 충분한 양)
-      const transactionsToUse = transactions.slice(0, 500);
-      
-      const transactionsText = transactionsToUse
+      // 거래내역 전체 사용
+      const transactionsText = transactions
         .map((tx, idx) => {
           const date = new Date(tx.transactionDate).toLocaleDateString("ko-KR");
           const depositAmount = tx.depositAmount ? String(tx.depositAmount) : null;
@@ -106,17 +104,16 @@ export const chatRouter = createTRPCRouter({
           const withdrawal = withdrawalAmount ? `${parseInt(withdrawalAmount).toLocaleString()}원` : "-";
           const balance = balanceAmount ? `${parseInt(balanceAmount).toLocaleString()}원` : "-";
           const memo = tx.memo || "";
-          const category = tx.category ? `${tx.category}${tx.subcategory ? ` > ${tx.subcategory}` : ""}` : "";
           const docName = tx.documentName ? `[${tx.documentName}]` : "";
 
           return `${idx + 1}. [${date}] 입금: ${deposit} / 출금: ${withdrawal} / 잔액: ${balance} | ${memo} ${docName}`;
         })
         .join("\n");
 
-      // 3. 시스템 프롬프트 구성 - 대출금 추적 분석 강화
+      // 3. 시스템 프롬프트 구성
       const summaryInfo = `
 ## 거래내역 요약
-- 전체 거래건수: ${totalCount}건 (표시: ${transactionsToUse.length}건)
+- 전체 거래건수: ${totalCount}건
 - 입금: ${depositCount}건, 총 ${totalDeposit.toLocaleString()}원
 - 출금: ${withdrawalCount}건, 총 ${totalWithdrawal.toLocaleString()}원
 `;
