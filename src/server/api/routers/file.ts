@@ -823,17 +823,18 @@ export const fileRouter = createTRPCRouter({
       if (
         !rawColumnMapping.deposit &&
         !rawColumnMapping.withdrawal &&
-        !rawColumnMapping.balance
+        !rawColumnMapping.balance &&
+        !rawColumnMapping.amount // 단일 금액 컬럼 방식도 허용
       ) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message:
-            "파일 구조 분석에서 금액 관련 열(입금액/출금액/잔액)을 찾을 수 없습니다",
+            "파일 구조 분석에서 금액 관련 열(입금액/출금액/거래금액/잔액)을 찾을 수 없습니다",
         });
       }
 
-      // MEDIUM-2 FIX: Check if already processing (prevent race condition)
-      if (analysisResult.status !== "analyzing") {
+      // 분석 완료 또는 진행 중일 때 추출 허용
+      if (analysisResult.status !== "analyzing" && analysisResult.status !== "completed") {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: `파일 분석 상태가 올바르지 않습니다 (현재: ${analysisResult.status})`,
