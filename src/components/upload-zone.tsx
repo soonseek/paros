@@ -495,11 +495,10 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
                 onRetry={failedDocumentId ? handleRetry : undefined}
               />
             )}
-          </div>
 
           {/* Error Messages */}
           {fileErrors.length > 0 && (
-            <div className="mt-6 space-y-2">
+            <div className="mt-4 space-y-2">
               {fileErrors.map((error, index) => (
                 <div
                   key={index}
@@ -514,7 +513,7 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
 
           {/* Story 3.7: Uploaded Documents List with Preview/Delete Buttons */}
           {uploadedDocuments.length > 0 && (
-            <div className="mt-6 space-y-3">
+            <div className="mt-4 space-y-3">
               <h3 className="text-sm font-semibold text-foreground">
                 업로드된 파일 ({uploadedDocuments.length}개)
               </h3>
