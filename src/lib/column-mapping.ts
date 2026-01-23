@@ -25,6 +25,8 @@ export enum ColumnType {
   MEMO = "memo",
   COUNTERPARTY = "counterparty",
   ACCOUNT_NUMBER = "account_number",
+  AMOUNT = "amount", // 단일 금액 컬럼 (거래구분으로 입출금 구분)
+  TRANSACTION_TYPE = "transaction_type", // 거래구분 ([+]/[-])
   UNKNOWN = "unknown",
 }
 
