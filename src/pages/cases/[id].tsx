@@ -181,10 +181,21 @@ const CaseDetailPage: NextPage = () => {
 
   // 거래내역 정규화 (SimplifiedTransactionTable용)
   const simplifiedTransactions = useMemo((): SimplifiedTransaction[] => {
+    // 문서 ID → 문서명 매핑 생성
+    const docNameMap = new Map<string, string>();
+    documents?.forEach(doc => {
+      docNameMap.set(doc.id, doc.originalFileName);
+    });
+
     return (transactionsData?.transactions ?? []).map(tx => {
       const depositAmount = tx.depositAmount ? Number(tx.depositAmount) : 0;
       const withdrawalAmount = tx.withdrawalAmount ? Number(tx.withdrawalAmount) : 0;
       const isDeposit = depositAmount > 0;
+      
+      // documentId로 문서명 찾기
+      const documentName = (tx as { documentId?: string }).documentId 
+        ? docNameMap.get((tx as { documentId?: string }).documentId!) 
+        : undefined;
       
       return {
         id: tx.id,
@@ -193,9 +204,10 @@ const CaseDetailPage: NextPage = () => {
         amount: isDeposit ? depositAmount : -withdrawalAmount,
         balance: tx.balance ? Number(tx.balance) : 0,
         memo: tx.memo ?? '',
+        documentName,
       };
     });
-  }, [transactionsData?.transactions]);
+  }, [transactionsData?.transactions, documents]);
 
   // Delete transactions mutation (파일별 삭제용)
   const deleteTransactionsMutation = api.transaction.deleteByDocument.useMutation({
