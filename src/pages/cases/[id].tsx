@@ -731,16 +731,10 @@ const CaseDetailPage: NextPage = () => {
               <div className="flex justify-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
-            ) : transactionsData?.transactions && transactionsData.transactions.length > 0 ? (
-              <TransactionTable
-                transactions={transactionsData.transactions}
+            ) : simplifiedTransactions.length > 0 ? (
+              <SimplifiedTransactionTable
+                transactions={simplifiedTransactions}
                 caseId={id as string}
-                onTagsUpdated={() => {
-                  void utils.transaction.search.invalidate({
-                    caseId: id as string,
-                    ...(selectedDocumentId && { documentId: selectedDocumentId }),
-                  });
-                }}
               />
             ) : (
               <div className="text-center py-8 bg-gray-50 rounded-lg">
