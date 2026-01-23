@@ -355,6 +355,21 @@ export async function extractAndSaveTransactions(
     });
 
     success = result.count;
+    
+    // 추출 결과 상세 로그
+    const duplicatesSkipped = transactions.length - success;
+    console.log(`[Data Extractor] Extraction complete:`, {
+      totalRows: rows.length,
+      prepared: transactions.length,
+      saved: success,
+      skippedByValidation: skipped,
+      skippedByDuplicate: duplicatesSkipped,
+      errors: errors.length,
+    });
+    
+    if (errors.length > 0 && errors.length <= 10) {
+      console.log(`[Data Extractor] First errors:`, errors.slice(0, 10));
+    }
   } catch (error) {
     // Log Prisma error details
     console.error("[Prisma Bulk Insert Error]", error);
