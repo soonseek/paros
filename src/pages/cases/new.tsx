@@ -73,20 +73,13 @@ const NewCasePage: NextPage = () => {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Case Number */}
           <div>
-            <Label htmlFor="caseNumber">
-              사건번호 <span className="text-red-500">*</span>
-            </Label>
+            <Label htmlFor="caseNumber">사건번호</Label>
             <Input
               id="caseNumber"
               type="text"
               placeholder="예: 2023하12345"
               {...register("caseNumber")}
             />
-            {errors.caseNumber && (
-              <p className="text-red-500 text-sm mt-1">
-                {errors.caseNumber.message}
-              </p>
-            )}
           </div>
 
           {/* Debtor Name */}
