@@ -480,7 +480,7 @@ export const fileRouter = createTRPCRouter({
     .input(
       z.object({
         documentId: z.string().min(1, "문서 ID는 필수 항목입니다"),
-        useLlmAnalysis: z.boolean().optional().default(false), // LLM 기반 분석 사용 여부
+        useLlmAnalysis: z.boolean().optional().default(true), // LLM 기반 분석 기본 사용
       })
     )
     .mutation(async ({ ctx, input }) => {
