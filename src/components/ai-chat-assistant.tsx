@@ -28,10 +28,6 @@ interface Transaction {
   subcategory: string | null;
   documentName?: string | null; // 거래내역서 파일명
 }
-  memo: string | null;
-  category: string | null;
-  subcategory: string | null;
-}
 
 interface AIChatAssistantProps {
   caseId: string;
