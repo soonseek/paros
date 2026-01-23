@@ -1302,11 +1302,12 @@ export const transactionRouter = createTRPCRouter({
       const [transactions, totalCount] = await Promise.all([
         ctx.db.transaction.findMany({
           where,
-          orderBy: [{ transactionDate: "desc" }],
+          orderBy: [{ transactionDate: "asc" }], // 기본 정렬: 거래일자 오름차순
           skip: (page - 1) * pageSize,
           take: pageSize,
           select: {
             id: true,
+            documentId: true, // 문서명 표시용
             transactionDate: true,
             depositAmount: true,
             withdrawalAmount: true,
