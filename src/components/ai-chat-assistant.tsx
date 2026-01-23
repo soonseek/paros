@@ -190,23 +190,47 @@ export const AIChatAssistant = memo<AIChatAssistantProps>(({ caseId, transaction
               </div>
 
               {transactions.length > 0 && (
-                <div className="w-full max-w-md space-y-2">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    추천 질문
-                  </p>
-                  <div className="grid grid-cols-1 gap-2">
-                    {suggestedQuestions.map((question, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => {
-                          setChatInput(question);
-                          inputRef.current?.focus();
-                        }}
-                        className="text-left p-3 rounded-lg border border-border bg-card hover:bg-accent hover:border-primary/50 transition-colors text-sm"
-                      >
-                        {question}
-                      </button>
-                    ))}
+                <div className="w-full max-w-lg space-y-4">
+                  {/* 대출금 추적 전용 프리셋 */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-primary uppercase tracking-wide">
+                      📊 대출금 추적 분석
+                    </p>
+                    <div className="grid grid-cols-1 gap-2">
+                      {loanTrackingPresets.map((preset, idx) => (
+                        <button
+                          key={`loan-${idx}`}
+                          onClick={() => {
+                            setChatInput(preset.question);
+                            inputRef.current?.focus();
+                          }}
+                          className="text-left p-3 rounded-lg border-2 border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/50 transition-colors text-sm font-medium text-primary"
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 일반 추천 질문 */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      추천 질문
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {suggestedQuestions.map((question, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => {
+                            setChatInput(question);
+                            inputRef.current?.focus();
+                          }}
+                          className="text-left p-3 rounded-lg border border-border bg-card hover:bg-accent hover:border-primary/50 transition-colors text-sm"
+                        >
+                          {question}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
