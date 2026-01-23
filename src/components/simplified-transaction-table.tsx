@@ -171,6 +171,11 @@ export function SimplifiedTransactionTable({
         <Table>
           <TableHeader>
             <TableRow>
+              {showDocumentName && (
+                <TableHead className="w-[120px] font-semibold">
+                  문서
+                </TableHead>
+              )}
               <TableHead className="w-[120px]">
                 <Button
                   variant="ghost"
@@ -183,10 +188,10 @@ export function SimplifiedTransactionTable({
                   <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
-              <TableHead className="w-[100px] text-center font-semibold">
+              <TableHead className="w-[80px] text-center font-semibold">
                 구분
               </TableHead>
-              <TableHead className="w-[150px] text-right">
+              <TableHead className="w-[130px] text-right">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -198,7 +203,7 @@ export function SimplifiedTransactionTable({
                   <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
-              <TableHead className="w-[150px] text-right">
+              <TableHead className="w-[130px] text-right">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -216,13 +221,22 @@ export function SimplifiedTransactionTable({
           <TableBody>
             {filteredAndSortedTransactions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                <TableCell colSpan={showDocumentName ? 6 : 5} className="text-center py-8 text-gray-500">
                   {searchTerm ? '검색 결과가 없습니다.' : '거래내역이 없습니다.'}
                 </TableCell>
               </TableRow>
             ) : (
               filteredAndSortedTransactions.map((transaction) => (
                 <TableRow key={transaction.id} data-testid="transaction-row">
+                  {/* 문서명 */}
+                  {showDocumentName && (
+                    <TableCell 
+                      className="text-xs text-gray-500" 
+                      title={transaction.documentName}
+                    >
+                      {truncateDocName(transaction.documentName ?? '')}
+                    </TableCell>
+                  )}
                   {/* 거래일자 */}
                   <TableCell className="font-medium">
                     {transaction.transactionDate}
