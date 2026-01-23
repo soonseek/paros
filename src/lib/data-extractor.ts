@@ -36,6 +36,7 @@ export interface ColumnMapping {
   memo?: number;            // Memo column index
   amount?: number;          // Single amount column (with transaction_type)
   transaction_type?: number; // Transaction type column ([+]/[-])
+  memoInAmountColumn?: boolean; // 비고가 입금/출금 컬럼에 섞여있는 특수 케이스
 }
 
 /**
