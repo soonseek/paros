@@ -136,8 +136,9 @@ export async function uploadFileToS3(
   const uuid = randomUUID();
   const s3Key = `cases/${caseId}/${timestamp}-${uuid}-${fileName}`;
 
+  const bucket = await getS3Bucket();
   const command = new PutObjectCommand({
-    Bucket: S3_BUCKET,
+    Bucket: bucket,
     Key: s3Key,
     Body: fileBuffer,
     ContentType: mimeType,
@@ -145,8 +146,9 @@ export async function uploadFileToS3(
   });
 
   try {
-    await getS3Client().send(command);
-    console.log(`[S3 Upload Success] File uploaded: ${s3Key}`);
+    const client = await getS3Client();
+    await client.send(command);
+    console.log(`[S3 Upload Success] File uploaded to ${bucket}: ${s3Key}`);
     return s3Key;
   } catch (error) {
     console.error("[S3 Upload Error - Details]", error);
