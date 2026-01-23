@@ -157,6 +157,7 @@ export async function analyzeFileStructure(
             // LLM 분석 메타데이터 추가
             llmAnalysis: {
               transactionTypeMethod: llmResult.transactionTypeMethod,
+              memoInAmountColumn: llmResult.memoInAmountColumn,
               reasoning: llmResult.reasoning,
             },
           } as AnalysisResult;
