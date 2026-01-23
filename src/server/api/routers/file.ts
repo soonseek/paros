@@ -1242,7 +1242,7 @@ export const fileRouter = createTRPCRouter({
  * @param columnMapping - Column mapping from file analysis (string→string format)
  * @param headerRowIndex - Header row index
  * @param mimeType - MIME type to detect file format (Excel/CSV vs PDF)
- * @param analysisResult - FileAnalysisResult containing extractedData
+ * @param analysisResult - FileAnalysisResult containing extractedData and llmAnalysis
  * @returns Extraction result
  */
 async function performExtraction(
@@ -1251,7 +1251,10 @@ async function performExtraction(
   columnMapping: Record<string, string>,
   headerRowIndex: number,
   mimeType: string,
-  analysisResult: { extractedData?: { headers: string[]; rows: string[][] } }
+  analysisResult: { 
+    extractedData?: { headers: string[]; rows: string[][] };
+    llmAnalysis?: { memoInAmountColumn?: boolean };
+  }
 ): Promise<{
   extractedCount: number;
   skippedCount: number;
