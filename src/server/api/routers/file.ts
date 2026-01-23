@@ -1324,6 +1324,50 @@ async function performExtraction(
     data: { status: "saving" },
   });
 
+  // Fallback: LLM이 memo 컬럼을 찾지 못한 경우 헤더에서 자동 탐지
+  const memoColumnKeywords = [
+    "비고", "적요", "내용", "거래내용", "메모", "설명",
+    "계좌 정보", "계좌정보", "결제 정보", "결제정보",
+    "상대방", "거래처", "거래상대", "받는분", "보내는분",
+    "은행", "계좌번호", "내역", "정보"
+  ];
+
+  if (!columnMapping.memo && !analysisResult.llmAnalysis?.memoInAmountColumn) {
+    // memo가 없고 memoInAmountColumn도 아닌 경우, 헤더에서 비고 컬럼 찾기
+    for (const keyword of memoColumnKeywords) {
+      const foundHeader = headerRow.find(h => 
+        h && typeof h === "string" && h.toLowerCase().includes(keyword.toLowerCase())
+      );
+      if (foundHeader) {
+        console.log(`[performExtraction] Fallback memo detection: found "${foundHeader}" matching keyword "${keyword}"`);
+        columnMapping.memo = foundHeader;
+        break;
+      }
+    }
+
+    // 그래도 못 찾으면 날짜/금액/잔액 아닌 컬럼 중 첫 번째 텍스트 컬럼 선택
+    if (!columnMapping.memo) {
+      const knownColumns = new Set([
+        columnMapping.date,
+        columnMapping.deposit,
+        columnMapping.withdrawal,
+        columnMapping.amount,
+        columnMapping.balance,
+        columnMapping.transaction_type,
+      ].filter(Boolean));
+
+      const candidateColumns = headerRow.filter(h => 
+        h && typeof h === "string" && !knownColumns.has(h) && h.trim().length > 0
+      );
+
+      if (candidateColumns.length > 0) {
+        const memoCandidate = candidateColumns[candidateColumns.length - 1]; // 보통 마지막 컬럼이 비고
+        console.log(`[performExtraction] Fallback memo detection: using last unknown column "${memoCandidate}"`);
+        columnMapping.memo = memoCandidate;
+      }
+    }
+  }
+
   // Convert columnMapping from string→string to ColumnMapping (number) for extractAndSaveTransactions
   const numericColumnMapping: ColumnMapping = {};
   for (const [key, columnName] of Object.entries(columnMapping)) {
@@ -1340,6 +1384,12 @@ async function performExtraction(
         console.warn(`[performExtraction] Column "${columnName}" not found in headerRow for key "${key}"`);
       }
     }
+  }
+
+  // llmAnalysis에서 memoInAmountColumn 전달
+  if (analysisResult.llmAnalysis?.memoInAmountColumn) {
+    numericColumnMapping.memoInAmountColumn = true;
+    console.log(`[performExtraction] memoInAmountColumn enabled from LLM analysis`);
   }
 
   // 디버그: columnMapping 변환 결과
