@@ -306,7 +306,26 @@ export async function extractAndSaveTransactions(
 
       // Parse memo (optional) - memoInAmountColumn이 아닌 경우에만
       if (!memo && columnMapping.memo !== undefined) {
-        memo = String(row[columnMapping.memo] ?? "");
+        const memoRaw = row[columnMapping.memo];
+        memo = String(memoRaw ?? "");
+        
+        // 디버그: 첫 10개 행에 대해 비고 파싱 상세 로그
+        if (i < 10) {
+          console.log(`[Data Extractor] Row ${i + 1} memo debug:`, {
+            memoColumnIndex: columnMapping.memo,
+            memoRawValue: memoRaw,
+            memoRawType: typeof memoRaw,
+            memoParsed: memo,
+            rowLength: Array.isArray(row) ? row.length : 'not array',
+            rowKeys: typeof row === 'object' ? Object.keys(row as object).slice(0, 5) : 'N/A',
+          });
+        }
+      } else if (i < 5) {
+        console.log(`[Data Extractor] Row ${i + 1} memo skipped:`, {
+          memoAlreadySet: !!memo,
+          memoColumnDefined: columnMapping.memo !== undefined,
+          memoInAmountColumn: columnMapping.memoInAmountColumn,
+        });
       }
 
       // MEDIUM-3 FIX: Validate metadata size before adding
