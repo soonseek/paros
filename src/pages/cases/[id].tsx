@@ -618,70 +618,75 @@ const CaseDetailPage: NextPage = () => {
           </div>
         </div>
 
-        {/* 거래내역 테이블 - Max height with scroll */}
-        <Card className="p-6 mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold">거래내역</h2>
-            {documents && documents.length > 0 && (
-              <div className="flex gap-2 items-center">
-                <select
-                  value={selectedDocumentId ?? "all"}
-                  onChange={(e) => setSelectedDocumentId(e.target.value === "all" ? null : e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-md text-sm"
-                >
-                  <option value="all">전체 파일</option>
-                  {documents.map((doc) => (
-                    <option key={doc.id} value={doc.id}>
-                      {doc.originalFileName}
-                    </option>
-                  ))}
-                </select>
-                {selectedDocumentId && (
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={async () => {
-                      if (confirm("선택한 파일의 거래내역을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.")) {
-                        await deleteTransactionsMutation.mutateAsync({
-                          documentId: selectedDocumentId,
-                        });
-                      }
-                    }}
-                  >
-                    삭제
-                  </Button>
+        {/* 메인 영역: 거래내역(좌) + AI 어시스턴트(우) 2열 배치 */}
+        <div className="grid grid-cols-1 xl:grid-cols-5 gap-6 mb-6">
+          {/* 왼쪽 60%: 거래내역 테이블 */}
+          <div className="xl:col-span-3">
+            <Card className="p-6 h-full">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">거래내역</h2>
+                {documents && documents.length > 0 && (
+                  <div className="flex gap-2 items-center">
+                    <select
+                      value={selectedDocumentId ?? "all"}
+                      onChange={(e) => setSelectedDocumentId(e.target.value === "all" ? null : e.target.value)}
+                      className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                    >
+                      <option value="all">전체 파일</option>
+                      {documents.map((doc) => (
+                        <option key={doc.id} value={doc.id}>
+                          {doc.originalFileName}
+                        </option>
+                      ))}
+                    </select>
+                    {selectedDocumentId && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={async () => {
+                          if (confirm("선택한 파일의 거래내역을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.")) {
+                            await deleteTransactionsMutation.mutateAsync({
+                              documentId: selectedDocumentId,
+                            });
+                          }
+                        }}
+                      >
+                        삭제
+                      </Button>
+                    )}
+                  </div>
                 )}
               </div>
-            )}
-          </div>
-          <div className="max-h-[600px] overflow-y-auto">
-            {transactionsLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <div className="max-h-[calc(100vh-300px)] overflow-y-auto">
+                {transactionsLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : simplifiedTransactions.length > 0 ? (
+                  <SimplifiedTransactionTable
+                    transactions={simplifiedTransactions}
+                    caseId={id as string}
+                    showDocumentName={!selectedDocumentId} // 전체 파일 선택시 문서명 표시
+                  />
+                ) : (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg">
+                    <p className="text-gray-600">거래내역이 없습니다</p>
+                    <p className="text-sm text-gray-500 mt-2">
+                      거래내역서 파일을 업로드하여 데이터를 가져오세요
+                    </p>
+                  </div>
+                )}
               </div>
-            ) : simplifiedTransactions.length > 0 ? (
-              <SimplifiedTransactionTable
-                transactions={simplifiedTransactions}
-                caseId={id as string}
-                showDocumentName={!selectedDocumentId} // 전체 파일 선택시 문서명 표시
-              />
-            ) : (
-              <div className="text-center py-8 bg-gray-50 rounded-lg">
-                <p className="text-gray-600">거래내역이 없습니다</p>
-                <p className="text-sm text-gray-500 mt-2">
-                  거래내역서 파일을 업로드하여 데이터를 가져오세요
-                </p>
-              </div>
-            )}
+            </Card>
           </div>
-        </Card>
 
-        {/* AI 어시스턴트 - 거래내역 질의응답 */}
-        <div className="mb-6">
-          <AIChatAssistant
-            caseId={id as string}
-            transactions={memoizedTransactions}
-          />
+          {/* 오른쪽 40%: AI 어시스턴트 */}
+          <div className="xl:col-span-2">
+            <AIChatAssistant
+              caseId={id as string}
+              transactions={memoizedTransactions}
+            />
+          </div>
         </div>
 
         {/* Story 6.2: Split View Layout - 왼쪽 40% 발견사항, 오른쪽 60% 사건 정보 */}
