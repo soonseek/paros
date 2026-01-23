@@ -310,9 +310,53 @@ export const AIChatAssistant = memo<AIChatAssistantProps>(({ caseId, transaction
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-muted border border-border text-foreground'
                     }`}>
-                      <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                        {msg.content}
-                      </p>
+                      {/* 텍스트 내용 (테이블 제외) */}
+                      <div className="text-sm whitespace-pre-wrap leading-relaxed">
+                        {msg.role === 'assistant' && msg.tableData
+                          ? msg.content.split(/\|.*\|/s)[0]?.trim()
+                          : msg.content}
+                      </div>
+                      
+                      {/* 테이블 렌더링 */}
+                      {msg.role === 'assistant' && msg.tableData && (
+                        <div className="mt-4 space-y-3">
+                          <div className="overflow-x-auto rounded-lg border border-border">
+                            <table className="min-w-full text-sm">
+                              <thead className="bg-muted/50">
+                                <tr>
+                                  {msg.tableData.headers.map((header, hIdx) => (
+                                    <th key={hIdx} className="px-3 py-2 text-left font-semibold border-b">
+                                      {header}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {msg.tableData.rows.map((row, rIdx) => (
+                                  <tr key={rIdx} className={rIdx % 2 === 0 ? 'bg-background' : 'bg-muted/20'}>
+                                    {row.map((cell, cIdx) => (
+                                      <td key={cIdx} className="px-3 py-2 border-b border-border/50">
+                                        {cell}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          
+                          {/* 엑셀 다운로드 버튼 */}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full gap-2"
+                            onClick={() => downloadAsExcel(msg.tableData!, '대출금_추적_결과')}
+                          >
+                            <FileSpreadsheet className="size-4" />
+                            엑셀로 다운로드
+                          </Button>
+                        </div>
+                      )}
                       
                       {msg.role === 'assistant' && (
                         <Button
