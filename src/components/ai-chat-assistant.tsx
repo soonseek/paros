@@ -127,10 +127,14 @@ export const AIChatAssistant = memo<AIChatAssistantProps>(({ caseId, transaction
         transactions,
       });
 
+      // 응답에서 테이블 데이터 파싱
+      const tableData = parseMarkdownTable(result.response);
+
       const assistantMsg: ChatMessage = {
         role: 'assistant',
         content: result.response,
-        timestamp: new Date()
+        timestamp: new Date(),
+        tableData: tableData ?? undefined,
       };
       setChatMessages(prev => [...prev, assistantMsg]);
     } catch (error) {
