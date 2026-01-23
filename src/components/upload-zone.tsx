@@ -149,13 +149,29 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
               if (result.data?.success && result.data.analysisResult) {
                 const { document, analysisResult } = result.data;
 
-                // Extract column names from columnMapping
-                const columns = Object.keys(analysisResult.columnMapping ?? {});
+                // Extract column mapping
+                const columnMapping = analysisResult.columnMapping as Record<string, string | undefined> ?? {};
+                const columns = Object.keys(columnMapping);
+
+                // Extract LLM analysis metadata if available
+                const llmAnalysisData = analysisResult.llmAnalysis as {
+                  transactionTypeMethod?: string;
+                  memoInAmountColumn?: boolean;
+                  reasoning?: string;
+                } | null;
 
                 const newCompletionData = {
                   fileName: document.fileName,
                   totalTransactions: analysisResult.totalRows,
                   columns,
+                  // Include LLM analysis result for UI display
+                  llmAnalysis: llmAnalysisData ? {
+                    transactionTypeMethod: llmAnalysisData.transactionTypeMethod ?? "unknown",
+                    memoInAmountColumn: llmAnalysisData.memoInAmountColumn,
+                    reasoning: llmAnalysisData.reasoning ?? "",
+                    confidence: analysisResult.confidence,
+                    columnMapping,
+                  } : undefined,
                 };
 
                 setCompletionData(newCompletionData);
