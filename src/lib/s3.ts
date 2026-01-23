@@ -5,6 +5,8 @@ import {
   GetObjectCommand,
 } from "@aws-sdk/client-s3";
 import { randomUUID } from "crypto";
+import { db } from "~/server/db";
+import { SettingsService } from "~/server/services/settings-service";
 
 /**
  * S3 Configuration and Utility Functions
@@ -12,12 +14,45 @@ import { randomUUID } from "crypto";
  * Provides functions for uploading and deleting files from AWS S3.
  * All files are stored with AES-256 server-side encryption.
  *
- * Environment Variables Required:
- * - AWS_ACCESS_KEY_ID: AWS access key ID (required)
- * - AWS_SECRET_ACCESS_KEY: AWS secret access key (required)
- * - AWS_REGION: AWS region (default: ap-northeast-2)
- * - S3_BUCKET_NAME: S3 bucket name (default: paros-bmad-files)
+ * Configuration Priority:
+ * 1. Database settings (from admin panel)
+ * 2. Environment variables (fallback)
  */
+
+/**
+ * Get S3 configuration from database or environment
+ */
+async function getS3Config() {
+  try {
+    const settingsService = new SettingsService(db);
+    
+    // Try database first
+    const accessKeyId = await settingsService.getSetting('AWS_ACCESS_KEY_ID');
+    const secretAccessKey = await settingsService.getSetting('AWS_SECRET_ACCESS_KEY');
+    const region = await settingsService.getSetting('AWS_REGION');
+    const bucketName = await settingsService.getSetting('AWS_S3_BUCKET_NAME');
+    
+    // If all required settings found in DB, use them
+    if (accessKeyId && secretAccessKey) {
+      return {
+        accessKeyId,
+        secretAccessKey,
+        region: region || process.env.AWS_REGION || 'ap-northeast-2',
+        bucketName: bucketName || process.env.AWS_S3_BUCKET_NAME || 'paros-bmad-files',
+      };
+    }
+  } catch (error) {
+    console.warn('[S3] Failed to get config from database, using env vars:', error);
+  }
+  
+  // Fallback to environment variables
+  return {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    region: process.env.AWS_REGION || 'ap-northeast-2',
+    bucketName: process.env.AWS_S3_BUCKET_NAME || 'paros-bmad-files',
+  };
+}
 
 /**
  * Initialize and validate S3 client with environment variable validation
@@ -25,11 +60,10 @@ import { randomUUID } from "crypto";
  * @throws Error if required AWS credentials are missing
  * @returns Configured S3Client instance
  */
-function initializeS3Client(): S3Client {
-  const region = process.env.AWS_REGION ?? "ap-northeast-2";
-  const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
-  const bucketName = process.env.AWS_S3_BUCKET_NAME;
+async function initializeS3Client(): Promise<S3Client> {
+  const config = await getS3Config();
+  
+  const { accessKeyId, secretAccessKey, region } = config;
 
   // CRITICAL-1 FIX: Validate required environment variables (fail fast)
   if (!accessKeyId || !secretAccessKey) {
@@ -38,10 +72,7 @@ function initializeS3Client(): S3Client {
     );
   }
 
-  // Validate bucket name in production
-  if (process.env.NODE_ENV === "production" && !bucketName) {
-    throw new Error("AWS_S3_BUCKET_NAME 환경변수가 누락되었습니다");
-  }
+  console.log(`[S3] Initializing with bucket: ${config.bucketName}`);
 
   return new S3Client({
     region,
@@ -51,16 +82,31 @@ function initializeS3Client(): S3Client {
 
 // Lazy initialization - only create client when needed
 let s3Client: S3Client | null = null;
+let s3BucketName: string | null = null;
 
-function getS3Client(): S3Client {
+async function getS3Client(): Promise<S3Client> {
   if (!s3Client) {
-    s3Client = initializeS3Client();
+    s3Client = await initializeS3Client();
   }
   return s3Client;
 }
 
-// S3 bucket name from environment variable
-export const S3_BUCKET = process.env.AWS_S3_BUCKET_NAME ?? "paros-bmad-files";
+async function getS3Bucket(): Promise<string> {
+  if (!s3BucketName) {
+    const config = await getS3Config();
+    s3BucketName = config.bucketName;
+  }
+  return s3BucketName;
+}
+
+/**
+ * Clear S3 client cache (call after updating settings)
+ */
+export function clearS3Cache(): void {
+  s3Client = null;
+  s3BucketName = null;
+  console.log('[S3] Client cache cleared');
+}
 
 /**
  * Upload a file to S3 with improved directory structure
