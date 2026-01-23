@@ -197,33 +197,10 @@ const CaseDetailPage: NextPage = () => {
     });
   }, [transactionsData?.transactions]);
 
-  // Archive mutation
-  const archiveMutation = api.case.archiveCase.useMutation({
-    onSuccess: () => {
-      toast.success("사건이 아카이브되었습니다");
-      void router.push("/cases");
-    },
-    onError: (err) => {
-      toast.error(err.message || "사건 아카이브에 실패했습니다");
-    },
-  });
-
-  // Unarchive mutation
-  const unarchiveMutation = api.case.unarchiveCase.useMutation({
-    onSuccess: () => {
-      toast.success("사건이 복원되었습니다");
-      void router.push("/cases");
-    },
-    onError: (err) => {
-      toast.error(err.message || "사건 복원에 실패했습니다");
-    },
-  });
-
-  // Delete transactions mutation
+  // Delete transactions mutation (파일별 삭제용)
   const deleteTransactionsMutation = api.transaction.deleteByDocument.useMutation({
-    onSuccess: (data, variables) => {
+    onSuccess: (data) => {
       toast.success(data.message || "거래내역이 삭제되었습니다");
-      // Refresh transactions - include documentId if filtering by document
       void utils.transaction.search.invalidate({
         caseId: id as string,
         ...(selectedDocumentId && { documentId: selectedDocumentId }),
@@ -231,20 +208,6 @@ const CaseDetailPage: NextPage = () => {
     },
     onError: (err) => {
       toast.error(err.message || "거래내역 삭제에 실패했습니다");
-    },
-  });
-
-  // Story 6.1: 발견사항 분석 mutation
-  const analyzeFindingsMutation = api.findings.analyzeFindings.useMutation({
-    onSuccess: (data) => {
-      toast.success(
-        `${data.findingsCreated}개의 발견사항이 생성되었습니다 (${data.analysisDuration}ms)`
-      );
-      // Findings 목록 갱신
-      void utils.findings.getFindingsForCase.invalidate({ caseId: id as string });
-    },
-    onError: (err) => {
-      toast.error(err.message || "발견사항 분석에 실패했습니다");
     },
   });
 
