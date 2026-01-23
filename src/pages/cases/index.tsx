@@ -1,6 +1,6 @@
 import { type NextPage } from "next";
 import { useRouter } from "next/router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
