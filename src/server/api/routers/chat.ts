@@ -92,36 +92,30 @@ export const chatRouter = createTRPCRouter({
         }
       });
 
-      // 거래내역 전체 사용
+      // 거래내역 전체 사용 (압축 형식)
       const transactionsText = transactions
         .map((tx, idx) => {
-          const date = new Date(tx.transactionDate).toLocaleDateString("ko-KR");
-          const depositAmount = tx.depositAmount ? String(tx.depositAmount) : null;
-          const withdrawalAmount = tx.withdrawalAmount ? String(tx.withdrawalAmount) : null;
-          const balanceAmount = tx.balance ? String(tx.balance) : null;
-
-          const deposit = depositAmount ? `${parseInt(depositAmount).toLocaleString()}원` : "-";
-          const withdrawal = withdrawalAmount ? `${parseInt(withdrawalAmount).toLocaleString()}원` : "-";
-          const balance = balanceAmount ? `${parseInt(balanceAmount).toLocaleString()}원` : "-";
+          const date = new Date(tx.transactionDate).toISOString().split('T')[0]; // 2024-07-01 형식
+          const dep = tx.depositAmount ? Number(tx.depositAmount) : 0;
+          const wit = tx.withdrawalAmount ? Number(tx.withdrawalAmount) : 0;
+          const bal = tx.balance ? Number(tx.balance) : 0;
           const memo = tx.memo || "";
-          const docName = tx.documentName ? `[${tx.documentName}]` : "";
+          const doc = tx.documentName ? tx.documentName.substring(0, 10) : "";
 
-          return `${idx + 1}. [${date}] 입금: ${deposit} / 출금: ${withdrawal} / 잔액: ${balance} | ${memo} ${docName}`;
+          // 압축 형식: 번호|날짜|입금|출금|잔액|비고|파일
+          return `${idx + 1}|${date}|${dep}|${wit}|${bal}|${memo}|${doc}`;
         })
         .join("\n");
 
       // 3. 시스템 프롬프트 구성
       const summaryInfo = `
 ## 거래내역 요약
-- 전체 거래건수: ${totalCount}건
-- 입금: ${depositCount}건, 총 ${totalDeposit.toLocaleString()}원
-- 출금: ${withdrawalCount}건, 총 ${totalWithdrawal.toLocaleString()}원
+- 전체: ${totalCount}건 (입금 ${depositCount}건/${totalDeposit.toLocaleString()}원, 출금 ${withdrawalCount}건/${totalWithdrawal.toLocaleString()}원)
 `;
 
-      const systemPrompt = `당신은 파산 사건 관리 시스템(PHAROS BMAD)의 AI 어시스턴트입니다.
-사용자가 제공한 거래내역을 분석하여 질문에 답변해주세요.
+      const systemPrompt = `당신은 파산 사건 관리 시스템의 AI 어시스턴트입니다.
 ${summaryInfo}
-거래내역:
+## 거래내역 (형식: 번호|날짜|입금|출금|잔액|비고|파일)
 ${transactionsText}
 
 ## 대출금 추적 분석 지침
