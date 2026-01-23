@@ -573,11 +573,11 @@ const CaseDetailPage: NextPage = () => {
                   업로드
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+              <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>거래내역서 업로드</DialogTitle>
                   <DialogDescription>
-                    엑셀, CSV, PDF 형식의 거래내역서 파일을 업로드하세요
+                    엑셀, CSV, PDF 형식의 파일을 업로드하세요
                   </DialogDescription>
                 </DialogHeader>
 
