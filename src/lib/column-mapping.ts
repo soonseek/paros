@@ -58,7 +58,7 @@ export const COLUMN_MAPPING: Record<
     priority: 3,
   },
   [ColumnType.BALANCE]: {
-    korean: ["잔액", "잔고", "계좌잔액", "현재잔액", "잔액 (원)", "거래후잔액"],
+    korean: ["잔액", "잔고", "계좌잔액", "현재잔액", "잔액 (원)", "거래후잔액", "거래 후 잔액", "거래후 잔액"],
     english: [
       "Balance",
       "Current Balance",
@@ -68,6 +68,18 @@ export const COLUMN_MAPPING: Record<
       "After Balance",
     ],
     priority: 4,
+  },
+  // 단일 금액 컬럼 (거래구분으로 입출금 구분)
+  [ColumnType.AMOUNT]: {
+    korean: ["거래금액", "금액", "거래 금액", "이체금액"],
+    english: ["Amount", "Transaction Amount", "Trx Amount"],
+    priority: 7,
+  },
+  // 거래구분 컬럼 ([+]/[-] 표시)
+  [ColumnType.TRANSACTION_TYPE]: {
+    korean: ["거래구분", "구분", "거래 구분", "입출금구분", "유형"],
+    english: ["Transaction Type", "Type", "Trx Type"],
+    priority: 8,
   },
   [ColumnType.MEMO]: {
     korean: ["적요", "메모", "내용", "거래내용", "상세", "적요 내용", "비고"],
