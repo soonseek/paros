@@ -85,8 +85,9 @@ export const chatRouter = createTRPCRouter({
           const balance = balanceAmount ? `${parseInt(balanceAmount).toLocaleString()}원` : "-";
           const memo = tx.memo || "";
           const category = tx.category ? `${tx.category}${tx.subcategory ? ` > ${tx.subcategory}` : ""}` : "";
+          const docName = tx.documentName ? `[파일: ${tx.documentName}]` : "";
 
-          return `${idx + 1}. [${date}] 입금: ${deposit} / 출금: ${withdrawal} / 잔액: ${balance} | ${memo} | ${category}`;
+          return `${idx + 1}. [${date}] 입금: ${deposit} / 출금: ${withdrawal} / 잔액: ${balance} | ${memo} | ${category} ${docName}`;
         })
         .join("\n");
 
