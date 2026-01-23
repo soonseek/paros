@@ -495,6 +495,7 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
                 onRetry={failedDocumentId ? handleRetry : undefined}
               />
             )}
+          </div>
 
           {/* Error Messages */}
           {fileErrors.length > 0 && (
