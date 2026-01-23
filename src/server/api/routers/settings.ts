@@ -12,16 +12,14 @@ export const settingsRouter = createTRPCRouter({
    * 모든 설정 조회 (관리자 전용)
    */
   getAll: protectedProcedure.query(async ({ ctx }) => {
-    // 세션 체크
-    if (!ctx.session?.user) {
-      throw new TRPCError({
-        code: 'UNAUTHORIZED',
-        message: '로그인이 필요합니다.',
-      });
-    }
+    // userId를 사용하여 사용자 조회
+    const user = await ctx.db.user.findUnique({
+      where: { id: ctx.userId },
+      select: { role: true },
+    });
 
     // 관리자 권한 체크
-    if (ctx.session.user.role !== 'ADMIN') {
+    if (user?.role !== 'ADMIN') {
       throw new TRPCError({
         code: 'FORBIDDEN',
         message: '관리자만 접근할 수 있습니다.',
@@ -42,16 +40,14 @@ export const settingsRouter = createTRPCRouter({
       })
     )
     .query(async ({ ctx, input }) => {
-      // 세션 체크
-      if (!ctx.session?.user) {
-        throw new TRPCError({
-          code: 'UNAUTHORIZED',
-          message: '로그인이 필요합니다.',
-        });
-      }
+      // userId를 사용하여 사용자 조회
+      const user = await ctx.db.user.findUnique({
+        where: { id: ctx.userId },
+        select: { role: true },
+      });
 
       // 관리자 권한 체크
-      if (ctx.session.user.role !== 'ADMIN') {
+      if (user?.role !== 'ADMIN') {
         throw new TRPCError({
           code: 'FORBIDDEN',
           message: '관리자만 접근할 수 있습니다.',
@@ -75,16 +71,14 @@ export const settingsRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // 세션 체크
-      if (!ctx.session?.user) {
-        throw new TRPCError({
-          code: 'UNAUTHORIZED',
-          message: '로그인이 필요합니다.',
-        });
-      }
+      // userId를 사용하여 사용자 조회
+      const user = await ctx.db.user.findUnique({
+        where: { id: ctx.userId },
+        select: { role: true },
+      });
 
       // 관리자 권한 체크
-      if (ctx.session.user.role !== 'ADMIN') {
+      if (user?.role !== 'ADMIN') {
         throw new TRPCError({
           code: 'FORBIDDEN',
           message: '관리자만 접근할 수 있습니다.',
@@ -92,7 +86,7 @@ export const settingsRouter = createTRPCRouter({
       }
 
       const service = new SettingsService(ctx.db);
-      await service.setSetting(input, ctx.session.user.id);
+      await service.setSetting(input, ctx.userId);
 
       return { success: true };
     }),
@@ -107,16 +101,14 @@ export const settingsRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // 세션 체크
-      if (!ctx.session?.user) {
-        throw new TRPCError({
-          code: 'UNAUTHORIZED',
-          message: '로그인이 필요합니다.',
-        });
-      }
+      // userId를 사용하여 사용자 조회
+      const user = await ctx.db.user.findUnique({
+        where: { id: ctx.userId },
+        select: { role: true },
+      });
 
       // 관리자 권한 체크
-      if (ctx.session.user.role !== 'ADMIN') {
+      if (user?.role !== 'ADMIN') {
         throw new TRPCError({
           code: 'FORBIDDEN',
           message: '관리자만 접근할 수 있습니다.',
@@ -133,16 +125,14 @@ export const settingsRouter = createTRPCRouter({
    * AI 제공자 설정 조회
    */
   getAIProvider: protectedProcedure.query(async ({ ctx }) => {
-    // 세션 체크
-    if (!ctx.session?.user) {
-      throw new TRPCError({
-        code: 'UNAUTHORIZED',
-        message: '로그인이 필요합니다.',
-      });
-    }
+    // userId를 사용하여 사용자 조회
+    const user = await ctx.db.user.findUnique({
+      where: { id: ctx.userId },
+      select: { role: true },
+    });
 
     // 관리자 권한 체크
-    if (ctx.session.user.role !== 'ADMIN') {
+    if (user?.role !== 'ADMIN') {
       throw new TRPCError({
         code: 'FORBIDDEN',
         message: '관리자만 접근할 수 있습니다.',
