@@ -78,16 +78,16 @@ export async function parsePdfWithUpstage(
 
   // Add Upstage API parameters (based on official Python guide)
   // Reference: https://console.upstage.ai/docs/capabilities/digitize/document-parsing
-  formData.append("model", "document-parse-251217");
+  formData.append("model", "document-parse-nightly");
   formData.append("ocr", "force"); // Auto OCR mode
   formData.append("chart_recognition", "true"); // Enable chart recognition
   formData.append("coordinates", "true"); // Enable coordinate extraction
   formData.append("output_formats", '["html","text"]'); // Request both HTML and text
   formData.append("base64_encoding", '["figure"]'); // Base64 encode figures
+  formData.append("merge_multipage_tables", "true"); // Base64 encode figures
 
   try {
     console.log("[Upstage API] Calling document-digitization endpoint...");
-    console.log("[Upstage API] Parameters: model=document-parse-nightly, ocr=auto, chart_recognition=true, coordinates=true, output_formats=[html]");
 
     const response = await fetch(
       "https://api.upstage.ai/v1/document-digitization",
