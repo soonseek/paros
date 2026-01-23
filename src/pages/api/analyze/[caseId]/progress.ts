@@ -25,7 +25,6 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { verifyAccessToken } from "~/lib/jwt";
 import { db } from "~/server/db";
 import { canAccessCase } from "~/lib/rbac";
-import * as cookie from "cookie";
 
 /**
  * Main SSE handler for file upload progress
@@ -63,14 +62,20 @@ export default async function handler(
     const authHeader = req.headers.authorization;
     if (authHeader) {
       accessToken = authHeader.replace("Bearer ", "");
-    } else {
+    } else if (req.headers.cookie) {
       // Fallback to cookie (EventSource doesn't support custom headers)
-      const parsedCookies = cookies.parse(req.headers.cookie ?? "");
-      accessToken = parsedCookies.accessToken;
+      // Simple cookie parsing without external library
+      const cookies = req.headers.cookie.split(';').reduce((acc, cookie) => {
+        const [key, value] = cookie.trim().split('=');
+        acc[key] = value;
+        return acc;
+      }, {} as Record<string, string>);
+
+      accessToken = cookies.accessToken;
     }
 
     if (!accessToken) {
-      res.status(401).json({ error: "인증이 필요합니다" });
+      res.status(401).json({ error: "UNAUTHORIZED" });
       return;
     }
 
@@ -78,8 +83,9 @@ export default async function handler(
     try {
       const decoded = verifyAccessToken(accessToken);
       userId = decoded.userId;
-    } catch {
-      res.status(401).json({ error: "유효하지 않은 토큰입니다" });
+    } catch (error) {
+      console.error("[SSE] Token verification failed:", error);
+      res.status(401).json({ error: "UNAUTHORIZED" });
       return;
     }
 

@@ -10,15 +10,17 @@
  */
 
 import { env } from "~/env";
+import { inferColumnType, ColumnType } from "~/lib/column-mapping";
 
 interface UpstageDocumentParseResponse {
   elements?: Array<{
-    id: string;
-    type: string; // "text", "table", "figure", etc.
+    id: string | number;
+    type?: string; // "text", "table", "figure", etc.
     category?: string; // "table", "text", etc.
     content?: {
       html?: string;
       text?: string;
+      markdown?: string;
     };
     bbox?: {
       x: number;
@@ -28,6 +30,11 @@ interface UpstageDocumentParseResponse {
     };
     page?: number;
   }>;
+  content?: {
+    html?: string;
+    text?: string;
+    markdown?: string;
+  };
   bboxes?: Array<{
     x: number;
     y: number;
@@ -38,7 +45,7 @@ interface UpstageDocumentParseResponse {
   ocr?: boolean;
   usage?: {
     pages: number;
-    standard: number[];
+    standard?: number[];
   };
 }
 
@@ -75,7 +82,7 @@ export async function parsePdfWithUpstage(
   formData.append("ocr", "auto"); // Auto OCR mode
   formData.append("chart_recognition", "true"); // Enable chart recognition
   formData.append("coordinates", "true"); // Enable coordinate extraction
-  formData.append("output_formats", '["html"]'); // Output format as JSON array string
+  formData.append("output_formats", '["html","text"]'); // Request both HTML and text
   formData.append("base64_encoding", '["figure"]'); // Base64 encode figures
 
   try {
@@ -108,37 +115,92 @@ export async function parsePdfWithUpstage(
     console.log(`[Upstage API] Elements count: ${data.elements?.length || 0}`);
     console.log(`[Upstage API] Pages: ${data.usage?.pages || 0}`);
 
+    // DEBUG: Log full response structure
+    console.log("[Upstage API] Full response structure:");
+    console.log(JSON.stringify(data, null, 2).substring(0, 5000)); // First 5000 chars
+
     // Extract text from elements
     if (!data.elements || data.elements.length === 0) {
       console.error("[Upstage API] No elements in response");
       throw new Error("Upstage API에서 데이터를 추출하지 못했습니다");
     }
 
+    // DEBUG: Log all element types
+    console.log("[Upstage API] Element types:");
+    data.elements.forEach((el, idx) => {
+      console.log(`  [${idx}] type=${el.type}, category=${el.category}, hasHTML=${!!el.content?.html}, hasText=${!!el.content?.text}`);
+      if (el.category === "table") {
+        console.log(`      [TABLE ${idx}] HTML preview:`, el.content?.html?.substring(0, 200));
+      }
+    });
+
     // Find table elements or concatenate all text
     const tableElements = data.elements.filter(el => el.category === "table");
+    const listElements = data.elements.filter(el => el.category === "list");
+
+    console.log(`[Upstage API] Found ${tableElements.length} table elements`);
+    console.log(`[Upstage API] Found ${listElements.length} list elements`);
 
     if (tableElements.length > 0) {
-      console.log(`[Upstage API] Found ${tableElements.length} table(s)`);
+      console.log(`[Upstage API] Processing ${tableElements.length} table(s)...`);
       // Process table elements from HTML
       return extractFromTableElementsHTML(tableElements);
     }
 
-    // Fallback: Concatenate all text elements
-    const allText = data.elements
-      .filter(el => el.content?.html || el.content?.text)
-      .map(el => el.content?.html || el.content?.text || "")
+    // Try list elements (some PDFs use list format for tables)
+    if (listElements.length > 0) {
+      console.log(`[Upstage API] Processing ${listElements.length} list(s)...`);
+      try {
+        return extractFromTableElementsHTML(listElements);
+      } catch (error) {
+        console.log("[Upstage API] List processing failed, trying fallback...");
+      }
+    }
+
+    // Fallback: Try top-level content field first (Story 3.4 PDF table image support)
+    console.log("[Upstage API] Using fallback: checking top-level content field...");
+
+    // Check top-level content.html field (contains full HTML including table images)
+    if (data.content?.html && data.content.html.trim()) {
+      console.log(`[Upstage API] Found top-level content.html (${data.content.html.length} chars)`);
+      console.log("[Upstage API] Content.html preview:", data.content.html.substring(0, 500));
+
+      try {
+        return extractTableFromText(data.content.html);
+      } catch (error) {
+        console.log("[Upstage API] Failed to parse from content.html, trying element fields...");
+      }
+    }
+
+    // Next, try text content from elements
+    console.log("[Upstage API] Trying element text fields...");
+    const textElements = data.elements.filter(el => el.content?.text && el.content.text.trim());
+    if (textElements.length > 0) {
+      const allText = textElements.map(el => el.content?.text || "").join("\n");
+      console.log(`[Upstage API] Extracted ${allText.length} characters from text fields`);
+      console.log("[Upstage API] Text preview:", allText.substring(0, 300));
+
+      if (allText.trim()) {
+        return extractTableFromText(allText);
+      }
+    }
+
+    // Finally, try HTML fields from elements
+    console.log("[Upstage API] No text content, trying element HTML fields...");
+    const allHtmlText = data.elements
+      .filter(el => el.content?.html)
+      .map(el => el.content?.html || "")
       .join("\n");
 
-    console.log(`[Upstage API] Extracted ${allText.length} characters of text`);
-    console.log("[Upstage API] Text preview:", allText.substring(0, 200));
+    console.log(`[Upstage API] Extracted ${allHtmlText.length} characters from HTML fields`);
 
-    if (!allText.trim()) {
-      console.error("[Upstage API] No text content found");
-      throw new Error("Upstage API에서 텍스트를 추출하지 못했습니다");
+    if (!allHtmlText.trim()) {
+      console.error("[Upstage API] No content found");
+      throw new Error("Upstage API에서 데이터를 추출하지 못했습니다");
     }
 
     // Try to parse as table
-    return extractTableFromText(allText);
+    return extractTableFromText(allHtmlText);
   } catch (error) {
     console.error("[PDF OCR Error]", error);
     throw new Error(
@@ -165,20 +227,37 @@ function extractFromTableElementsHTML(tableElements: Array<{
 
   console.log(`[HTML Table] Extracting data from ${tableElements.length} tables...`);
 
-  // Parse all tables and combine them
+  // Parse all tables and filter for transaction history tables (must have date column)
   const allRows: string[][] = [];
   let headers: string[] = [];
+  let validTableCount = 0;
 
   for (let i = 0; i < tableElements.length; i++) {
     const tableHTML = tableElements[i]?.content?.html;
     if (!tableHTML) continue;
 
     console.log(`[HTML Table] Processing table ${i + 1}/${tableElements.length}...`);
+    console.log(`[HTML Table] Raw HTML preview:`, tableHTML.substring(0, 300));
 
     const tableData = parseHTMLTable(tableHTML);
 
-    // Use headers from first table
-    if (i === 0) {
+    // Validate table has date column (required for transaction history)
+    const hasDateColumn = tableData.headers.some(header => {
+      const columnType = inferColumnType(header);
+      return columnType === ColumnType.DATE;
+    });
+
+    if (!hasDateColumn) {
+      console.log(`[HTML Table] ⚠️ Table ${i + 1} skipped - No date column found (not a transaction table)`);
+      console.log(`[HTML Table]    Headers:`, tableData.headers.join(", "));
+      continue;
+    }
+
+    console.log(`[HTML Table] ✓ Table ${i + 1} validated - Has date column`);
+    validTableCount++;
+
+    // Use headers from first valid table
+    if (validTableCount === 1 && tableData.headers.length > 0) {
       headers = tableData.headers;
     }
 
@@ -186,7 +265,12 @@ function extractFromTableElementsHTML(tableElements: Array<{
     allRows.push(...tableData.rows);
   }
 
-  console.log(`[HTML Table] Combined: ${headers.length} columns, ${allRows.length} total rows`);
+  if (validTableCount === 0) {
+    console.error("[HTML Table] ✗ No valid transaction history tables found (all tables missing date column)");
+    throw new Error("PDF에서 거래내역 테이블을 찾을 수 없습니다 (날짜 열이 없는 테이블만 있음)");
+  }
+
+  console.log(`[HTML Table] Combined: ${validTableCount} valid tables, ${headers.length} columns, ${allRows.length} total rows`);
 
   return {
     headers,
@@ -202,23 +286,40 @@ function extractFromTableElementsHTML(tableElements: Array<{
  * @returns Parsed table data
  */
 function parseHTMLTable(html: string): TableData {
+  // First, try to find <table> tag content
+  const tableMatch = html.match(/<table[^>]*>(.*?)<\/table>/is);
+  const tableContent = tableMatch ? tableMatch[1] : html;
+
   // Extract table rows using regex
   const rowRegex = /<tr[^>]*>(.*?)<\/tr>/gs;
-  const matches = [...html.matchAll(rowRegex)];
+  const matches = [...tableContent.matchAll(rowRegex)];
 
   if (matches.length === 0) {
+    console.error("[HTML Table] No <tr> tags found in HTML");
     throw new Error("HTML에서 테이블 행을 찾을 수 없습니다");
   }
+
+  console.log(`[HTML Table] Found ${matches.length} <tr> tags`);
 
   // Parse headers from first row
   const headerRow = matches[0][1];
   const headers = extractCellsFromHTML(headerRow);
 
-  // Parse data rows (skip header row)
-  const rows = matches.slice(1).map(match => extractCellsFromHTML(match[1]));
+  // Skip separator rows (rows with only dashes/spaces or HTML tags without text)
+  const dataRows = matches.slice(1).filter(match => {
+    const cells = extractCellsFromHTML(match[1]);
+    // Check if row has actual text content (not just dashes or separators)
+    const hasContent = cells.some(cell => {
+      const trimmed = cell.trim();
+      return trimmed.length > 0 && !/^[-=\s]{3,}$/.test(trimmed);
+    });
+    return hasContent;
+  });
 
-  console.log(`[HTML Table] ${headers.length} columns, ${rows.length} rows`);
-  console.log("[Headers]", headers);
+  const rows = dataRows.map(match => extractCellsFromHTML(match[1]));
+
+  console.log(`[HTML Table] ${headers.length} columns, ${rows.length} data rows`);
+  console.log("[HTML Table] Headers:", headers);
 
   return {
     headers,
@@ -265,19 +366,45 @@ function extractCellsFromHTML(rowHTML: string): string[] {
  * @returns Table data with headers and rows
  */
 function extractTableFromText(text: string): TableData {
+  // Remove HTML tags from text
+  const cleanText = text.replace(/<[^>]+>/g, "").trim();
+
+  console.log("[Text Extract] Cleaning HTML tags, original length:", text.length, "cleaned:", cleanText.length);
+
   // Split into lines and filter
-  const lines = text.split("\n").filter(line => line.trim());
+  const lines = cleanText.split("\n").filter(line => line.trim());
+
+  console.log("[Text Extract] Lines after filtering:", lines.length);
 
   // Find table-like structures (lines with | separator are markdown tables)
   const tableLines = lines.filter(line => line.includes("|"));
 
-  if (tableLines.length < 2) {
+  let tableData: TableData;
+
+  if (tableLines.length >= 2) {
+    console.log("[Text Extract] Found markdown table format");
+    // Parse markdown table
+    tableData = parseMarkdownTable(tableLines.join("\n"));
+  } else {
+    console.log("[Text Extract] No markdown table, trying space-separated format");
     // If no markdown table found, try to parse as space-separated columns
-    return parseSpaceSeparatedTable(text);
+    tableData = parseSpaceSeparatedTable(cleanText);
   }
 
-  // Parse markdown table
-  return parseMarkdownTable(tableLines.join("\n"));
+  // Validate table has date column (required for transaction history)
+  const hasDateColumn = tableData.headers.some(header => {
+    const columnType = inferColumnType(header);
+    return columnType === ColumnType.DATE;
+  });
+
+  if (!hasDateColumn) {
+    console.error("[Text Extract] ✗ No date column found in parsed table (not a transaction table)");
+    console.error("[Text Extract]    Headers:", tableData.headers.join(", "));
+    throw new Error("PDF에서 거래내역 테이블을 찾을 수 없습니다 (날짜 열이 없는 테이블만 있음)");
+  }
+
+  console.log("[Text Extract] ✓ Table validated - Has date column");
+  return tableData;
 }
 
 /**
@@ -293,12 +420,18 @@ function parseSpaceSeparatedTable(text: string): TableData {
     throw new Error("테이블을 찾을 수 없습니다");
   }
 
+  console.log("[Space-separated] Raw lines:", lines.length);
+  console.log("[Space-separated] First line:", lines[0]);
+
   // Try to detect column alignment by looking at consistent spacing patterns
   // For now, simple split by 2+ spaces
   const headers = lines[0].split(/\s{2,}/).map(h => h.trim());
   const rows = lines.slice(1).map(line =>
     line.split(/\s{2,}/).map(cell => cell.trim())
   );
+
+  console.log("[Space-separated] Parsed headers:", headers);
+  console.log("[Space-separated] Parsed rows:", rows.length);
 
   return {
     headers,

@@ -36,17 +36,17 @@ export const COLUMN_MAPPING: Record<
   { korean: string[]; english: string[]; priority: number }
 > = {
   [ColumnType.DATE]: {
-    korean: ["날짜", "거래일", "거래일자", "일자", "交易日期"],
-    english: ["Date", "Transaction Date", "Trx Date", "Trade Date"],
+    korean: ["날짜", "거래일", "거래일자", "일자", "거래일시", "交易日期", "날짜/시간"],
+    english: ["Date", "Transaction Date", "Trx Date", "Trade Date", "DateTime", "Transaction Time"],
     priority: 1, // Required field
   },
   [ColumnType.DEPOSIT]: {
-    korean: ["입금액", "입금", "입금", "받은금액", "수입", "입금 금액"],
+    korean: ["입금액", "입금", "받은금액", "수입", "입금 금액", "맡기신금액", "입금금액"],
     english: ["Deposit", "In", "Credit", "Income", "Received", "Deposit Amount"],
     priority: 2,
   },
   [ColumnType.WITHDRAWAL]: {
-    korean: ["출금액", "출금", "지급", "지출", "보낸금액", "출금 금액"],
+    korean: ["출금액", "출금", "지급", "지출", "보낸금액", "출금 금액", "찾으신금액", "지급금액"],
     english: [
       "Withdrawal",
       "Out",
@@ -58,18 +58,19 @@ export const COLUMN_MAPPING: Record<
     priority: 3,
   },
   [ColumnType.BALANCE]: {
-    korean: ["잔액", "잔고", "계좌잔액", "현재잔액", "잔액 (원)"],
+    korean: ["잔액", "잔고", "계좌잔액", "현재잔액", "잔액 (원)", "거래후잔액"],
     english: [
       "Balance",
       "Current Balance",
       "Bal",
       "Account Balance",
       "Running Balance",
+      "After Balance",
     ],
     priority: 4,
   },
   [ColumnType.MEMO]: {
-    korean: ["적요", "메모", "내용", "거래내용", "상세", "적요 내용"],
+    korean: ["적요", "메모", "내용", "거래내용", "상세", "적요 내용", "비고"],
     english: [
       "Memo",
       "Description",
@@ -77,6 +78,7 @@ export const COLUMN_MAPPING: Record<
       "Particulars",
       "Remark",
       "Transaction Details",
+      "Note",
     ],
     priority: 5,
   },
@@ -126,6 +128,11 @@ export const COLUMN_MAPPING: Record<
 export function inferColumnType(columnName: string): ColumnType {
   const normalized = columnName.trim().toLowerCase();
 
+  // DEBUG: Log column type detection
+  if (process.env.NODE_ENV === "development") {
+    console.log(`[Column Mapping] Checking column: "${columnName}" (normalized: "${normalized}")`);
+  }
+
   for (const [type, mapping] of Object.entries(COLUMN_MAPPING)) {
     const koreanMatches = mapping.korean.some((name) =>
       normalized.includes(name.toLowerCase())
@@ -135,8 +142,15 @@ export function inferColumnType(columnName: string): ColumnType {
     );
 
     if (koreanMatches || englishMatches) {
+      if (process.env.NODE_ENV === "development") {
+        console.log(`[Column Mapping] ✓ Matched as ${type} (korean: ${koreanMatches}, english: ${englishMatches})`);
+      }
       return type as ColumnType;
     }
+  }
+
+  if (process.env.NODE_ENV === "development") {
+    console.log(`[Column Mapping] ✗ No match found for "${columnName}"`);
   }
 
   return ColumnType.UNKNOWN;
