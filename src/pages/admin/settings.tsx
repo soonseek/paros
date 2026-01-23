@@ -35,7 +35,7 @@ export default function AdminSettings() {
   const [isSaving, setIsSaving] = useState(false);
 
   // 설정 조회
-  const { data: settings, refetch } = api.settings.getByCategory.useQuery(
+  const { data: aiSettings, refetch: refetchAI } = api.settings.getByCategory.useQuery(
     { category: 'AI' },
     {
       onSuccess: (data) => {
@@ -47,6 +47,30 @@ export default function AdminSettings() {
       },
     }
   );
+
+  // S3 설정 조회
+  const { data: generalSettings, refetch: refetchGeneral } = api.settings.getByCategory.useQuery(
+    { category: 'GENERAL' },
+    {
+      onSuccess: (data) => {
+        // S3 설정값 로드
+        const awsRegionSetting = data.find((s) => s.key === 'AWS_REGION');
+        if (awsRegionSetting?.value) {
+          setAwsRegion(awsRegionSetting.value);
+        }
+        
+        const bucketSetting = data.find((s) => s.key === 'AWS_S3_BUCKET_NAME');
+        if (bucketSetting?.value) {
+          setAwsS3BucketName(bucketSetting.value);
+        }
+      },
+    }
+  );
+
+  const refetch = () => {
+    void refetchAI();
+    void refetchGeneral();
+  };
 
   // 설정 저장 mutation
   const updateSetting = api.settings.update.useMutation({
