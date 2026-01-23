@@ -1,11 +1,10 @@
 import { type NextPage } from "next";
 import { useRouter } from "next/router";
 import { useState, useEffect, useMemo } from "react";
-import { Upload, Search, Loader2, Download } from "lucide-react";
+import { Upload, Loader2, Download } from "lucide-react";
 
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
-import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
 import { Label } from "~/components/ui/label";
 import { FindingList } from "~/components/molecules/finding-list";
@@ -43,9 +42,7 @@ import { useI18n } from "~/lib/i18n/index";
  * Case Detail Page
  *
  * Displays detailed information about a specific case.
- * Story 2.3: 사건 상세 조회
- * Story 6.2: FindingCard 클릭 인터랙션
- * Story 6.3: 발견사항 메모 추가
+ * 간소화된 UI - 핵심 기능만 유지
  */
 
 // Story 6.3: FindingNoteSection 컴포넌트 (메모 섹션)
