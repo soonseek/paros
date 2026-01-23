@@ -171,13 +171,22 @@ const CaseDetailPage: NextPage = () => {
 
   // Memoize transactions for AI Chat Assistant (performance optimization)
   const memoizedTransactions = useMemo(() => {
+    // 문서 ID → 문서명 매핑
+    const docNameMap = new Map<string, string>();
+    documents?.forEach(doc => {
+      docNameMap.set(doc.id, doc.originalFileName);
+    });
+
     return (transactionsData?.transactions ?? []).map(tx => ({
       ...tx,
       depositAmount: tx.depositAmount ? String(tx.depositAmount) : null,
       withdrawalAmount: tx.withdrawalAmount ? String(tx.withdrawalAmount) : null,
       balance: tx.balance ? String(tx.balance) : null,
+      documentName: (tx as { documentId?: string }).documentId 
+        ? docNameMap.get((tx as { documentId?: string }).documentId!) ?? null 
+        : null,
     }));
-  }, [transactionsData?.transactions]);
+  }, [transactionsData?.transactions, documents]);
 
   // 거래내역 정규화 (SimplifiedTransactionTable용)
   const simplifiedTransactions = useMemo((): SimplifiedTransaction[] => {
