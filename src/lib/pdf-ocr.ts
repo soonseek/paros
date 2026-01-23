@@ -249,8 +249,15 @@ function extractFromTableElementsHTML(tableElements: Array<{
     }
 
     console.log(`[HTML Table] Processing table ${i + 1}/${tableElements.length}...`);
+    console.log(`[HTML Table] Table ${i + 1} HTML length: ${tableHTML.length}, preview: ${tableHTML.substring(0, 100)}...`);
 
-    const tableData = parseHTMLTable(tableHTML);
+    let tableData;
+    try {
+      tableData = parseHTMLTable(tableHTML);
+    } catch (error) {
+      console.log(`[HTML Table] ⚠️ Table ${i + 1} skipped - Parse error: ${error instanceof Error ? error.message : String(error)}`);
+      continue;
+    }
     
     // 최소 컬럼 수를 3으로 완화 (일부 PDF는 날짜, 금액, 잔액만 있음)
     if (tableData.headers.length < 3) {
