@@ -320,7 +320,9 @@ function extractFromTableElementsHTML(tableElements: Array<{
   console.log(`[HTML Table] Main table: #${mainTable.index} with ${mainTable.columnCount} columns`);
   console.log(`[HTML Table] Headers:`, mainTable.headers.join(", "));
 
-  // 3단계: 같은 컬럼 수의 다른 테이블들의 데이터 행 결합 (페이지네이션)
+  // 3단계: 동일한 거래내역 구조의 테이블들 모두 결합
+  // - 같은 헤더 구조 (유효한 헤더가 있는 테이블들)
+  // - 또는 비슷한 컬럼 수 (±1 차이 허용, OCR 오류 대응)
   const allRows: string[][] = [...mainTable.rows];
   let continuationCount = 0;
 
@@ -328,13 +330,27 @@ function extractFromTableElementsHTML(tableElements: Array<{
     // 메인 테이블은 스킵
     if (table.index === mainTable.index) continue;
 
-    // 같은 컬럼 수이고, 유효한 헤더가 없는 테이블 = 연속 데이터 테이블
-    if (table.columnCount === mainTable.columnCount && !table.hasValidHeaders) {
-      // 헤더로 인식된 첫 번째 행도 데이터로 추가
-      allRows.push(table.headers);
-      allRows.push(...table.rows);
-      continuationCount++;
-      console.log(`[HTML Table] ✓ Table ${table.index} added as continuation (${table.rows.length + 1} rows)`);
+    // 컬럼 수 차이 허용 (OCR에서 시각/Teller가 합쳐지거나 분리될 수 있음)
+    const columnDiff = Math.abs(table.columnCount - mainTable.columnCount);
+    const isSimilarStructure = columnDiff <= 1;
+
+    if (isSimilarStructure) {
+      if (table.hasValidHeaders) {
+        // 유효한 헤더가 있는 테이블 = 같은 구조의 다른 페이지
+        // 헤더 행은 제외하고 데이터만 추가
+        allRows.push(...table.rows);
+        continuationCount++;
+        console.log(`[HTML Table] ✓ Table ${table.index} added (valid header, ${table.rows.length} rows)`);
+      } else {
+        // 헤더가 없는 테이블 = 연속 데이터 테이블
+        // 헤더로 인식된 첫 번째 행도 데이터로 추가
+        allRows.push(table.headers);
+        allRows.push(...table.rows);
+        continuationCount++;
+        console.log(`[HTML Table] ✓ Table ${table.index} added as continuation (${table.rows.length + 1} rows)`);
+      }
+    } else {
+      console.log(`[HTML Table] ⚠️ Table ${table.index} skipped (column count ${table.columnCount} differs from main ${mainTable.columnCount})`);
     }
   }
 
