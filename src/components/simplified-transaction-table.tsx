@@ -28,23 +28,33 @@ export interface SimplifiedTransaction {
   amount: number;
   balance: number;
   memo: string;
+  documentName?: string; // 문서명 (전체 내역 표시용)
 }
 
 interface SimplifiedTransactionTableProps {
   transactions: SimplifiedTransaction[];
   caseId?: string;
+  showDocumentName?: boolean; // 문서명 컬럼 표시 여부
 }
 
 type SortField = 'transactionDate' | 'amount' | 'balance';
 type SortOrder = 'asc' | 'desc';
 
+// 문서명 truncate 함수 (10글자 초과시 ellipsis)
+function truncateDocName(name: string, maxLength: number = 10): string {
+  if (!name) return '-';
+  return name.length > maxLength ? name.substring(0, maxLength) + '...' : name;
+}
+
 export function SimplifiedTransactionTable({
   transactions,
   caseId,
+  showDocumentName = false,
 }: SimplifiedTransactionTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
+  // 기본 정렬: 거래일자 오름차순 (시간순)
   const [sortField, setSortField] = useState<SortField>('transactionDate');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
   const [typeFilter, setTypeFilter] = useState<'all' | '입금' | '출금'>('all');
 
   // 정렬 토글
