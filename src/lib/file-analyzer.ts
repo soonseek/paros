@@ -25,6 +25,7 @@ import {
   ColumnType,
   getMissingRequiredColumns,
   getColumnTypeLabel,
+  hasAmountColumns,
 } from "./column-mapping";
 import { parsePdfWithUpstage } from "./pdf-ocr";
 
@@ -51,7 +52,7 @@ export interface AnalysisResult {
   // LLM 분석 메타데이터 (LLM 분석 사용 시)
   llmAnalysis?: {
     transactionTypeMethod: string; // separate_columns, type_column, sign_in_type, amount_sign
-    memoContentType: string; // 입금자명, 계좌정보, 거래설명 등
+    memoInAmountColumn?: boolean; // 비고가 금액 컬럼에 섞여있는 특수 케이스
     reasoning: string; // 분석 근거
   };
 
@@ -105,42 +106,54 @@ export async function analyzeFileStructure(
     console.log("[File Analysis] Header row index:", headerRowIndex);
     console.log("[File Analysis] Total rows:", totalRows);
 
-    // LLM 기반 분석 사용 시
+    // LLM 기반 분석 사용 시 (Python 서비스 없이 직접 OpenAI 호출)
     if (useLlmAnalysis && extractedData) {
       console.log("[File Analysis] Using LLM-based column analysis...");
       try {
-        const { analyzeColumnsFromTableData, convertToColumnIndices } = await import("./column-analyzer-client");
+        const { analyzeColumnsWithLLM } = await import("./column-analyzer-llm");
         
-        const llmResult = await analyzeColumnsFromTableData(headers, extractedData.rows);
+        const llmResult = await analyzeColumnsWithLLM(headers, extractedData.rows);
         
         if (llmResult.success) {
           console.log("[File Analysis] LLM analysis successful");
           console.log("[File Analysis] LLM confidence:", llmResult.confidence);
           console.log("[File Analysis] LLM column mapping:", llmResult.columnMapping);
+          console.log("[File Analysis] Transaction type method:", llmResult.transactionTypeMethod);
           
           // LLM 결과를 기존 형식으로 변환
           const llmColumnMapping: Record<string, string> = {};
           
-          if (llmResult.columnMapping.거래일자) {
-            llmColumnMapping.date = llmResult.columnMapping.거래일자;
+          if (llmResult.columnMapping.date) {
+            llmColumnMapping.date = llmResult.columnMapping.date;
           }
-          if (llmResult.columnMapping.입금금액) {
-            llmColumnMapping.deposit = llmResult.columnMapping.입금금액;
+          if (llmResult.columnMapping.deposit) {
+            llmColumnMapping.deposit = llmResult.columnMapping.deposit;
           }
-          if (llmResult.columnMapping.출금금액) {
-            llmColumnMapping.withdrawal = llmResult.columnMapping.출금금액;
+          if (llmResult.columnMapping.withdrawal) {
+            llmColumnMapping.withdrawal = llmResult.columnMapping.withdrawal;
           }
-          if (llmResult.columnMapping.잔액) {
-            llmColumnMapping.balance = llmResult.columnMapping.잔액;
+          if (llmResult.columnMapping.amount) {
+            llmColumnMapping.amount = llmResult.columnMapping.amount;
           }
-          if (llmResult.columnMapping.비고) {
-            llmColumnMapping.memo = llmResult.columnMapping.비고;
+          if (llmResult.columnMapping.transactionType) {
+            llmColumnMapping.transaction_type = llmResult.columnMapping.transactionType;
+          }
+          if (llmResult.columnMapping.balance) {
+            llmColumnMapping.balance = llmResult.columnMapping.balance;
+          }
+          if (llmResult.columnMapping.memo) {
+            llmColumnMapping.memo = llmResult.columnMapping.memo;
+          }
+          
+          // memoInAmountColumn 플래그를 columnMapping에 포함
+          if (llmResult.memoInAmountColumn) {
+            (llmColumnMapping as Record<string, unknown>).memoInAmountColumn = true;
           }
           
           return {
             status: "completed",
             columnMapping: llmColumnMapping,
-            headerRowIndex: llmResult.headerRowIndex,
+            headerRowIndex,
             totalRows,
             detectedFormat,
             hasHeaders: true,
@@ -148,8 +161,8 @@ export async function analyzeFileStructure(
             extractedData,
             // LLM 분석 메타데이터 추가
             llmAnalysis: {
-              transactionTypeMethod: llmResult.transactionTypeDetection.method,
-              memoContentType: llmResult.memoAnalysis.contentType,
+              transactionTypeMethod: llmResult.transactionTypeMethod,
+              memoInAmountColumn: llmResult.memoInAmountColumn,
               reasoning: llmResult.reasoning,
             },
           } as AnalysisResult;
@@ -183,6 +196,12 @@ export async function analyzeFileStructure(
       console.error("[File Analysis] Missing required columns:", missingRequired);
     }
 
+    // 금액 관련 열 검증
+    const hasAmount = hasAmountColumns(detectedTypes);
+    if (!hasAmount) {
+      console.error("[File Analysis] No amount-related columns found");
+    }
+
     // Build column mapping
     const columnMapping: Record<string, string> = {};
     for (const detection of detectedColumns) {
@@ -192,6 +211,18 @@ export async function analyzeFileStructure(
     }
 
     console.log("[File Analysis] Final column mapping:", columnMapping);
+
+    // 에러 메시지 생성
+    let errorMessage: string | undefined;
+    const errorDetails: Record<string, unknown> = {};
+
+    if (missingRequired.length > 0) {
+      errorMessage = `필수 열이 누락되었습니다: ${missingRequired.map(getColumnTypeLabel).join(", ")}`;
+      errorDetails.missingRequired = missingRequired;
+    } else if (!hasAmount) {
+      errorMessage = "파일 구조 분석에서 금액 관련 열(입금액/출금액/거래금액/잔액)을 찾을 수 없습니다";
+      errorDetails.missingAmountColumns = true;
+    }
 
     // Return analysis result
     return {
@@ -203,10 +234,7 @@ export async function analyzeFileStructure(
       hasHeaders: true,
       confidence,
       extractedData, // Include extracted raw data
-      ...(missingRequired.length > 0 && {
-        errorMessage: `필수 열이 누락되었습니다: ${missingRequired.map(getColumnTypeLabel).join(", ")}`,
-        errorDetails: { missingRequired },
-      }),
+      ...(errorMessage && { errorMessage, errorDetails }),
     };
   } catch (error) {
     console.error("[File Analysis Error]", error);

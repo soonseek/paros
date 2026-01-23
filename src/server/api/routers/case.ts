@@ -76,19 +76,10 @@ export const caseRouter = createTRPCRouter({
   createCase: protectedProcedure
     .input(
       z.object({
-        caseNumber: z.string()
-          .min(1, "사건번호는 필수 항목입니다")
-          .regex(
-            /^\d{4}(하|타)\d{5}$/,
-            "사건번호 형식이 올바르지 않습니다 (예: 2023하12345)"
-          ),
+        caseNumber: z.string().optional(), // 사건번호 선택 사항
         debtorName: z.string()
           .min(1, "채무자명은 필수 항목입니다")
-          .max(50, "채무자명은 50자 이하여야 합니다")
-          .regex(
-            /^[가-힣a-zA-Z\s]+$/,
-            "채무자명은 한글 또는 영문만 입력 가능합니다"
-          ),
+          .max(50, "채무자명은 50자 이하여야 합니다"),
         courtName: z.string().optional(),
         filingDate: z.date()
           .optional()

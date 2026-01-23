@@ -79,15 +79,15 @@ export async function parsePdfWithUpstage(
   // Add Upstage API parameters (based on official Python guide)
   // Reference: https://console.upstage.ai/docs/capabilities/digitize/document-parsing
   formData.append("model", "document-parse-nightly");
-  formData.append("ocr", "auto"); // Auto OCR mode
+  formData.append("ocr", "force"); // Auto OCR mode
   formData.append("chart_recognition", "true"); // Enable chart recognition
   formData.append("coordinates", "true"); // Enable coordinate extraction
   formData.append("output_formats", '["html","text"]'); // Request both HTML and text
   formData.append("base64_encoding", '["figure"]'); // Base64 encode figures
+  formData.append("merge_multipage_tables", "true"); // Base64 encode figures
 
   try {
     console.log("[Upstage API] Calling document-digitization endpoint...");
-    console.log("[Upstage API] Parameters: model=document-parse-nightly, ocr=auto, chart_recognition=true, coordinates=true, output_formats=[html]");
 
     const response = await fetch(
       "https://api.upstage.ai/v1/document-digitization",
@@ -227,57 +227,210 @@ function extractFromTableElementsHTML(tableElements: Array<{
 
   console.log(`[HTML Table] Extracting data from ${tableElements.length} tables...`);
 
-  // Parse all tables and filter for transaction history tables (must have date column)
-  const allRows: string[][] = [];
-  let headers: string[] = [];
-  let validTableCount = 0;
+  // 1단계: 모든 테이블 파싱 (컬럼 수 제한 없이)
+  interface ParsedTable {
+    index: number;
+    headers: string[];
+    rows: string[][];
+    columnCount: number;
+    hasValidHeaders: boolean; // 헤더가 실제 헤더인지 (날짜 컬럼 등)
+    headerScore: number; // 헤더 품질 점수
+    dataScore: number; // 데이터 품질 점수
+    score: number;
+  }
+
+  const parsedTables: ParsedTable[] = [];
 
   for (let i = 0; i < tableElements.length; i++) {
     const tableHTML = tableElements[i]?.content?.html;
-    if (!tableHTML) continue;
-
-    console.log(`[HTML Table] Processing table ${i + 1}/${tableElements.length}...`);
-    console.log(`[HTML Table] Raw HTML preview:`, tableHTML.substring(0, 300));
-
-    const tableData = parseHTMLTable(tableHTML);
-
-    // Validate table has date column (required for transaction history)
-    const hasDateColumn = tableData.headers.some(header => {
-      const columnType = inferColumnType(header);
-      return columnType === ColumnType.DATE;
-    });
-
-    if (!hasDateColumn) {
-      console.log(`[HTML Table] ⚠️ Table ${i + 1} skipped - No date column found (not a transaction table)`);
-      console.log(`[HTML Table]    Headers:`, tableData.headers.join(", "));
+    if (!tableHTML) {
+      console.log(`[HTML Table] ⚠️ Table ${i + 1} skipped - No HTML content`);
       continue;
     }
 
-    console.log(`[HTML Table] ✓ Table ${i + 1} validated - Has date column`);
-    validTableCount++;
+    console.log(`[HTML Table] Processing table ${i + 1}/${tableElements.length}...`);
+    console.log(`[HTML Table] Table ${i + 1} HTML length: ${tableHTML.length}, preview: ${tableHTML.substring(0, 100)}...`);
 
-    // Use headers from first valid table
-    if (validTableCount === 1 && tableData.headers.length > 0) {
-      headers = tableData.headers;
+    let tableData;
+    try {
+      tableData = parseHTMLTable(tableHTML);
+    } catch (error) {
+      console.log(`[HTML Table] ⚠️ Table ${i + 1} skipped - Parse error: ${error instanceof Error ? error.message : String(error)}`);
+      continue;
+    }
+    
+    // 최소 컬럼 수를 3으로 완화 (일부 PDF는 날짜, 금액, 잔액만 있음)
+    if (tableData.headers.length < 3) {
+      console.log(`[HTML Table] ⚠️ Table ${i + 1} skipped - Too few columns (${tableData.headers.length})`);
+      continue;
     }
 
-    // Add rows (skip header rows from subsequent tables)
-    allRows.push(...tableData.rows);
+    // 헤더가 실제 헤더인지 검사 (날짜 컬럼명 포함 여부)
+    let headerScore = 0;
+    let hasDateColumn = false;
+    let hasAmountColumn = false;
+
+    for (const header of tableData.headers) {
+      const columnType = inferColumnType(header);
+      
+      if (columnType === ColumnType.DATE) {
+        hasDateColumn = true;
+        headerScore += 10;
+      }
+      if (columnType === ColumnType.DEPOSIT || columnType === ColumnType.WITHDRAWAL || columnType === ColumnType.AMOUNT) {
+        hasAmountColumn = true;
+        headerScore += 10;
+      }
+      if (columnType === ColumnType.BALANCE) {
+        headerScore += 10;
+      }
+      if (columnType === ColumnType.TRANSACTION_TYPE) {
+        headerScore += 5;
+      }
+      if (columnType === ColumnType.MEMO) {
+        headerScore += 3;
+      }
+    }
+
+    // 데이터 품질 점수: 첫 번째 행이 날짜 패턴을 포함하는지 확인
+    let dataScore = 0;
+    const datePatterns = [
+      /^\d{4}[-./]\d{2}[-./]\d{2}/, // YYYY-MM-DD, YYYY.MM.DD, YYYY/MM/DD
+      /^\d{2}[-./]\d{2}[-./]\d{4}/, // DD-MM-YYYY, DD.MM.YYYY
+      /^\d{2}[-./]\d{2}[-./]\d{2}/, // YY-MM-DD, YY.MM.DD
+    ];
+    
+    // 첫 번째 헤더가 날짜 패턴이면 -> 이건 데이터 행임 (헤더 아님)
+    const firstCellLooksLikeDate = datePatterns.some(p => p.test(tableData.headers[0] || ""));
+    if (firstCellLooksLikeDate) {
+      dataScore += 20; // 데이터 행일 가능성 높음
+      headerScore = 0; // 헤더 점수 리셋
+    }
+
+    // 데이터 행 수에 따른 점수
+    dataScore += Math.min(tableData.rows.length * 2, 20);
+    
+    const score = headerScore + dataScore + tableData.headers.length;
+    const hasValidHeaders = hasDateColumn && !firstCellLooksLikeDate;
+
+    console.log(`[HTML Table] Table ${i + 1}: cols=${tableData.headers.length}, rows=${tableData.rows.length}, validHeader=${hasValidHeaders}, headerScore=${headerScore}, dataScore=${dataScore}, totalScore=${score}`);
+    if (!hasValidHeaders) {
+      console.log(`[HTML Table]    First row (potential data):`, tableData.headers.slice(0, 5).join(", "));
+    }
+
+    parsedTables.push({
+      index: i + 1,
+      headers: tableData.headers,
+      rows: tableData.rows,
+      columnCount: tableData.headers.length,
+      hasValidHeaders,
+      headerScore,
+      dataScore,
+      score,
+    });
   }
 
-  if (validTableCount === 0) {
-    console.error("[HTML Table] ✗ No valid transaction history tables found (all tables missing date column)");
-    throw new Error("PDF에서 거래내역 테이블을 찾을 수 없습니다 (날짜 열이 없는 테이블만 있음)");
+  if (parsedTables.length === 0) {
+    throw new Error("PDF에서 유효한 테이블을 찾을 수 없습니다");
   }
 
-  console.log(`[HTML Table] Combined: ${validTableCount} valid tables, ${headers.length} columns, ${allRows.length} total rows`);
+  // 2단계: 메인 테이블 선택 (유효한 헤더가 있는 테이블 중 최고 점수)
+  const tablesWithHeaders = parsedTables.filter(t => t.hasValidHeaders);
+  
+  let mainTable: ParsedTable;
+  
+  if (tablesWithHeaders.length === 0) {
+    // 유효한 헤더가 있는 테이블이 없으면, 가장 높은 headerScore를 가진 테이블 선택
+    console.log("[HTML Table] ⚠️ No tables with valid headers found, selecting best candidate...");
+    parsedTables.sort((a, b) => b.headerScore - a.headerScore || b.score - a.score);
+    mainTable = parsedTables[0]!;
+    
+    // 그래도 헤더 점수가 0이면 에러
+    if (mainTable.headerScore === 0) {
+      console.error("[HTML Table] ✗ No tables with recognizable columns found");
+      throw new Error("PDF에서 거래내역 테이블을 찾을 수 없습니다 (날짜 열이 없는 테이블만 있음)");
+    }
+  } else {
+    tablesWithHeaders.sort((a, b) => b.score - a.score);
+    mainTable = tablesWithHeaders[0]!;
+  }
+
+  console.log(`[HTML Table] Main table: #${mainTable.index} with ${mainTable.columnCount} columns, ${mainTable.rows.length} data rows`);
+  console.log(`[HTML Table] Headers:`, mainTable.headers.join(", "));
+
+  // 모든 파싱된 테이블 요약 출력
+  console.log(`[HTML Table] All parsed tables summary:`);
+  parsedTables.forEach(t => {
+    console.log(`  Table ${t.index}: cols=${t.columnCount}, validHeader=${t.hasValidHeaders}, rows=${t.rows.length}, score=${t.score}`);
+  });
+
+  // 3단계: 동일한 거래내역 구조의 테이블들 모두 결합
+  // 핵심 개선: 컬럼 수 차이 허용을 더 관대하게 + 모든 테이블 포함 시도
+  const allRows: string[][] = [...mainTable.rows];
+  let continuationCount = 0;
+  let skippedTables: number[] = [];
+
+  for (const table of parsedTables) {
+    // 메인 테이블은 스킵
+    if (table.index === mainTable.index) continue;
+
+    // 컬럼 수 차이 허용 (OCR에서 컬럼이 합쳐지거나 분리될 수 있음)
+    const columnDiff = Math.abs(table.columnCount - mainTable.columnCount);
+    // ±3 차이까지 허용 (은행 PDF에서 OCR 오류가 흔함)
+    const isSimilarStructure = columnDiff <= 3;
+
+    if (isSimilarStructure) {
+      if (table.hasValidHeaders) {
+        // 유효한 헤더가 있는 테이블 = 같은 구조의 다른 페이지
+        // 헤더 행은 제외하고 데이터만 추가
+        allRows.push(...table.rows);
+        continuationCount++;
+        console.log(`[HTML Table] ✓ Table ${table.index} added (valid header, ${table.rows.length} rows)`);
+      } else {
+        // 헤더가 없는 테이블 = 연속 데이터 테이블
+        // 첫 번째 행이 날짜 패턴을 포함하면 데이터로 추가
+        const firstCellLooksLikeDate = datePatterns.some(p => p.test(table.headers[0] || ""));
+        
+        if (firstCellLooksLikeDate || table.dataScore > table.headerScore) {
+          // 헤더로 인식된 첫 번째 행도 데이터로 추가
+          allRows.push(table.headers);
+          allRows.push(...table.rows);
+          continuationCount++;
+          console.log(`[HTML Table] ✓ Table ${table.index} added as continuation (${table.rows.length + 1} rows, firstCell=${table.headers[0]?.substring(0, 15)})`);
+        } else {
+          // 헤더가 아닌데 데이터도 아닌 경우 -> 데이터만 추가
+          allRows.push(...table.rows);
+          continuationCount++;
+          console.log(`[HTML Table] ✓ Table ${table.index} added (data only, ${table.rows.length} rows)`);
+        }
+      }
+    } else {
+      skippedTables.push(table.index);
+      console.log(`[HTML Table] ⚠️ Table ${table.index} skipped (column count ${table.columnCount} vs main ${mainTable.columnCount}, diff=${columnDiff})`);
+    }
+  }
+
+  // 스킵된 테이블이 있으면 경고
+  if (skippedTables.length > 0) {
+    console.log(`[HTML Table] ⚠️ WARNING: ${skippedTables.length} tables were skipped due to column count mismatch: [${skippedTables.join(", ")}]`);
+    console.log(`[HTML Table] This may cause data loss. Consider reviewing the PDF structure.`);
+  }
+
+  console.log(`[HTML Table] Combined: 1 main + ${continuationCount} continuation tables, ${mainTable.columnCount} columns, ${allRows.length} total rows`);
 
   return {
-    headers,
+    headers: mainTable.headers,
     rows: allRows,
     totalRows: allRows.length,
   };
 }
+
+// 날짜 패턴 상수 (함수 외부에서 재사용 가능)
+const datePatterns = [
+  /^\d{4}[-./]\d{2}[-./]\d{2}/, // YYYY-MM-DD, YYYY.MM.DD, YYYY/MM/DD
+  /^\d{2}[-./]\d{2}[-./]\d{4}/, // DD-MM-YYYY, DD.MM.YYYY
+  /^\d{2}[-./]\d{2}[-./]\d{2}/, // YY-MM-DD, YY.MM.DD
+];
 
 /**
  * Parse HTML table string to extract headers and rows

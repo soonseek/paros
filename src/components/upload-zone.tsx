@@ -71,6 +71,13 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
     fileName: string;
     totalTransactions?: number;
     columns?: string[];
+    llmAnalysis?: {
+      transactionTypeMethod: string;
+      memoInAmountColumn?: boolean;
+      reasoning: string;
+      confidence: number;
+      columnMapping: Record<string, string | undefined>;
+    };
   } | null>(null);
 
   // Story 3.7: Track uploaded documents for preview/delete
@@ -142,13 +149,29 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
               if (result.data?.success && result.data.analysisResult) {
                 const { document, analysisResult } = result.data;
 
-                // Extract column names from columnMapping
-                const columns = Object.keys(analysisResult.columnMapping ?? {});
+                // Extract column mapping
+                const columnMapping = analysisResult.columnMapping as Record<string, string | undefined> ?? {};
+                const columns = Object.keys(columnMapping);
+
+                // Extract LLM analysis metadata if available
+                const llmAnalysisData = analysisResult.llmAnalysis as {
+                  transactionTypeMethod?: string;
+                  memoInAmountColumn?: boolean;
+                  reasoning?: string;
+                } | null;
 
                 const newCompletionData = {
                   fileName: document.fileName,
                   totalTransactions: analysisResult.totalRows,
                   columns,
+                  // Include LLM analysis result for UI display
+                  llmAnalysis: llmAnalysisData ? {
+                    transactionTypeMethod: llmAnalysisData.transactionTypeMethod ?? "unknown",
+                    memoInAmountColumn: llmAnalysisData.memoInAmountColumn,
+                    reasoning: llmAnalysisData.reasoning ?? "",
+                    confidence: analysisResult.confidence,
+                    columnMapping,
+                  } : undefined,
                 };
 
                 setCompletionData(newCompletionData);
@@ -417,81 +440,66 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
   return (
     <>
       <Card>
-        <CardHeader>
-          <CardTitle className="heading-3">거래내역서 업로드</CardTitle>
-          <CardDescription>
-            파일을 업로드하여 자동으로 거래내역을 분석하세요
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div
-            {...getRootProps()}
-            role="button"
-            tabIndex={0}
-            onKeyDown={handleKeyDown}
-            className={`
-              relative border-2 border-dashed rounded-lg p-12 text-center cursor-pointer
-              transition-all duration-200 ease-in-out
-              ${isDragActive 
-                ? "border-primary bg-primary/5 scale-[1.02]" 
-                : "border-border hover:border-primary/50 hover:bg-accent/50"
-              }
-              ${isProcessing ? "opacity-60 cursor-not-allowed pointer-events-none" : ""}
-            `}
-            aria-label="파일 업로드 영역 - 드래그앤드롭 또는 클릭하여 파일 선택"
-          >
-            <input {...getInputProps()} ref={fileInputRef} />
-            {isProcessing ? (
-              <div className="flex flex-col items-center gap-4">
-                <div className="relative">
-                  <div className="animate-spin rounded-full h-12 w-12 border-3 border-primary/30 border-t-primary" />
+        <CardContent className="pt-6">
+          {/* 세로 스택 레이아웃 */}
+          <div className="space-y-4">
+            {/* 드래그앤드롭 영역 */}
+            <div
+              {...getRootProps()}
+              role="button"
+              tabIndex={0}
+              onKeyDown={handleKeyDown}
+              className={`
+                relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer
+                transition-all duration-200 ease-in-out
+                ${isDragActive 
+                  ? "border-primary bg-primary/5 scale-[1.01]" 
+                  : "border-border hover:border-primary/50 hover:bg-accent/50"
+                }
+                ${isProcessing ? "opacity-60 cursor-not-allowed pointer-events-none" : ""}
+              `}
+              aria-label="파일 업로드 영역"
+            >
+              <input {...getInputProps()} ref={fileInputRef} />
+              {isProcessing ? (
+                <div className="flex items-center justify-center gap-3">
+                  <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary/30 border-t-primary" />
+                  <p className="text-sm font-medium text-muted-foreground">파일 처리 중...</p>
                 </div>
-                <p className="text-sm font-medium text-muted-foreground">파일 처리 중...</p>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-4">
-                <div className={`
-                  rounded-full p-4 transition-colors
-                  ${isDragActive ? "bg-primary/10" : "bg-muted"}
-                `}>
-                  <Upload className={`size-8 transition-colors ${
-                    isDragActive ? "text-primary" : "text-muted-foreground"
-                  }`} />
+              ) : (
+                <div className="flex items-center justify-center gap-4">
+                  <div className={`rounded-full p-2 ${isDragActive ? "bg-primary/10" : "bg-muted"}`}>
+                    <Upload className={`size-5 ${isDragActive ? "text-primary" : "text-muted-foreground"}`} />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-medium">
+                      {isDragActive ? (
+                        <span className="text-primary">파일을 놓아주세요</span>
+                      ) : (
+                        <>파일을 드래그하거나 <span className="text-primary underline">클릭</span></>
+                      )}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Excel, CSV, PDF • 최대 50MB</p>
+                  </div>
                 </div>
-                {isDragActive ? (
-                  <div className="space-y-2">
-                    <p className="text-base font-semibold text-primary">
-                      파일을 놓아주세요
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <p className="text-base font-medium text-foreground">
-                      파일을 드래그하거나{" "}
-                      <span className="text-primary underline">클릭하여 업로드</span>
-                    </p>
-                    <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1.5">
-                        <FileSpreadsheet className="size-4" />
-                        <span>Excel, CSV</span>
-                      </div>
-                      <div className="h-4 w-px bg-border" />
-                      <div className="flex items-center gap-1.5">
-                        <FileText className="size-4" />
-                        <span>PDF</span>
-                      </div>
-                      <div className="h-4 w-px bg-border" />
-                      <span>최대 50MB</span>
-                    </div>
-                  </div>
-                )}
-              </div>
+              )}
+            </div>
+
+            {/* 분석 결과 */}
+            {(analyzingDocumentId || completionData || failedDocumentId) && (
+              <ProgressBar
+                progress={progress}
+                stage={stage}
+                error={progressError}
+                completionData={completionData ?? undefined}
+                onRetry={failedDocumentId ? handleRetry : undefined}
+              />
             )}
           </div>
 
           {/* Error Messages */}
           {fileErrors.length > 0 && (
-            <div className="mt-6 space-y-2">
+            <div className="mt-4 space-y-2">
               {fileErrors.map((error, index) => (
                 <div
                   key={index}
@@ -504,22 +512,9 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
             </div>
           )}
 
-          {/* Story 3.5: Real-time Progress Display */}
-          {(analyzingDocumentId || completionData || failedDocumentId) && (
-            <div className="mt-6">
-              <ProgressBar
-                progress={progress}
-                stage={stage}
-                error={progressError}
-                completionData={completionData ?? undefined}
-                onRetry={failedDocumentId ? handleRetry : undefined}
-              />
-            </div>
-          )}
-
           {/* Story 3.7: Uploaded Documents List with Preview/Delete Buttons */}
           {uploadedDocuments.length > 0 && (
-            <div className="mt-6 space-y-3">
+            <div className="mt-4 space-y-3">
               <h3 className="text-sm font-semibold text-foreground">
                 업로드된 파일 ({uploadedDocuments.length}개)
               </h3>

@@ -12,7 +12,7 @@ import { api } from "~/utils/api";
 import { useAuth } from "~/contexts/AuthContext";
 
 const createCaseSchema = z.object({
-  caseNumber: z.string().min(1, "사건번호는 필수 항목입니다"),
+  caseNumber: z.string().optional(), // 사건번호 선택 사항
   debtorName: z.string().min(1, "채무자명은 필수 항목입니다"),
   courtName: z.string().optional(),
   filingDate: z.string().optional(),
@@ -73,20 +73,13 @@ const NewCasePage: NextPage = () => {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Case Number */}
           <div>
-            <Label htmlFor="caseNumber">
-              사건번호 <span className="text-red-500">*</span>
-            </Label>
+            <Label htmlFor="caseNumber">사건번호</Label>
             <Input
               id="caseNumber"
               type="text"
               placeholder="예: 2023하12345"
               {...register("caseNumber")}
             />
-            {errors.caseNumber && (
-              <p className="text-red-500 text-sm mt-1">
-                {errors.caseNumber.message}
-              </p>
-            )}
           </div>
 
           {/* Debtor Name */}

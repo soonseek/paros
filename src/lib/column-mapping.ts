@@ -25,6 +25,8 @@ export enum ColumnType {
   MEMO = "memo",
   COUNTERPARTY = "counterparty",
   ACCOUNT_NUMBER = "account_number",
+  AMOUNT = "amount", // 단일 금액 컬럼 (거래구분으로 입출금 구분)
+  TRANSACTION_TYPE = "transaction_type", // 거래구분 ([+]/[-])
   UNKNOWN = "unknown",
 }
 
@@ -58,7 +60,7 @@ export const COLUMN_MAPPING: Record<
     priority: 3,
   },
   [ColumnType.BALANCE]: {
-    korean: ["잔액", "잔고", "계좌잔액", "현재잔액", "잔액 (원)", "거래후잔액"],
+    korean: ["잔액", "잔고", "계좌잔액", "현재잔액", "잔액 (원)", "거래후잔액", "거래 후 잔액", "거래후 잔액"],
     english: [
       "Balance",
       "Current Balance",
@@ -69,8 +71,20 @@ export const COLUMN_MAPPING: Record<
     ],
     priority: 4,
   },
+  // 단일 금액 컬럼 (거래구분으로 입출금 구분)
+  [ColumnType.AMOUNT]: {
+    korean: ["거래금액", "금액", "거래 금액", "이체금액"],
+    english: ["Amount", "Transaction Amount", "Trx Amount"],
+    priority: 3, // 입금/출금 분리형보다 낮은 우선순위
+  },
+  // 거래구분 컬럼 ([+]/[-] 표시)
+  [ColumnType.TRANSACTION_TYPE]: {
+    korean: ["거래구분", "구분", "거래 구분", "입출금구분", "유형"],
+    english: ["Transaction Type", "Type", "Trx Type"],
+    priority: 3, // AMOUNT와 함께 사용
+  },
   [ColumnType.MEMO]: {
-    korean: ["적요", "메모", "내용", "거래내용", "상세", "적요 내용", "비고"],
+    korean: ["적요", "메모", "내용", "거래내용", "상세", "적요 내용", "비고", "계좌정보", "결제정보", "계좌 정보", "결제 정보"],
     english: [
       "Memo",
       "Description",
@@ -193,6 +207,8 @@ export function getColumnTypeLabel(columnType: ColumnType): string {
     [ColumnType.MEMO]: "메모",
     [ColumnType.COUNTERPARTY]: "거래처",
     [ColumnType.ACCOUNT_NUMBER]: "계좌번호",
+    [ColumnType.AMOUNT]: "거래금액",
+    [ColumnType.TRANSACTION_TYPE]: "거래구분",
     [ColumnType.UNKNOWN]: "알 수 없음",
   };
   return labels[columnType] || columnType;
@@ -206,4 +222,26 @@ export function getColumnTypeLabel(columnType: ColumnType): string {
  */
 export function isRequiredColumn(columnType: ColumnType): boolean {
   return columnType === ColumnType.DATE;
+}
+
+/**
+ * 금액 관련 컬럼이 있는지 확인
+ * 
+ * 다음 중 하나 이상 있어야 함:
+ * - 입금액/출금액 분리형
+ * - 단일 거래금액 + 거래구분
+ */
+export function hasAmountColumns(detectedColumns: ColumnType[]): boolean {
+  const hasDeposit = detectedColumns.includes(ColumnType.DEPOSIT);
+  const hasWithdrawal = detectedColumns.includes(ColumnType.WITHDRAWAL);
+  const hasAmount = detectedColumns.includes(ColumnType.AMOUNT);
+  const hasTransactionType = detectedColumns.includes(ColumnType.TRANSACTION_TYPE);
+  
+  // 입금/출금 분리형
+  if (hasDeposit || hasWithdrawal) return true;
+  
+  // 단일 금액 + 거래구분
+  if (hasAmount) return true;
+  
+  return false;
 }

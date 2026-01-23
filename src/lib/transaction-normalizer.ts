@@ -103,8 +103,13 @@ export function detectColumnRoles(headers: string[]): ColumnMapping {
 }
 
 /**
- * 비고 컬럼 자동 감지
- * 비고는 주로 텍스트가 많고, 숫자 데이터가 적은 컬럼
+ * 비고 컬럼 자동 감지 (개선된 버전)
+ * 
+ * 감지 전략:
+ * 1. 명시적 키워드 매칭 (비고, 적요, 내용 등)
+ * 2. 은행/금융 관련 패턴 감지 (계좌번호, 카드번호 등)
+ * 3. 텍스트 밀도 분석 (한글/영문 비율)
+ * 4. 컬럼 위치 휴리스틱 (마지막 텍스트 컬럼)
  */
 export function detectMemoColumn(
   headers: string[],
@@ -121,40 +126,102 @@ export function detectMemoColumn(
   
   const candidates = headers.filter(h => !excludedColumns.has(h));
   
-  // 비고 가능성이 높은 키워드
-  const memoKeywords = ['비고', '내용', '적요', '계좌정보', '결제정보', 'memo', 'description', 'remark'];
+  if (candidates.length === 0) return undefined;
   
-  // 1. 키워드 매칭 우선
-  for (const candidate of candidates) {
-    const lower = candidate.toLowerCase().replace(/\s+/g, '');
-    for (const keyword of memoKeywords) {
-      if (lower.includes(keyword)) {
-        return candidate;
+  // 비고 가능성이 높은 키워드 (우선순위 순)
+  const memoKeywords = [
+    // 1순위: 명확한 비고 키워드
+    '비고', '적요', '메모', 'memo', 'remark', 'note',
+    // 2순위: 내용/설명 관련
+    '내용', '설명', '상세', 'description', 'detail', 'content',
+    // 3순위: 금융 거래 관련
+    '계좌정보', '결제정보', '거래처', '상대방', '받는분', '보내는분',
+    '입금자', '출금처', '이체내용', '카드내역',
+    // 4순위: 일반적인 참조 컬럼
+    '참고', '기타', 'etc', 'other', 'reference'
+  ];
+  
+  // 제외할 키워드 (숫자/코드 컬럼)
+  const excludeKeywords = [
+    '번호', '코드', 'no', 'id', 'key', '키', '점', '점명',
+    '시각', '시간', 'time', 'teller', '취급', '후송', '마감'
+  ];
+  
+  // 1. 키워드 매칭 (우선순위 반영)
+  for (const keyword of memoKeywords) {
+    for (const candidate of candidates) {
+      const lower = candidate.toLowerCase().replace(/\s+/g, '');
+      if (lower.includes(keyword.toLowerCase())) {
+        // 제외 키워드 체크
+        const isExcluded = excludeKeywords.some(ex => 
+          lower.includes(ex.toLowerCase())
+        );
+        if (!isExcluded) {
+          return candidate;
+        }
       }
     }
   }
   
-  // 2. 데이터 분석: 가장 텍스트가 많은 컬럼 선택
+  // 2. 데이터 기반 분석: 텍스트 품질 점수
   const textScores = candidates.map(col => {
     let score = 0;
-    const sampleSize = Math.min(10, rows.length);
+    let hasFinancialPattern = false;
+    const sampleSize = Math.min(15, rows.length);
     
     for (let i = 0; i < sampleSize; i++) {
       const value = rows[i]?.[col];
-      if (typeof value === 'string') {
-        // 한글 문자 수
-        const koreanChars = (value.match(/[가-힣]/g) || []).length;
-        // 영문 단어 수
-        const words = value.split(/\s+/).length;
-        // 숫자만 있으면 점수 감소
-        const isNumericOnly = /^\d+$/.test(value.trim());
-        
-        if (isNumericOnly) {
-          score -= 10;
-        } else {
-          score += koreanChars + words;
-        }
+      if (!value) continue;
+      
+      const str = String(value).trim();
+      if (!str) continue;
+      
+      // 숫자만 있는 경우 큰 감점
+      if (/^[\d,.\-+]+$/.test(str)) {
+        score -= 20;
+        continue;
       }
+      
+      // 날짜 형식 감점
+      if (/^\d{4}[-/.]\d{2}[-/.]\d{2}/.test(str) || /^\d{8}$/.test(str)) {
+        score -= 15;
+        continue;
+      }
+      
+      // 한글 문자 수 (비고는 보통 한글이 많음)
+      const koreanChars = (str.match(/[가-힣]/g) || []).length;
+      score += koreanChars * 2;
+      
+      // 영문 단어 수
+      const englishWords = (str.match(/[a-zA-Z]+/g) || []).length;
+      score += englishWords;
+      
+      // 금융 패턴 감지 (계좌번호, 카드번호 등 + 텍스트)
+      if (/\d{3,4}[-*]\d{2,4}[-*]\d{2,4}/.test(str) && koreanChars > 0) {
+        hasFinancialPattern = true;
+        score += 10;
+      }
+      
+      // 이체/송금 관련 패턴
+      if (/이체|송금|입금|출금|결제|카드/.test(str)) {
+        score += 15;
+      }
+      
+      // 문자열 길이 보너스 (적당히 긴 텍스트)
+      if (str.length >= 5 && str.length <= 50) {
+        score += 5;
+      }
+    }
+    
+    // 금융 패턴이 있으면 추가 보너스
+    if (hasFinancialPattern) {
+      score += 20;
+    }
+    
+    // 제외 키워드가 포함된 컬럼명 감점
+    const lowerCol = col.toLowerCase();
+    if (excludeKeywords.some(ex => lowerCol.includes(ex.toLowerCase()))) {
+      score -= 30;
     }
     
     return { col, score };
@@ -162,7 +229,11 @@ export function detectMemoColumn(
   
   textScores.sort((a, b) => b.score - a.score);
   
-  return textScores[0]?.score > 0 ? textScores[0].col : undefined;
+  console.log('[Normalizer] Memo column scores:', textScores.slice(0, 3));
+  
+  // 최소 점수 임계값
+  const MIN_SCORE = 5;
+  return textScores[0]?.score >= MIN_SCORE ? textScores[0].col : undefined;
 }
 
 /**

@@ -37,6 +37,7 @@ export const chatRouter = createTRPCRouter({
             memo: z.string().nullable(),
             category: z.string().nullable(),
             subcategory: z.string().nullable(),
+            documentName: z.string().nullable().optional(), // 거래내역서 파일명
           })
         ),
       })
@@ -69,39 +70,85 @@ export const chatRouter = createTRPCRouter({
         });
       }
 
-      // 2. 거래내역을 텍스트 형식으로 변환
+      // 2. 거래내역 분석 및 요약 생성
+      const totalCount = transactions.length;
+      
+      // 통계 계산
+      let totalDeposit = 0;
+      let totalWithdrawal = 0;
+      let depositCount = 0;
+      let withdrawalCount = 0;
+      
+      transactions.forEach(tx => {
+        const dep = tx.depositAmount ? Number(tx.depositAmount) : 0;
+        const wit = tx.withdrawalAmount ? Number(tx.withdrawalAmount) : 0;
+        if (dep > 0) {
+          totalDeposit += dep;
+          depositCount++;
+        }
+        if (wit > 0) {
+          totalWithdrawal += wit;
+          withdrawalCount++;
+        }
+      });
+
+      // 거래내역 전체 사용 (압축 형식)
       const transactionsText = transactions
-        .slice(0, 100) // 최대 100건만 사용 (토큰 절약)
         .map((tx, idx) => {
-          const date = new Date(tx.transactionDate).toLocaleDateString("ko-KR");
-          // Decimal 또는 string/number 타입 모두 처리
-          const depositAmount = tx.depositAmount ? String(tx.depositAmount) : null;
-          const withdrawalAmount = tx.withdrawalAmount ? String(tx.withdrawalAmount) : null;
-          const balanceAmount = tx.balance ? String(tx.balance) : null;
-
-          const deposit = depositAmount ? `${parseInt(depositAmount).toLocaleString()}원` : "-";
-          const withdrawal = withdrawalAmount ? `${parseInt(withdrawalAmount).toLocaleString()}원` : "-";
-          const balance = balanceAmount ? `${parseInt(balanceAmount).toLocaleString()}원` : "-";
+          const date = new Date(tx.transactionDate).toISOString().split('T')[0];
+          const dep = tx.depositAmount ? Number(tx.depositAmount) : 0;
+          const wit = tx.withdrawalAmount ? Number(tx.withdrawalAmount) : 0;
+          const bal = tx.balance ? Number(tx.balance) : 0;
           const memo = tx.memo || "";
-          const category = tx.category ? `${tx.category}${tx.subcategory ? ` > ${tx.subcategory}` : ""}` : "";
+          const doc = tx.documentName || "";
 
-          return `${idx + 1}. [${date}] 입금: ${deposit} / 출금: ${withdrawal} / 잔액: ${balance} | ${memo} | ${category}`;
+          // 압축 형식: 번호|날짜|입금|출금|잔액|비고|파일
+          return `${idx + 1}|${date}|${dep}|${wit}|${bal}|${memo}|${doc}`;
         })
         .join("\n");
 
       // 3. 시스템 프롬프트 구성
-      const systemPrompt = `당신은 파산 사건 관리 시스템(PHAROS BMAD)의 AI 어시스턴트입니다.
-사용자가 제공한 거래내역을 분석하여 질문에 답변해주세요.
+      const summaryInfo = `
+## 거래내역 요약
+- 전체: ${totalCount}건 (입금 ${depositCount}건/${totalDeposit.toLocaleString()}원, 출금 ${withdrawalCount}건/${totalWithdrawal.toLocaleString()}원)
+`;
 
-거래내역:
+      const systemPrompt = `당신은 파산 사건 관리 시스템의 AI 어시스턴트입니다.
+${summaryInfo}
+## 거래내역 (형식: 번호|날짜|입금|출금|잔액|비고|파일명)
 ${transactionsText}
 
-답변 시 주의사항:
+## 대출금 추적 분석 지침
+사용자가 대출금 추적이나 자금 이동 분석을 요청하면 다음 형식으로 응답하세요:
+
+1. **대출 입금건 식별**: 
+   - 큰 금액의 입금 중 "대출", "론", "융자", "대여" 등의 키워드가 있거나
+   - 금액이 round number(100만원, 500만원, 1000만원 등)인 경우 대출로 추정
+
+2. **자금 소진 추적**:
+   - 대출금 입금 시점부터 누적 출금액이 대출금을 초과하는 시점까지 추적
+   - 예: 500만원 대출 → 출금 200만원 → 출금 150만원 → 출금 200만원 (누적 550만원, 대출금 초과)
+
+3. **자금 이동 경로**: 
+   - 거래내역서(파일) 간 자금 이동 링크 확인
+   - 입금 메모에 계좌번호가 있으면 다른 거래내역서와 연결 가능
+
+4. **결과 테이블 형식**:
+반드시 마크다운 테이블로 결과를 표시하세요:
+
+| 순번 | 거래일 | 구분 | 금액 | 누적출금 | 잔액 | 비고 | 파일명 |
+|------|--------|------|------|----------|------|------|--------|
+| 1 | 2024-01-15 | 입금(대출) | +5,000,000 | 0 | 5,000,000 | OO대출 | 거래내역서1 |
+| 2 | 2024-01-16 | 출금 | -2,000,000 | 2,000,000 | 3,000,000 | 월세 | 거래내역서1 |
+...
+
+## 일반 답변 지침
 - 거래일, 입금액, 출금액, 잔액, 메모, 카테고리 정보를 바탕으로 분석하세요.
 - 금액은 원화(원) 단위입니다.
 - 한국어로 답변하세요.
 - 구체적인 거래내역을 언급할 때 거래 번호를 참조하세요.
-- 금액 합계, 평균, 최대/최소값 등의 통계도 계산할 수 있습니다.`;
+- 금액 합계, 평균, 최대/최소값 등의 통계도 계산할 수 있습니다.
+- 대출금 추적 결과는 반드시 마크다운 테이블 형식으로 제공하세요.`;
 
       // 4. 모델별 API 호출
       try {

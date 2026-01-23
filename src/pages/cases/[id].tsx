@@ -1,15 +1,14 @@
 import { type NextPage } from "next";
 import { useRouter } from "next/router";
 import { useState, useEffect, useMemo } from "react";
-import { Upload, Search, Loader2, Download } from "lucide-react";
+import { Upload, Loader2, Download } from "lucide-react";
 
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
-import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
 import { Label } from "~/components/ui/label";
 import { FindingList } from "~/components/molecules/finding-list";
-import { TransactionTable } from "~/components/transaction-table";
+import { SimplifiedTransactionTable, type SimplifiedTransaction } from "~/components/simplified-transaction-table";
 import { AIChatAssistant } from "~/components/ai-chat-assistant";
 import { FindingNoteList } from "~/components/molecules/finding-note-list";
 import { FindingNoteForm } from "~/components/molecules/finding-note-form";
@@ -43,9 +42,7 @@ import { useI18n } from "~/lib/i18n/index";
  * Case Detail Page
  *
  * Displays detailed information about a specific case.
- * Story 2.3: 사건 상세 조회
- * Story 6.2: FindingCard 클릭 인터랙션
- * Story 6.3: 발견사항 메모 추가
+ * 간소화된 UI - 핵심 기능만 유지
  */
 
 // Story 6.3: FindingNoteSection 컴포넌트 (메모 섹션)
@@ -174,41 +171,57 @@ const CaseDetailPage: NextPage = () => {
 
   // Memoize transactions for AI Chat Assistant (performance optimization)
   const memoizedTransactions = useMemo(() => {
+    // 문서 ID → 문서명 매핑
+    const docNameMap = new Map<string, string>();
+    documents?.forEach(doc => {
+      docNameMap.set(doc.id, doc.originalFileName);
+    });
+
     return (transactionsData?.transactions ?? []).map(tx => ({
       ...tx,
       depositAmount: tx.depositAmount ? String(tx.depositAmount) : null,
       withdrawalAmount: tx.withdrawalAmount ? String(tx.withdrawalAmount) : null,
       balance: tx.balance ? String(tx.balance) : null,
+      documentName: (tx as { documentId?: string }).documentId 
+        ? docNameMap.get((tx as { documentId?: string }).documentId!) ?? null 
+        : null,
     }));
-  }, [transactionsData?.transactions]);
+  }, [transactionsData?.transactions, documents]);
 
-  // Archive mutation
-  const archiveMutation = api.case.archiveCase.useMutation({
-    onSuccess: () => {
-      toast.success("사건이 아카이브되었습니다");
-      void router.push("/cases");
-    },
-    onError: (err) => {
-      toast.error(err.message || "사건 아카이브에 실패했습니다");
-    },
-  });
+  // 거래내역 정규화 (SimplifiedTransactionTable용)
+  const simplifiedTransactions = useMemo((): SimplifiedTransaction[] => {
+    // 문서 ID → 문서명 매핑 생성
+    const docNameMap = new Map<string, string>();
+    documents?.forEach(doc => {
+      docNameMap.set(doc.id, doc.originalFileName);
+    });
 
-  // Unarchive mutation
-  const unarchiveMutation = api.case.unarchiveCase.useMutation({
-    onSuccess: () => {
-      toast.success("사건이 복원되었습니다");
-      void router.push("/cases");
-    },
-    onError: (err) => {
-      toast.error(err.message || "사건 복원에 실패했습니다");
-    },
-  });
+    return (transactionsData?.transactions ?? []).map(tx => {
+      const depositAmount = tx.depositAmount ? Number(tx.depositAmount) : 0;
+      const withdrawalAmount = tx.withdrawalAmount ? Number(tx.withdrawalAmount) : 0;
+      const isDeposit = depositAmount > 0;
+      
+      // documentId로 문서명 찾기
+      const documentName = (tx as { documentId?: string }).documentId 
+        ? docNameMap.get((tx as { documentId?: string }).documentId!) 
+        : undefined;
+      
+      return {
+        id: tx.id,
+        transactionDate: new Date(tx.transactionDate).toISOString().split('T')[0] ?? '',
+        type: isDeposit ? '입금' as const : '출금' as const,
+        amount: isDeposit ? depositAmount : -withdrawalAmount,
+        balance: tx.balance ? Number(tx.balance) : 0,
+        memo: tx.memo ?? '',
+        documentName,
+      };
+    });
+  }, [transactionsData?.transactions, documents]);
 
-  // Delete transactions mutation
+  // Delete transactions mutation (파일별 삭제용)
   const deleteTransactionsMutation = api.transaction.deleteByDocument.useMutation({
-    onSuccess: (data, variables) => {
+    onSuccess: (data) => {
       toast.success(data.message || "거래내역이 삭제되었습니다");
-      // Refresh transactions - include documentId if filtering by document
       void utils.transaction.search.invalidate({
         caseId: id as string,
         ...(selectedDocumentId && { documentId: selectedDocumentId }),
@@ -216,20 +229,6 @@ const CaseDetailPage: NextPage = () => {
     },
     onError: (err) => {
       toast.error(err.message || "거래내역 삭제에 실패했습니다");
-    },
-  });
-
-  // Story 6.1: 발견사항 분석 mutation
-  const analyzeFindingsMutation = api.findings.analyzeFindings.useMutation({
-    onSuccess: (data) => {
-      toast.success(
-        `${data.findingsCreated}개의 발견사항이 생성되었습니다 (${data.analysisDuration}ms)`
-      );
-      // Findings 목록 갱신
-      void utils.findings.getFindingsForCase.invalidate({ caseId: id as string });
-    },
-    onError: (err) => {
-      toast.error(err.message || "발견사항 분석에 실패했습니다");
     },
   });
 
@@ -558,40 +557,33 @@ const CaseDetailPage: NextPage = () => {
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="max-w-[1920px] mx-auto">
-        {/* Header with navigation */}
+        {/* Header with navigation - 간소화된 버튼 구성 */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">사건 상세</h1>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => void router.push("/cases")}>
-              목록으로 돌아가기
-            </Button>
-            <Button
-              onClick={() => void router.push(`/cases/${Array.isArray(id) ? id[0] : id}/edit`)}
-            >
-              수정
+              목록
             </Button>
 
-            {/* Upload Button - Story 3.1 */}
+            {/* Upload Button - 핵심 기능 */}
             <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline">
+                <Button variant="default">
                   <Upload className="w-4 h-4 mr-2" />
-                  거래내역서 업로드
+                  업로드
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl">
+              <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>거래내역서 업로드</DialogTitle>
                   <DialogDescription>
-                    엑셀, CSV, PDF 형식의 거래내역서 파일을 업로드하세요
+                    엑셀, CSV, PDF 형식의 파일을 업로드하세요
                   </DialogDescription>
                 </DialogHeader>
 
                 <FileUploadZone
                   caseId={id as string}
                   onFilesSelected={(files) => {
-                    // Story 3.3: Files are uploaded to S3 via FileUploadZone
-                    // Just notify user of successful selection
                     if (files.length > 0) {
                       toast.success(
                         `${files.length}개 파일이 처리되었습니다. 분석이 진행 중입니다...`
@@ -599,28 +591,20 @@ const CaseDetailPage: NextPage = () => {
                     }
                   }}
                   onUploadSuccess={(documentId) => {
-                    // Story 3.5+: Refresh case data when file upload completes
+                    // 분석 완료 후 호출됨 - 데이터 새로고침
                     void refetch();
+                    void utils.file.getDocumentsForCase.invalidate({ caseId: id as string });
+                    void utils.transaction.search.invalidate({
+                      caseId: id as string,
+                      ...(selectedDocumentId && { documentId: selectedDocumentId }),
+                    });
+                    // 모달은 여기서 닫지 않음 - 사용자가 직접 닫거나 완료 메시지 확인 후 닫도록
                   }}
                 />
               </DialogContent>
             </Dialog>
 
-            {/* Story 6.1: 발견사항 분석 버튼 */}
-            <Button
-              variant="default"
-              onClick={() =>
-                analyzeFindingsMutation.mutate({ caseId: id as string })
-              }
-              disabled={analyzeFindingsMutation.isPending}
-            >
-              <Search className="w-4 h-4 mr-2" />
-              {analyzeFindingsMutation.isPending
-                ? "분석 중..."
-                : "발견사항 분석"}
-            </Button>
-
-            {/* Story 7.1: Excel 내보내기 버튼 */}
+            {/* Excel 내보내기 - 핵심 기능 */}
             <ExportOptionsModal
               caseId={id as string}
               onExport={handleExport}
@@ -631,116 +615,78 @@ const CaseDetailPage: NextPage = () => {
                 내보내기
               </Button>
             </ExportOptionsModal>
-
-            {/* Archive/Unarchive Button - Conditional Rendering */}
-            {caseItem?.isArchived ? (
-              <Button
-                variant="secondary"
-                onClick={() => unarchiveMutation.mutate({ id: id as string })}
-                disabled={unarchiveMutation.isPending}
-              >
-                {unarchiveMutation.isPending ? "복원 중..." : "복원"}
-              </Button>
-            ) : (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="destructive"
-                    disabled={archiveMutation.isPending}
-                  >
-                    {archiveMutation.isPending ? "아카이브 중..." : "아카이브"}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>사건 아카이브</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      이 사건을 아카이브하시겠습니까? 아카이브된 사건은 기본 목록에서 숨겨집니다.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>취소</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() => archiveMutation.mutate({ id: id as string })}
-                    >
-                      아카이브
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
           </div>
         </div>
 
-        {/* 거래내역 테이블 - Max height with scroll */}
-        <Card className="p-6 mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold">거래내역</h2>
-            {documents && documents.length > 0 && (
-              <div className="flex gap-2 items-center">
-                <select
-                  value={selectedDocumentId ?? "all"}
-                  onChange={(e) => setSelectedDocumentId(e.target.value === "all" ? null : e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-md text-sm"
-                >
-                  <option value="all">전체 파일</option>
-                  {documents.map((doc) => (
-                    <option key={doc.id} value={doc.id}>
-                      {doc.originalFileName}
-                    </option>
-                  ))}
-                </select>
-                {selectedDocumentId && (
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={async () => {
-                      if (confirm("선택한 파일의 거래내역을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.")) {
-                        await deleteTransactionsMutation.mutateAsync({
-                          documentId: selectedDocumentId,
-                        });
-                      }
-                    }}
-                  >
-                    삭제
-                  </Button>
+        {/* 메인 영역: 거래내역(좌) + AI 어시스턴트(우) 2열 배치 */}
+        <div className="grid grid-cols-1 xl:grid-cols-5 gap-6 mb-6">
+          {/* 왼쪽 60%: 거래내역 테이블 */}
+          <div className="xl:col-span-3">
+            <Card className="p-6 h-full">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">거래내역</h2>
+                {documents && documents.length > 0 && (
+                  <div className="flex gap-2 items-center">
+                    <select
+                      value={selectedDocumentId ?? "all"}
+                      onChange={(e) => setSelectedDocumentId(e.target.value === "all" ? null : e.target.value)}
+                      className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                    >
+                      <option value="all">전체 파일</option>
+                      {documents.map((doc) => (
+                        <option key={doc.id} value={doc.id}>
+                          {doc.originalFileName}
+                        </option>
+                      ))}
+                    </select>
+                    {selectedDocumentId && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={async () => {
+                          if (confirm("선택한 파일의 거래내역을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.")) {
+                            await deleteTransactionsMutation.mutateAsync({
+                              documentId: selectedDocumentId,
+                            });
+                          }
+                        }}
+                      >
+                        삭제
+                      </Button>
+                    )}
+                  </div>
                 )}
               </div>
-            )}
-          </div>
-          <div className="max-h-[600px] overflow-y-auto">
-            {transactionsLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <div className="max-h-[calc(100vh-300px)] overflow-y-auto">
+                {transactionsLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : simplifiedTransactions.length > 0 ? (
+                  <SimplifiedTransactionTable
+                    transactions={simplifiedTransactions}
+                    caseId={id as string}
+                    showDocumentName={!selectedDocumentId} // 전체 파일 선택시 문서명 표시
+                  />
+                ) : (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg">
+                    <p className="text-gray-600">거래내역이 없습니다</p>
+                    <p className="text-sm text-gray-500 mt-2">
+                      거래내역서 파일을 업로드하여 데이터를 가져오세요
+                    </p>
+                  </div>
+                )}
               </div>
-            ) : transactionsData?.transactions && transactionsData.transactions.length > 0 ? (
-              <TransactionTable
-                transactions={transactionsData.transactions}
-                caseId={id as string}
-                onTagsUpdated={() => {
-                  void utils.transaction.search.invalidate({
-                    caseId: id as string,
-                    ...(selectedDocumentId && { documentId: selectedDocumentId }),
-                  });
-                }}
-              />
-            ) : (
-              <div className="text-center py-8 bg-gray-50 rounded-lg">
-                <p className="text-gray-600">거래내역이 없습니다</p>
-                <p className="text-sm text-gray-500 mt-2">
-                  거래내역서 파일을 업로드하여 데이터를 가져오세요
-                </p>
-              </div>
-            )}
+            </Card>
           </div>
-        </Card>
 
-        {/* AI 어시스턴트 - 거래내역 질의응답 */}
-        <div className="mb-6">
-          <AIChatAssistant
-            caseId={id as string}
-            transactions={memoizedTransactions}
-          />
+          {/* 오른쪽 40%: AI 어시스턴트 */}
+          <div className="xl:col-span-2">
+            <AIChatAssistant
+              caseId={id as string}
+              transactions={memoizedTransactions}
+            />
+          </div>
         </div>
 
         {/* Story 6.2: Split View Layout - 왼쪽 40% 발견사항, 오른쪽 60% 사건 정보 */}

@@ -2,55 +2,52 @@
  * ProgressBar Atom Component
  *
  * Story 3.5: 실시간 진행률 표시 (SSE)
- *
- * Visual progress indicator for file upload operations.
- * Displays current progress percentage, stage message, and error states.
- *
- * Features:
- * - Progress bar (0-100%)
- * - Stage message in Korean
- * - Error state display with red border
- * - Completion summary display
- * - Enhanced visual design with animations
- *
- * @example
- * <ProgressBar progress={50} stage="구조 분석 중..." />
- * <ProgressBar progress={0} stage="실패" error="파일이 손상되었습니다" />
  */
 
 import { Progress } from "~/components/ui/progress";
 import { Card, CardContent } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
-import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { CheckCircle2, AlertCircle, Loader2, ChevronDown, ChevronUp, Info } from "lucide-react";
+import { useState } from "react";
 
-/**
- * Props for ProgressBar component
- */
+interface LLMAnalysisResult {
+  transactionTypeMethod: string;
+  memoInAmountColumn?: boolean;
+  reasoning: string;
+  confidence: number;
+  columnMapping: Record<string, string | undefined>;
+}
+
 export interface ProgressBarProps {
-  /** Progress percentage (0-100) */
   progress: number;
-  /** Current stage message in Korean */
   stage: string;
-  /** Error message if an error occurred */
   error?: string | null;
-  /** Completion data to display when progress = 100 */
   completionData?: {
     fileName: string;
     totalTransactions?: number;
     columns?: string[];
+    llmAnalysis?: LLMAnalysisResult;
   };
-  /** Callback when retry button is clicked (AC4) */
   onRetry?: () => void;
 }
 
-/**
- * ProgressBar Atom Component
- *
- * Displays file upload progress with visual feedback.
- *
- * @param props - ProgressBarProps
- * @returns JSX element
- */
+const columnTypeLabels: Record<string, string> = {
+  date: "거래일자",
+  deposit: "입금액",
+  withdrawal: "출금액",
+  amount: "거래금액",
+  transaction_type: "거래구분",
+  balance: "잔액",
+  memo: "비고",
+};
+
+const transactionMethodLabels: Record<string, string> = {
+  separate_columns: "입금/출금 분리형",
+  type_column: "거래구분 텍스트형",
+  sign_in_type: "거래구분 기호형",
+  amount_sign: "금액 부호형",
+};
+
 export function ProgressBar({
   progress,
   stage,
@@ -58,26 +55,23 @@ export function ProgressBar({
   completionData,
   onRetry,
 }: ProgressBarProps) {
-  // Error state display with retry button (AC4)
+  const [showDetails, setShowDetails] = useState(false);
+
+  // Error state
   if (error) {
     return (
-      <Card className="border-destructive/50 bg-destructive/5 fade-in">
-        <CardContent className="pt-6">
+      <Card className="border-destructive/50 bg-destructive/5">
+        <CardContent className="p-4">
           <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3 flex-1">
+            <div className="flex items-start gap-3 flex-1 min-w-0">
               <AlertCircle className="size-5 text-destructive shrink-0 mt-0.5" />
-              <div className="space-y-1">
+              <div className="min-w-0">
                 <p className="text-sm font-medium text-destructive">업로드 실패</p>
-                <p className="text-sm text-destructive/80">{error}</p>
+                <p className="text-sm text-destructive/80 break-words">{error}</p>
               </div>
             </div>
             {onRetry && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onRetry}
-                className="shrink-0"
-              >
+              <Button variant="outline" size="sm" onClick={onRetry} className="shrink-0">
                 재시도
               </Button>
             )}
@@ -87,54 +81,118 @@ export function ProgressBar({
     );
   }
 
-  // Completed state with summary
+  // Completed state
   if (progress === 100 && completionData) {
+    const { llmAnalysis } = completionData;
+    const hasMemoColumn = llmAnalysis?.columnMapping?.memo;
+    
+    let memoStatus: { status: string; message: string };
+    if (hasMemoColumn) {
+      memoStatus = { status: "success", message: `"${hasMemoColumn}" 인식됨` };
+    } else if (llmAnalysis?.memoInAmountColumn) {
+      memoStatus = { status: "info", message: "금액 컬럼에서 추출" };
+    } else {
+      memoStatus = { status: "warning", message: "미인식" };
+    }
+
+    const recognizedColumns = llmAnalysis 
+      ? Object.entries(llmAnalysis.columnMapping).filter(([, v]) => v)
+      : [];
+
     return (
-      <Card className="border-success/50 bg-success/5 fade-in">
-        <CardContent className="pt-6">
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="size-5 text-success shrink-0" />
-              <div className="flex-1 flex items-center justify-between">
-                <span className="text-sm font-medium text-success">
-                  파일 업로드가 완료되었습니다
-                </span>
-                <span className="text-sm font-semibold text-success">100%</span>
-              </div>
+      <Card className="border-green-200 bg-green-50/50">
+        <CardContent className="p-4">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="size-5 text-green-600" />
+              <span className="font-medium text-green-700">분석 완료</span>
             </div>
+            {llmAnalysis && (
+              <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700">
+                AI 신뢰도 {Math.round(llmAnalysis.confidence * 100)}%
+              </span>
+            )}
+          </div>
 
-            <div className="space-y-3 text-sm border-t border-success/20 pt-4">
-              <div className="flex items-start gap-2">
-                <span className="font-medium text-foreground min-w-[80px]">파일명:</span>
-                <span className="text-muted-foreground break-all">{completionData.fileName}</span>
-              </div>
-
+          {/* File Info */}
+          <div className="space-y-2 text-sm mb-3">
+            <div className="flex gap-2">
+              <span className="text-gray-500 shrink-0">파일:</span>
+              <span className="font-medium truncate">{completionData.fileName}</span>
+            </div>
+            <div className="flex gap-4">
               {completionData.totalTransactions !== undefined && (
-                <div className="flex items-start gap-2">
-                  <span className="font-medium text-foreground min-w-[80px]">거래 건수:</span>
-                  <span className="text-muted-foreground">
-                    {completionData.totalTransactions.toLocaleString()}건
-                  </span>
-                </div>
+                <span>
+                  <span className="text-gray-500">거래:</span>{" "}
+                  <span className="font-medium">{completionData.totalTransactions.toLocaleString()}건</span>
+                </span>
               )}
-
-              {completionData.columns && completionData.columns.length > 0 && (
-                <div className="flex items-start gap-2">
-                  <span className="font-medium text-foreground min-w-[80px]">식별된 열:</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {completionData.columns.map((column) => (
-                      <span
-                        key={column}
-                        className="inline-flex items-center rounded-md bg-primary/10 border border-primary/20 px-2 py-1 text-xs font-medium text-primary"
-                      >
-                        {column}
-                      </span>
-                    ))}
-                  </div>
-                </div>
+              {llmAnalysis && (
+                <span>
+                  <span className="text-gray-500">형식:</span>{" "}
+                  <span className="font-medium">
+                    {transactionMethodLabels[llmAnalysis.transactionTypeMethod] || llmAnalysis.transactionTypeMethod}
+                  </span>
+                </span>
               )}
             </div>
           </div>
+
+          {/* Column Mapping */}
+          {recognizedColumns.length > 0 && (
+            <div className="mb-3">
+              <div className="text-xs text-gray-500 mb-1.5">인식된 컬럼</div>
+              <div className="flex flex-wrap gap-1.5">
+                {recognizedColumns.map(([key, value]) => (
+                  <span
+                    key={key}
+                    className={`text-xs px-2 py-0.5 rounded ${
+                      key === "memo"
+                        ? "bg-amber-100 text-amber-700"
+                        : "bg-gray-100 text-gray-700"
+                    }`}
+                  >
+                    {columnTypeLabels[key] || key}: {value}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Memo Status */}
+          {llmAnalysis && (
+            <div
+              className={`flex items-center gap-2 p-2 rounded text-xs ${
+                memoStatus.status === "success"
+                  ? "bg-green-100 text-green-700"
+                  : memoStatus.status === "info"
+                  ? "bg-blue-100 text-blue-700"
+                  : "bg-amber-100 text-amber-700"
+              }`}
+            >
+              <Info className="size-3.5" />
+              <span>비고 컬럼: {memoStatus.message}</span>
+            </div>
+          )}
+
+          {/* Details Toggle */}
+          {llmAnalysis?.reasoning && (
+            <div className="mt-3 pt-3 border-t border-green-200">
+              <button
+                onClick={() => setShowDetails(!showDetails)}
+                className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
+              >
+                {showDetails ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+                AI 분석 상세
+              </button>
+              {showDetails && (
+                <p className="mt-2 text-xs text-gray-600 bg-white/50 p-2 rounded">
+                  {llmAnalysis.reasoning}
+                </p>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
     );
@@ -142,18 +200,14 @@ export function ProgressBar({
 
   // In-progress state
   return (
-    <Card className="border-primary/30 bg-primary/5">
-      <CardContent className="pt-6">
-        <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <Loader2 className="size-4 text-primary shrink-0 animate-spin" />
-            <div className="flex-1 flex items-center justify-between">
-              <span className="text-sm font-medium text-foreground">{stage}</span>
-              <span className="text-sm font-semibold text-primary">{progress}%</span>
-            </div>
-          </div>
-          <Progress value={progress} className="h-2" />
+    <Card className="border-blue-200 bg-blue-50/50">
+      <CardContent className="p-4">
+        <div className="flex items-center gap-3 mb-3">
+          <Loader2 className="size-4 text-blue-600 animate-spin" />
+          <span className="text-sm font-medium flex-1">{stage}</span>
+          <span className="text-sm font-semibold text-blue-600">{progress}%</span>
         </div>
+        <Progress value={progress} className="h-2" />
       </CardContent>
     </Card>
   );

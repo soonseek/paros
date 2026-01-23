@@ -480,7 +480,7 @@ export const fileRouter = createTRPCRouter({
     .input(
       z.object({
         documentId: z.string().min(1, "문서 ID는 필수 항목입니다"),
-        useLlmAnalysis: z.boolean().optional().default(false), // LLM 기반 분석 사용 여부
+        useLlmAnalysis: z.boolean().optional().default(true), // LLM 기반 컬럼 분석 (OpenAI 직접 호출)
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -823,17 +823,18 @@ export const fileRouter = createTRPCRouter({
       if (
         !rawColumnMapping.deposit &&
         !rawColumnMapping.withdrawal &&
-        !rawColumnMapping.balance
+        !rawColumnMapping.balance &&
+        !rawColumnMapping.amount // 단일 금액 컬럼 방식도 허용
       ) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message:
-            "파일 구조 분석에서 금액 관련 열(입금액/출금액/잔액)을 찾을 수 없습니다",
+            "파일 구조 분석에서 금액 관련 열(입금액/출금액/거래금액/잔액)을 찾을 수 없습니다",
         });
       }
 
-      // MEDIUM-2 FIX: Check if already processing (prevent race condition)
-      if (analysisResult.status !== "analyzing") {
+      // 분석 완료 또는 진행 중일 때 추출 허용
+      if (analysisResult.status !== "analyzing" && analysisResult.status !== "completed") {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: `파일 분석 상태가 올바르지 않습니다 (현재: ${analysisResult.status})`,
@@ -1241,7 +1242,7 @@ export const fileRouter = createTRPCRouter({
  * @param columnMapping - Column mapping from file analysis (string→string format)
  * @param headerRowIndex - Header row index
  * @param mimeType - MIME type to detect file format (Excel/CSV vs PDF)
- * @param analysisResult - FileAnalysisResult containing extractedData
+ * @param analysisResult - FileAnalysisResult containing extractedData and llmAnalysis
  * @returns Extraction result
  */
 async function performExtraction(
@@ -1250,7 +1251,10 @@ async function performExtraction(
   columnMapping: Record<string, string>,
   headerRowIndex: number,
   mimeType: string,
-  analysisResult: { extractedData?: { headers: string[]; rows: string[][] } }
+  analysisResult: { 
+    extractedData?: { headers: string[]; rows: string[][] };
+    llmAnalysis?: { memoInAmountColumn?: boolean };
+  }
 ): Promise<{
   extractedCount: number;
   skippedCount: number;
@@ -1320,16 +1324,80 @@ async function performExtraction(
     data: { status: "saving" },
   });
 
+  // Fallback: LLM이 memo 컬럼을 찾지 못한 경우 헤더에서 자동 탐지
+  const memoColumnKeywords = [
+    "비고", "적요", "내용", "거래내용", "메모", "설명",
+    "계좌 정보", "계좌정보", "결제 정보", "결제정보",
+    "상대방", "거래처", "거래상대", "받는분", "보내는분",
+    "은행", "계좌번호", "내역", "정보"
+  ];
+
+  if (!columnMapping.memo && !analysisResult.llmAnalysis?.memoInAmountColumn) {
+    // memo가 없고 memoInAmountColumn도 아닌 경우, 헤더에서 비고 컬럼 찾기
+    for (const keyword of memoColumnKeywords) {
+      const foundHeader = headerRow.find(h => 
+        h && typeof h === "string" && h.toLowerCase().includes(keyword.toLowerCase())
+      );
+      if (foundHeader) {
+        console.log(`[performExtraction] Fallback memo detection: found "${foundHeader}" matching keyword "${keyword}"`);
+        columnMapping.memo = foundHeader;
+        break;
+      }
+    }
+
+    // 그래도 못 찾으면 날짜/금액/잔액 아닌 컬럼 중 첫 번째 텍스트 컬럼 선택
+    if (!columnMapping.memo) {
+      const knownColumns = new Set([
+        columnMapping.date,
+        columnMapping.deposit,
+        columnMapping.withdrawal,
+        columnMapping.amount,
+        columnMapping.balance,
+        columnMapping.transaction_type,
+      ].filter(Boolean));
+
+      const candidateColumns = headerRow.filter(h => 
+        h && typeof h === "string" && !knownColumns.has(h) && h.trim().length > 0
+      );
+
+      if (candidateColumns.length > 0) {
+        const memoCandidate = candidateColumns[candidateColumns.length - 1]; // 보통 마지막 컬럼이 비고
+        console.log(`[performExtraction] Fallback memo detection: using last unknown column "${memoCandidate}"`);
+        columnMapping.memo = memoCandidate;
+      }
+    }
+  }
+
   // Convert columnMapping from string→string to ColumnMapping (number) for extractAndSaveTransactions
   const numericColumnMapping: ColumnMapping = {};
   for (const [key, columnName] of Object.entries(columnMapping)) {
+    // memoInAmountColumn은 boolean 값이므로 별도 처리
+    if (key === "memoInAmountColumn" && columnName === true) {
+      numericColumnMapping.memoInAmountColumn = true;
+      continue;
+    }
     if (typeof columnName === "string") {
       const index = headerRow.indexOf(columnName);
       if (index !== -1) {
         (numericColumnMapping as Record<string, number>)[key] = index;
+      } else {
+        console.warn(`[performExtraction] Column "${columnName}" not found in headerRow for key "${key}"`);
       }
     }
   }
+
+  // llmAnalysis에서 memoInAmountColumn 전달
+  if (analysisResult.llmAnalysis?.memoInAmountColumn) {
+    numericColumnMapping.memoInAmountColumn = true;
+    console.log(`[performExtraction] memoInAmountColumn enabled from LLM analysis`);
+  }
+
+  // 디버그: columnMapping 변환 결과
+  console.log(`[performExtraction] Column mapping conversion:`, {
+    original: columnMapping,
+    numeric: numericColumnMapping,
+    headerRow: headerRow.slice(0, 10),
+  });
 
   // Extract and save transactions
   const extractionResult = await extractAndSaveTransactions(

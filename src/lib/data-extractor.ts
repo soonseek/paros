@@ -29,11 +29,14 @@ import { Prisma, PrismaClient } from "@prisma/client";
  * Maps column type to column index in the Excel sheet
  */
 export interface ColumnMapping {
-  date?: number;        // Date column index
-  deposit?: number;     // Deposit amount column index
-  withdrawal?: number;  // Withdrawal amount column index
-  balance?: number;     // Balance column index
-  memo?: number;        // Memo column index
+  date?: number;            // Date column index
+  deposit?: number;         // Deposit amount column index
+  withdrawal?: number;      // Withdrawal amount column index
+  balance?: number;         // Balance column index
+  memo?: number;            // Memo column index
+  amount?: number;          // Single amount column (with transaction_type)
+  transaction_type?: number; // Transaction type column ([+]/[-])
+  memoInAmountColumn?: boolean; // 비고가 입금/출금 컬럼에 섞여있는 특수 케이스
 }
 
 /**
@@ -223,14 +226,70 @@ export async function extractAndSaveTransactions(
       }
 
       // Parse amounts (optional - at least one of deposit or withdrawal must be present)
-      const depositAmount = parseAmount(
-        columnMapping.deposit !== undefined ? row[columnMapping.deposit] : null
-      );
-      const withdrawalAmount = parseAmount(
-        columnMapping.withdrawal !== undefined
-          ? row[columnMapping.withdrawal]
-          : null
-      );
+      let depositAmount: number | null = null;
+      let withdrawalAmount: number | null = null;
+      let memo = "";
+
+      // 디버그: 첫 5개 행에 대해 컬럼 매핑 확인
+      if (i < 5) {
+        console.log(`[Data Extractor] Row ${i + 1} raw data:`, {
+          deposit: columnMapping.deposit !== undefined ? row[columnMapping.deposit] : 'N/A',
+          withdrawal: columnMapping.withdrawal !== undefined ? row[columnMapping.withdrawal] : 'N/A',
+          memo: columnMapping.memo !== undefined ? row[columnMapping.memo] : 'N/A',
+          memoInAmountColumn: columnMapping.memoInAmountColumn,
+        });
+      }
+
+      // Case 1: 입금/출금 분리형 (비고가 금액 컬럼에 섞여있는 특수 케이스 포함)
+      if (columnMapping.deposit !== undefined || columnMapping.withdrawal !== undefined) {
+        const depositRaw = columnMapping.deposit !== undefined ? row[columnMapping.deposit] : null;
+        const withdrawalRaw = columnMapping.withdrawal !== undefined ? row[columnMapping.withdrawal] : null;
+
+        // memoInAmountColumn 특수 케이스: 비고가 반대편 금액 컬럼에 있음
+        if (columnMapping.memoInAmountColumn) {
+          const depositParsed = parseAmount(depositRaw);
+          const withdrawalParsed = parseAmount(withdrawalRaw);
+
+          if (depositParsed !== null && depositParsed > 0) {
+            // 입금 거래: 입금금액에 숫자, 출금금액 컬럼에 비고
+            depositAmount = depositParsed;
+            memo = withdrawalRaw && !parseAmount(withdrawalRaw) ? String(withdrawalRaw) : "";
+          } else if (withdrawalParsed !== null && withdrawalParsed > 0) {
+            // 출금 거래: 출금금액에 숫자, 입금금액 컬럼에 비고
+            withdrawalAmount = withdrawalParsed;
+            memo = depositRaw && !parseAmount(depositRaw) ? String(depositRaw) : "";
+          } else {
+            // 둘 다 숫자가 아니면 그냥 파싱
+            depositAmount = depositParsed;
+            withdrawalAmount = withdrawalParsed;
+          }
+        } else {
+          // 일반 케이스
+          depositAmount = parseAmount(depositRaw);
+          withdrawalAmount = parseAmount(withdrawalRaw);
+        }
+      }
+      // Case 2: 단일 금액 + 거래구분 ([+]/[-])
+      else if (columnMapping.amount !== undefined) {
+        const amount = parseAmount(row[columnMapping.amount]);
+        const transactionType = columnMapping.transaction_type !== undefined
+          ? String(row[columnMapping.transaction_type] ?? "")
+          : "";
+
+        // [+] 또는 입금 관련 키워드면 입금, [-] 또는 출금 관련 키워드면 출금
+        const isDeposit = transactionType.includes("+") ||
+          transactionType.includes("입금") ||
+          transactionType.includes("받기") ||
+          transactionType.includes("충전") ||
+          transactionType.includes("적립");
+
+        if (isDeposit) {
+          depositAmount = amount;
+        } else {
+          withdrawalAmount = amount;
+        }
+      }
+
       const balance = parseAmount(
         columnMapping.balance !== undefined ? row[columnMapping.balance] : null
       );
@@ -245,11 +304,29 @@ export async function extractAndSaveTransactions(
         continue;
       }
 
-      // Parse memo (optional)
-      const memo =
-        columnMapping.memo !== undefined
-          ? String(row[columnMapping.memo] ?? "")
-          : "";
+      // Parse memo (optional) - memoInAmountColumn이 아닌 경우에만
+      if (!memo && columnMapping.memo !== undefined) {
+        const memoRaw = row[columnMapping.memo];
+        memo = String(memoRaw ?? "");
+        
+        // 디버그: 첫 10개 행에 대해 비고 파싱 상세 로그
+        if (i < 10) {
+          console.log(`[Data Extractor] Row ${i + 1} memo debug:`, {
+            memoColumnIndex: columnMapping.memo,
+            memoRawValue: memoRaw,
+            memoRawType: typeof memoRaw,
+            memoParsed: memo,
+            rowLength: Array.isArray(row) ? row.length : 'not array',
+            rowKeys: typeof row === 'object' ? Object.keys(row as object).slice(0, 5) : 'N/A',
+          });
+        }
+      } else if (i < 5) {
+        console.log(`[Data Extractor] Row ${i + 1} memo skipped:`, {
+          memoAlreadySet: !!memo,
+          memoColumnDefined: columnMapping.memo !== undefined,
+          memoInAmountColumn: columnMapping.memoInAmountColumn,
+        });
+      }
 
       // MEDIUM-3 FIX: Validate metadata size before adding
       const metadata = {
@@ -297,6 +374,20 @@ export async function extractAndSaveTransactions(
     });
 
     success = result.count;
+    
+    // 추출 결과 상세 로그
+    const duplicatesSkipped = transactions.length - success;
+    console.log(`[Data Extractor] Extraction complete:`, {
+      prepared: transactions.length,
+      saved: success,
+      skippedByValidation: skipped,
+      skippedByDuplicate: duplicatesSkipped,
+      errors: errors.length,
+    });
+    
+    if (errors.length > 0 && errors.length <= 10) {
+      console.log(`[Data Extractor] First errors:`, errors.slice(0, 10));
+    }
   } catch (error) {
     // Log Prisma error details
     console.error("[Prisma Bulk Insert Error]", error);

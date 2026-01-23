@@ -2,20 +2,20 @@
  * AI Chat Assistant Component
  *
  * 거래내역 질의응답을 위한 AI 어시스턴트 채팅 UI
- * 성능 최적화를 위해 별도 컴포넌트로 분리
- * Enhanced with professional design and better UX
+ * 대출금 추적 분석 및 엑셀 다운로드 기능 포함
  */
 
 "use client";
 
 import { useState, useCallback, memo, useRef, useEffect } from "react";
-import { Loader2, Send, Bot, User, Copy, CheckCheck, Sparkles } from "lucide-react";
+import { Loader2, Send, Bot, User, Copy, CheckCheck, Sparkles, Download, FileSpreadsheet } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "./ui/card";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { api } from "~/utils/api";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
 
 interface Transaction {
   id: string;
@@ -26,6 +26,7 @@ interface Transaction {
   memo: string | null;
   category: string | null;
   subcategory: string | null;
+  documentName?: string | null; // 거래내역서 파일명
 }
 
 interface AIChatAssistantProps {
@@ -33,10 +34,59 @@ interface AIChatAssistantProps {
   transactions: Transaction[];
 }
 
+// 테이블 데이터 인터페이스
+interface TableData {
+  headers: string[];
+  rows: string[][];
+}
+
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  tableData?: TableData; // 테이블 데이터 (선택적)
+}
+
+// 마크다운 테이블 파싱 함수
+function parseMarkdownTable(content: string): TableData | null {
+  const lines = content.split('\n');
+  const tableLines: string[] = [];
+  let inTable = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+      inTable = true;
+      tableLines.push(trimmed);
+    } else if (inTable && trimmed === '') {
+      break;
+    }
+  }
+
+  if (tableLines.length < 2) return null;
+
+  const parseRow = (line: string): string[] => {
+    return line.split('|')
+      .filter((_, i, arr) => i !== 0 && i !== arr.length - 1)
+      .map(cell => cell.trim());
+  };
+
+  const headers = parseRow(tableLines[0] ?? '');
+  // Skip separator line (---|---|---)
+  const rows = tableLines.slice(2).map(parseRow);
+
+  if (headers.length === 0 || rows.length === 0) return null;
+
+  return { headers, rows };
+}
+
+// 엑셀 다운로드 함수
+function downloadAsExcel(tableData: TableData, filename: string = '대출금_추적_결과') {
+  const ws = XLSX.utils.aoa_to_sheet([tableData.headers, ...tableData.rows]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '추적결과');
+  XLSX.writeFile(wb, `${filename}_${new Date().toISOString().split('T')[0]}.xlsx`);
+  toast.success('엑셀 파일이 다운로드되었습니다');
 }
 
 // React.memo로 불필요한 리렌더링 방지
@@ -49,7 +99,6 @@ export const AIChatAssistant = memo<AIChatAssistantProps>(({ caseId, transaction
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const utils = api.useUtils();
   const chatMutation = api.chat.askAssistant.useMutation();
 
   // Auto-scroll to bottom when new message arrives
@@ -79,10 +128,14 @@ export const AIChatAssistant = memo<AIChatAssistantProps>(({ caseId, transaction
         transactions,
       });
 
+      // 응답에서 테이블 데이터 파싱
+      const tableData = parseMarkdownTable(result.response);
+
       const assistantMsg: ChatMessage = {
         role: 'assistant',
         content: result.response,
-        timestamp: new Date()
+        timestamp: new Date(),
+        tableData: tableData ?? undefined,
       };
       setChatMessages(prev => [...prev, assistantMsg]);
     } catch (error) {
@@ -114,11 +167,28 @@ export const AIChatAssistant = memo<AIChatAssistantProps>(({ caseId, transaction
     });
   }, []);
 
+  // 대출금 추적 관련 프리셋 질문
   const suggestedQuestions = [
-    "가장 큰 입금액은 얼마인가요?",
-    "출금이 가장 많은 달은 언제인가요?",
-    "총 입금액과 출금액을 알려주세요",
-    "최근 30일간 거래 내역을 요약해주세요"
+    "대출로 보이는 입금건을 찾아줘",
+    "가장 큰 입금액의 사용처를 추적해줘",
+    "총 입금액과 출금액을 알려줘",
+    "최근 거래 내역을 요약해줘"
+  ];
+
+  // 대출금 추적 전용 프리셋
+  const loanTrackingPresets = [
+    {
+      label: "대출금 사용처 추적",
+      question: "대출로 보이는 입금건을 찾고, 해당 대출금이 어떻게 사용되었는지 소명 가능하도록 사용처를 정리해줘. 입금 시점부터 해당 금액이 모두 소진되는 시점까지의 출금 내역을 테이블로 보여줘. 각 거래가 어느 거래내역서(파일)에서 발생했는지도 명시해줘.",
+    },
+    {
+      label: "자금 이동 경로 추적",
+      question: "여러 거래내역서 간의 자금 이동을 추적해줘. 한 계좌에서 다른 계좌로 이체된 금액이 있다면, 그 경로와 최종 사용처를 파악해서 테이블로 정리해줘.",
+    },
+    {
+      label: "특정 금액 추적",
+      question: "입금된 금액 중 가장 큰 금액을 찾아서, 해당 금액이 어떻게 사용되었는지 추적해줘. 누적 출금액이 해당 입금액을 초과하는 시점까지의 내역을 테이블로 보여줘.",
+    },
   ];
 
   return (
@@ -173,23 +243,47 @@ export const AIChatAssistant = memo<AIChatAssistantProps>(({ caseId, transaction
               </div>
 
               {transactions.length > 0 && (
-                <div className="w-full max-w-md space-y-2">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    추천 질문
-                  </p>
-                  <div className="grid grid-cols-1 gap-2">
-                    {suggestedQuestions.map((question, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => {
-                          setChatInput(question);
-                          inputRef.current?.focus();
-                        }}
-                        className="text-left p-3 rounded-lg border border-border bg-card hover:bg-accent hover:border-primary/50 transition-colors text-sm"
-                      >
-                        {question}
-                      </button>
-                    ))}
+                <div className="w-full max-w-lg space-y-4">
+                  {/* 대출금 추적 전용 프리셋 */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-primary uppercase tracking-wide">
+                      📊 대출금 추적 분석
+                    </p>
+                    <div className="grid grid-cols-1 gap-2">
+                      {loanTrackingPresets.map((preset, idx) => (
+                        <button
+                          key={`loan-${idx}`}
+                          onClick={() => {
+                            setChatInput(preset.question);
+                            inputRef.current?.focus();
+                          }}
+                          className="text-left p-3 rounded-lg border-2 border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/50 transition-colors text-sm font-medium text-primary"
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 일반 추천 질문 */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      추천 질문
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {suggestedQuestions.map((question, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => {
+                            setChatInput(question);
+                            inputRef.current?.focus();
+                          }}
+                          className="text-left p-3 rounded-lg border border-border bg-card hover:bg-accent hover:border-primary/50 transition-colors text-sm"
+                        >
+                          {question}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
@@ -217,9 +311,53 @@ export const AIChatAssistant = memo<AIChatAssistantProps>(({ caseId, transaction
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-muted border border-border text-foreground'
                     }`}>
-                      <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                        {msg.content}
-                      </p>
+                      {/* 텍스트 내용 (테이블 제외) */}
+                      <div className="text-sm whitespace-pre-wrap leading-relaxed">
+                        {msg.role === 'assistant' && msg.tableData
+                          ? msg.content.split(/\|.*\|/s)[0]?.trim()
+                          : msg.content}
+                      </div>
+                      
+                      {/* 테이블 렌더링 */}
+                      {msg.role === 'assistant' && msg.tableData && (
+                        <div className="mt-4 space-y-3">
+                          <div className="overflow-x-auto rounded-lg border border-border">
+                            <table className="min-w-full text-sm">
+                              <thead className="bg-muted/50">
+                                <tr>
+                                  {msg.tableData.headers.map((header, hIdx) => (
+                                    <th key={hIdx} className="px-3 py-2 text-left font-semibold border-b">
+                                      {header}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {msg.tableData.rows.map((row, rIdx) => (
+                                  <tr key={rIdx} className={rIdx % 2 === 0 ? 'bg-background' : 'bg-muted/20'}>
+                                    {row.map((cell, cIdx) => (
+                                      <td key={cIdx} className="px-3 py-2 border-b border-border/50">
+                                        {cell}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          
+                          {/* 엑셀 다운로드 버튼 */}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full gap-2"
+                            onClick={() => downloadAsExcel(msg.tableData!, '대출금_추적_결과')}
+                          >
+                            <FileSpreadsheet className="size-4" />
+                            엑셀로 다운로드
+                          </Button>
+                        </div>
+                      )}
                       
                       {msg.role === 'assistant' && (
                         <Button

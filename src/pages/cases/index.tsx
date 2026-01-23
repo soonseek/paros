@@ -1,6 +1,6 @@
 import { type NextPage } from "next";
 import { useRouter } from "next/router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
@@ -63,8 +63,13 @@ const CasesIndexPage: NextPage = () => {
   });
 
   // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!user) {
+      void router.push("/login");
+    }
+  }, [user, router]);
+
   if (!user) {
-    void router.push("/login");
     return null;
   }
 
