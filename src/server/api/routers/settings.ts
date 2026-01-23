@@ -12,6 +12,14 @@ export const settingsRouter = createTRPCRouter({
    * 모든 설정 조회 (관리자 전용)
    */
   getAll: protectedProcedure.query(async ({ ctx }) => {
+    // 세션 체크
+    if (!ctx.session?.user) {
+      throw new TRPCError({
+        code: 'UNAUTHORIZED',
+        message: '로그인이 필요합니다.',
+      });
+    }
+
     // 관리자 권한 체크
     if (ctx.session.user.role !== 'ADMIN') {
       throw new TRPCError({
@@ -34,6 +42,14 @@ export const settingsRouter = createTRPCRouter({
       })
     )
     .query(async ({ ctx, input }) => {
+      // 세션 체크
+      if (!ctx.session?.user) {
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: '로그인이 필요합니다.',
+        });
+      }
+
       // 관리자 권한 체크
       if (ctx.session.user.role !== 'ADMIN') {
         throw new TRPCError({
@@ -59,6 +75,14 @@ export const settingsRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      // 세션 체크
+      if (!ctx.session?.user) {
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: '로그인이 필요합니다.',
+        });
+      }
+
       // 관리자 권한 체크
       if (ctx.session.user.role !== 'ADMIN') {
         throw new TRPCError({
@@ -83,6 +107,14 @@ export const settingsRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      // 세션 체크
+      if (!ctx.session?.user) {
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: '로그인이 필요합니다.',
+        });
+      }
+
       // 관리자 권한 체크
       if (ctx.session.user.role !== 'ADMIN') {
         throw new TRPCError({
@@ -101,6 +133,14 @@ export const settingsRouter = createTRPCRouter({
    * AI 제공자 설정 조회
    */
   getAIProvider: protectedProcedure.query(async ({ ctx }) => {
+    // 세션 체크
+    if (!ctx.session?.user) {
+      throw new TRPCError({
+        code: 'UNAUTHORIZED',
+        message: '로그인이 필요합니다.',
+      });
+    }
+
     // 관리자 권한 체크
     if (ctx.session.user.role !== 'ADMIN') {
       throw new TRPCError({
