@@ -145,6 +145,11 @@ export async function analyzeFileStructure(
             llmColumnMapping.memo = llmResult.columnMapping.memo;
           }
           
+          // memoInAmountColumn 플래그를 columnMapping에 포함
+          if (llmResult.memoInAmountColumn) {
+            (llmColumnMapping as Record<string, unknown>).memoInAmountColumn = true;
+          }
+          
           return {
             status: "completed",
             columnMapping: llmColumnMapping,
@@ -157,6 +162,7 @@ export async function analyzeFileStructure(
             // LLM 분석 메타데이터 추가
             llmAnalysis: {
               transactionTypeMethod: llmResult.transactionTypeMethod,
+              memoInAmountColumn: llmResult.memoInAmountColumn,
               reasoning: llmResult.reasoning,
             },
           } as AnalysisResult;

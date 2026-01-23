@@ -227,32 +227,33 @@ function extractFromTableElementsHTML(tableElements: Array<{
 
   console.log(`[HTML Table] Extracting data from ${tableElements.length} tables...`);
 
-  // 거래내역 테이블 후보를 점수로 평가
-  interface TableCandidate {
+  // 1단계: 모든 테이블 파싱
+  interface ParsedTable {
     index: number;
     headers: string[];
     rows: string[][];
-    score: number; // 거래내역 테이블로서의 적합도 점수
+    columnCount: number;
+    hasValidHeaders: boolean; // 헤더가 실제 헤더인지 (날짜 컬럼 등)
+    score: number;
   }
 
-  const candidates: TableCandidate[] = [];
+  const parsedTables: ParsedTable[] = [];
 
   for (let i = 0; i < tableElements.length; i++) {
     const tableHTML = tableElements[i]?.content?.html;
     if (!tableHTML) continue;
 
     console.log(`[HTML Table] Processing table ${i + 1}/${tableElements.length}...`);
-    console.log(`[HTML Table] Raw HTML preview:`, tableHTML.substring(0, 300));
 
     const tableData = parseHTMLTable(tableHTML);
     
-    // 최소 컬럼 수 체크 (거래내역은 보통 5개 이상)
+    // 최소 컬럼 수 체크
     if (tableData.headers.length < 4) {
       console.log(`[HTML Table] ⚠️ Table ${i + 1} skipped - Too few columns (${tableData.headers.length})`);
       continue;
     }
 
-    // 거래내역 테이블 점수 계산
+    // 헤더가 실제 헤더인지 검사 (날짜 컬럼명 포함 여부)
     let score = 0;
     let hasDateColumn = false;
     let hasAmountColumn = false;
@@ -281,56 +282,66 @@ function extractFromTableElementsHTML(tableElements: Array<{
       }
     }
 
-    // 날짜 컬럼이 없으면 거래내역 테이블이 아님
-    if (!hasDateColumn) {
-      console.log(`[HTML Table] ⚠️ Table ${i + 1} skipped - No date column found`);
-      console.log(`[HTML Table]    Headers:`, tableData.headers.join(", "));
-      continue;
-    }
-
-    // 컬럼 수가 많을수록 보너스
     score += tableData.headers.length;
-    
-    // 데이터 행이 있으면 보너스
     score += Math.min(tableData.rows.length, 10);
 
-    console.log(`[HTML Table] ✓ Table ${i + 1} score: ${score} (date:${hasDateColumn}, amount:${hasAmountColumn}, balance:${hasBalanceColumn}, cols:${tableData.headers.length}, rows:${tableData.rows.length})`);
+    const hasValidHeaders = hasDateColumn; // 날짜 컬럼이 있으면 유효한 헤더
 
-    candidates.push({
+    console.log(`[HTML Table] Table ${i + 1}: cols=${tableData.headers.length}, validHeader=${hasValidHeaders}, score=${score}`);
+    if (!hasValidHeaders) {
+      console.log(`[HTML Table]    First row (as header):`, tableData.headers.slice(0, 4).join(", "));
+    }
+
+    parsedTables.push({
       index: i + 1,
       headers: tableData.headers,
       rows: tableData.rows,
+      columnCount: tableData.headers.length,
+      hasValidHeaders,
       score,
     });
   }
 
-  if (candidates.length === 0) {
-    console.error("[HTML Table] ✗ No valid transaction history tables found");
+  if (parsedTables.length === 0) {
+    throw new Error("PDF에서 유효한 테이블을 찾을 수 없습니다");
+  }
+
+  // 2단계: 메인 테이블 선택 (유효한 헤더가 있는 테이블 중 최고 점수)
+  const tablesWithHeaders = parsedTables.filter(t => t.hasValidHeaders);
+  
+  if (tablesWithHeaders.length === 0) {
+    console.error("[HTML Table] ✗ No tables with valid headers found");
     throw new Error("PDF에서 거래내역 테이블을 찾을 수 없습니다 (날짜 열이 없는 테이블만 있음)");
   }
 
-  // 가장 높은 점수의 테이블 선택
-  candidates.sort((a, b) => b.score - a.score);
-  const bestTable = candidates[0]!;
+  tablesWithHeaders.sort((a, b) => b.score - a.score);
+  const mainTable = tablesWithHeaders[0]!;
 
-  console.log(`[HTML Table] Selected table ${bestTable.index} with score ${bestTable.score}`);
-  console.log(`[HTML Table] Headers:`, bestTable.headers.join(", "));
+  console.log(`[HTML Table] Main table: #${mainTable.index} with ${mainTable.columnCount} columns`);
+  console.log(`[HTML Table] Headers:`, mainTable.headers.join(", "));
 
-  // 같은 헤더 구조의 다른 테이블들의 행도 결합 (페이지네이션된 테이블)
-  const allRows: string[][] = [];
-  const headerSignature = bestTable.headers.length;
+  // 3단계: 같은 컬럼 수의 다른 테이블들의 데이터 행 결합 (페이지네이션)
+  const allRows: string[][] = [...mainTable.rows];
+  let continuationCount = 0;
 
-  for (const candidate of candidates) {
-    // 컬럼 수가 같으면 같은 테이블의 연속으로 간주
-    if (candidate.headers.length === headerSignature) {
-      allRows.push(...candidate.rows);
+  for (const table of parsedTables) {
+    // 메인 테이블은 스킵
+    if (table.index === mainTable.index) continue;
+
+    // 같은 컬럼 수이고, 유효한 헤더가 없는 테이블 = 연속 데이터 테이블
+    if (table.columnCount === mainTable.columnCount && !table.hasValidHeaders) {
+      // 헤더로 인식된 첫 번째 행도 데이터로 추가
+      allRows.push(table.headers);
+      allRows.push(...table.rows);
+      continuationCount++;
+      console.log(`[HTML Table] ✓ Table ${table.index} added as continuation (${table.rows.length + 1} rows)`);
     }
   }
 
-  console.log(`[HTML Table] Combined: ${candidates.length} candidate tables, ${bestTable.headers.length} columns, ${allRows.length} total rows`);
+  console.log(`[HTML Table] Combined: 1 main + ${continuationCount} continuation tables, ${mainTable.columnCount} columns, ${allRows.length} total rows`);
 
   return {
-    headers: bestTable.headers,
+    headers: mainTable.headers,
     rows: allRows,
     totalRows: allRows.length,
   };

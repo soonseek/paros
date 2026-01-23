@@ -19,6 +19,7 @@ export interface LLMColumnAnalysisResult {
     memo?: string;           // 비고 컬럼명
   };
   transactionTypeMethod: 'separate_columns' | 'type_column' | 'sign_in_type' | 'amount_sign';
+  memoInAmountColumn: boolean; // 비고가 입금/출금 컬럼에 섞여있는 특수 케이스
   confidence: number;
   reasoning: string;
   error?: string;
@@ -68,6 +69,7 @@ ${JSON.stringify(sampleData, null, 2)}
     "memo": "비고/적요 컬럼명"
   },
   "transactionTypeMethod": "입출금 구분 방식 (아래 중 택1)",
+  "memoInAmountColumn": true/false,
   "confidence": 0.0~1.0 사이의 신뢰도,
   "reasoning": "분석 근거 설명"
 }
@@ -78,10 +80,23 @@ ${JSON.stringify(sampleData, null, 2)}
 - "sign_in_type": 거래구분 컬럼에 [+]/[-] 기호로 표시
 - "amount_sign": 금액 자체에 +/- 부호가 포함됨
 
-## 주의사항:
+## 중요 주의사항:
 - 해당하지 않는 컬럼은 null로 설정
 - "거래 후 잔액", "거래후잔액" 등은 balance로 매핑
 - "거래금액", "금액" 등 단일 컬럼이면 amount로 매핑
+
+## 특수 케이스 - 비고가 금액 컬럼에 섞여있는 경우:
+일부 은행에서는 입금/출금 컬럼에 금액 대신 비고(적요)가 들어가는 경우가 있습니다:
+- 입금 거래: 출금금액 컬럼에 비고가 들어감 (입금금액에는 숫자)
+- 출금 거래: 입금금액 컬럼에 비고가 들어감 (출금금액에는 숫자)
+
+샘플 데이터를 확인하여 이런 패턴이 있는지 확인하세요:
+- 입금금액 컬럼에 숫자가 아닌 텍스트(한글, 상호명 등)가 있으면서 출금금액은 숫자인 경우
+- 출금금액 컬럼에 숫자가 아닌 텍스트가 있으면서 입금금액은 숫자인 경우
+
+이 패턴이 발견되면 "memoInAmountColumn": true로 설정하세요.
+이 경우 별도의 memo 컬럼은 null로 설정하세요.
+
 - JSON만 반환하고 다른 텍스트는 포함하지 마세요`;
 
   try {
@@ -133,6 +148,7 @@ ${JSON.stringify(sampleData, null, 2)}
         memo: result.columnMapping?.memo || undefined,
       },
       transactionTypeMethod: result.transactionTypeMethod || 'separate_columns',
+      memoInAmountColumn: result.memoInAmountColumn || false,
       confidence: result.confidence || 0.8,
       reasoning: result.reasoning || '',
     };
@@ -150,6 +166,7 @@ function createFallbackResult(error: string): LLMColumnAnalysisResult {
     success: false,
     columnMapping: {},
     transactionTypeMethod: 'separate_columns',
+    memoInAmountColumn: false,
     confidence: 0,
     reasoning: '',
     error,

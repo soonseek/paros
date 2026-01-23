@@ -36,6 +36,7 @@ export interface ColumnMapping {
   memo?: number;            // Memo column index
   amount?: number;          // Single amount column (with transaction_type)
   transaction_type?: number; // Transaction type column ([+]/[-])
+  memoInAmountColumn?: boolean; // 비고가 입금/출금 컬럼에 섞여있는 특수 케이스
 }
 
 /**
@@ -227,17 +228,36 @@ export async function extractAndSaveTransactions(
       // Parse amounts (optional - at least one of deposit or withdrawal must be present)
       let depositAmount: number | null = null;
       let withdrawalAmount: number | null = null;
+      let memo = "";
 
-      // Case 1: 입금/출금 분리형
+      // Case 1: 입금/출금 분리형 (비고가 금액 컬럼에 섞여있는 특수 케이스 포함)
       if (columnMapping.deposit !== undefined || columnMapping.withdrawal !== undefined) {
-        depositAmount = parseAmount(
-          columnMapping.deposit !== undefined ? row[columnMapping.deposit] : null
-        );
-        withdrawalAmount = parseAmount(
-          columnMapping.withdrawal !== undefined
-            ? row[columnMapping.withdrawal]
-            : null
-        );
+        const depositRaw = columnMapping.deposit !== undefined ? row[columnMapping.deposit] : null;
+        const withdrawalRaw = columnMapping.withdrawal !== undefined ? row[columnMapping.withdrawal] : null;
+
+        // memoInAmountColumn 특수 케이스: 비고가 반대편 금액 컬럼에 있음
+        if (columnMapping.memoInAmountColumn) {
+          const depositParsed = parseAmount(depositRaw);
+          const withdrawalParsed = parseAmount(withdrawalRaw);
+
+          if (depositParsed !== null && depositParsed > 0) {
+            // 입금 거래: 입금금액에 숫자, 출금금액 컬럼에 비고
+            depositAmount = depositParsed;
+            memo = withdrawalRaw && !parseAmount(withdrawalRaw) ? String(withdrawalRaw) : "";
+          } else if (withdrawalParsed !== null && withdrawalParsed > 0) {
+            // 출금 거래: 출금금액에 숫자, 입금금액 컬럼에 비고
+            withdrawalAmount = withdrawalParsed;
+            memo = depositRaw && !parseAmount(depositRaw) ? String(depositRaw) : "";
+          } else {
+            // 둘 다 숫자가 아니면 그냥 파싱
+            depositAmount = depositParsed;
+            withdrawalAmount = withdrawalParsed;
+          }
+        } else {
+          // 일반 케이스
+          depositAmount = parseAmount(depositRaw);
+          withdrawalAmount = parseAmount(withdrawalRaw);
+        }
       }
       // Case 2: 단일 금액 + 거래구분 ([+]/[-])
       else if (columnMapping.amount !== undefined) {
@@ -274,11 +294,10 @@ export async function extractAndSaveTransactions(
         continue;
       }
 
-      // Parse memo (optional)
-      const memo =
-        columnMapping.memo !== undefined
-          ? String(row[columnMapping.memo] ?? "")
-          : "";
+      // Parse memo (optional) - memoInAmountColumn이 아닌 경우에만
+      if (!memo && columnMapping.memo !== undefined) {
+        memo = String(row[columnMapping.memo] ?? "");
+      }
 
       // MEDIUM-3 FIX: Validate metadata size before adding
       const metadata = {
