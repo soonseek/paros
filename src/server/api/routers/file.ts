@@ -1336,9 +1336,18 @@ async function performExtraction(
       const index = headerRow.indexOf(columnName);
       if (index !== -1) {
         (numericColumnMapping as Record<string, number>)[key] = index;
+      } else {
+        console.warn(`[performExtraction] Column "${columnName}" not found in headerRow for key "${key}"`);
       }
     }
   }
+
+  // 디버그: columnMapping 변환 결과
+  console.log(`[performExtraction] Column mapping conversion:`, {
+    original: columnMapping,
+    numeric: numericColumnMapping,
+    headerRow: headerRow.slice(0, 10),
+  });
 
   // Extract and save transactions
   const extractionResult = await extractAndSaveTransactions(
