@@ -170,14 +170,16 @@ export async function uploadFileToS3(
  * await deleteFileFromS3("550e8400-e29b-41d4-a716-446655440000-statement.xlsx");
  */
 export async function deleteFileFromS3(s3Key: string): Promise<void> {
+  const bucket = await getS3Bucket();
   const command = new DeleteObjectCommand({
-    Bucket: S3_BUCKET,
+    Bucket: bucket,
     Key: s3Key,
   });
 
   try {
-    await getS3Client().send(command);
-    console.log(`[S3 Delete Success] File deleted: ${s3Key}`);
+    const client = await getS3Client();
+    await client.send(command);
+    console.log(`[S3 Delete Success] File deleted from ${bucket}: ${s3Key}`);
   } catch (error) {
     console.error("[S3 Delete Error]", error);
     throw new Error("S3 파일 삭제 실패");
