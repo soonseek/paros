@@ -2,20 +2,20 @@
  * AI Chat Assistant Component
  *
  * 거래내역 질의응답을 위한 AI 어시스턴트 채팅 UI
- * 성능 최적화를 위해 별도 컴포넌트로 분리
- * Enhanced with professional design and better UX
+ * 대출금 추적 분석 및 엑셀 다운로드 기능 포함
  */
 
 "use client";
 
 import { useState, useCallback, memo, useRef, useEffect } from "react";
-import { Loader2, Send, Bot, User, Copy, CheckCheck, Sparkles } from "lucide-react";
+import { Loader2, Send, Bot, User, Copy, CheckCheck, Sparkles, Download, FileSpreadsheet } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "./ui/card";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { api } from "~/utils/api";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
 
 interface Transaction {
   id: string;
