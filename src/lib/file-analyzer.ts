@@ -48,6 +48,13 @@ export interface AnalysisResult {
   // Extracted raw data (for reuse in extractData)
   extractedData?: { headers: string[]; rows: string[][] };
 
+  // LLM 분석 메타데이터 (LLM 분석 사용 시)
+  llmAnalysis?: {
+    transactionTypeMethod: string; // separate_columns, type_column, sign_in_type, amount_sign
+    memoContentType: string; // 입금자명, 계좌정보, 거래설명 등
+    reasoning: string; // 분석 근거
+  };
+
   // Error information
   errorMessage?: string;
   errorDetails?: Record<string, unknown>;
@@ -68,6 +75,7 @@ interface ColumnDetection {
  *
  * @param fileBuffer - Buffer containing file content
  * @param mimeType - MIME type from file upload
+ * @param useLlmAnalysis - LLM 기반 분석 사용 여부 (기본값: false)
  * @returns Analysis result with column mapping and metadata
  * @throws Error if analysis fails
  *
@@ -77,25 +85,103 @@ interface ColumnDetection {
  */
 export async function analyzeFileStructure(
   fileBuffer: Buffer,
-  mimeType: string
+  mimeType: string,
+  useLlmAnalysis: boolean = false
 ): Promise<AnalysisResult> {
   try {
+    console.log("[File Analysis] Starting analysis for MIME type:", mimeType);
+    console.log("[File Analysis] LLM Analysis mode:", useLlmAnalysis);
+
     // Detect file format
     const detectedFormat = detectFileFormat(mimeType);
+    console.log("[File Analysis] Detected format:", detectedFormat);
 
     // Parse file based on format
     const parsedData = await parseFile(fileBuffer, detectedFormat);
     const { headers, totalRows, headerRowIndex, extractedData } = parsedData;
 
-    // Detect column types
+    // DEBUG: Log detected headers
+    console.log("[File Analysis] Detected headers:", headers);
+    console.log("[File Analysis] Header row index:", headerRowIndex);
+    console.log("[File Analysis] Total rows:", totalRows);
+
+    // LLM 기반 분석 사용 시
+    if (useLlmAnalysis && extractedData) {
+      console.log("[File Analysis] Using LLM-based column analysis...");
+      try {
+        const { analyzeColumnsFromTableData, convertToColumnIndices } = await import("./column-analyzer-client");
+        
+        const llmResult = await analyzeColumnsFromTableData(headers, extractedData.rows);
+        
+        if (llmResult.success) {
+          console.log("[File Analysis] LLM analysis successful");
+          console.log("[File Analysis] LLM confidence:", llmResult.confidence);
+          console.log("[File Analysis] LLM column mapping:", llmResult.columnMapping);
+          
+          // LLM 결과를 기존 형식으로 변환
+          const llmColumnMapping: Record<string, string> = {};
+          
+          if (llmResult.columnMapping.거래일자) {
+            llmColumnMapping.date = llmResult.columnMapping.거래일자;
+          }
+          if (llmResult.columnMapping.입금금액) {
+            llmColumnMapping.deposit = llmResult.columnMapping.입금금액;
+          }
+          if (llmResult.columnMapping.출금금액) {
+            llmColumnMapping.withdrawal = llmResult.columnMapping.출금금액;
+          }
+          if (llmResult.columnMapping.잔액) {
+            llmColumnMapping.balance = llmResult.columnMapping.잔액;
+          }
+          if (llmResult.columnMapping.비고) {
+            llmColumnMapping.memo = llmResult.columnMapping.비고;
+          }
+          
+          return {
+            status: "completed",
+            columnMapping: llmColumnMapping,
+            headerRowIndex: llmResult.headerRowIndex,
+            totalRows,
+            detectedFormat,
+            hasHeaders: true,
+            confidence: llmResult.confidence,
+            extractedData,
+            // LLM 분석 메타데이터 추가
+            llmAnalysis: {
+              transactionTypeMethod: llmResult.transactionTypeDetection.method,
+              memoContentType: llmResult.memoAnalysis.contentType,
+              reasoning: llmResult.reasoning,
+            },
+          } as AnalysisResult;
+        } else {
+          console.warn("[File Analysis] LLM analysis failed, falling back to rule-based:", llmResult.error);
+        }
+      } catch (llmError) {
+        console.warn("[File Analysis] LLM analysis error, falling back to rule-based:", llmError);
+      }
+    }
+
+    // 기존 규칙 기반 분석 (폴백)
     const detectedColumns = detectColumns(headers);
+
+    // DEBUG: Log detected columns
+    console.log("[File Analysis] Detected columns:", detectedColumns.map(col => ({
+      type: col.columnType,
+      name: col.columnName,
+      confidence: col.confidence
+    })));
 
     // Calculate confidence score
     const confidence = calculateConfidence(detectedColumns, headers.length);
+    console.log("[File Analysis] Confidence score:", confidence);
 
     // Check for missing required columns
     const detectedTypes = detectedColumns.map((col) => col.columnType);
     const missingRequired = getMissingRequiredColumns(detectedTypes);
+
+    if (missingRequired.length > 0) {
+      console.error("[File Analysis] Missing required columns:", missingRequired);
+    }
 
     // Build column mapping
     const columnMapping: Record<string, string> = {};
@@ -104,6 +190,8 @@ export async function analyzeFileStructure(
         columnMapping[detection.columnType] = detection.columnName;
       }
     }
+
+    console.log("[File Analysis] Final column mapping:", columnMapping);
 
     // Return analysis result
     return {

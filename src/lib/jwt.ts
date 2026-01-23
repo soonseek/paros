@@ -3,8 +3,8 @@ import jwt from "jsonwebtoken";
 import { env } from "~/env";
 
 // Token expiry times
-const ACCESS_TOKEN_EXPIRY = "15min"; // 15 minutes
-const REFRESH_TOKEN_EXPIRY = "8h"; // 8 hours
+const ACCESS_TOKEN_EXPIRY = "7d"; // 7 days - changed from 15min to improve user experience
+const REFRESH_TOKEN_EXPIRY = "7d"; // 7 days - changed from 8h to match access token
 
 // JWT payload interface
 export interface AccessTokenPayload {

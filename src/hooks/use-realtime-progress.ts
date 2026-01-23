@@ -21,6 +21,8 @@
  */
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useAuth } from "~/contexts/AuthContext";
+import { useRouter } from "next/router";
 
 /**
  * Progress event data structure from SSE
@@ -84,6 +86,8 @@ export function useRealtimeProgress(
 
   const eventSourceRef = useRef<EventSource | null>(null);
   const optionsRef = useRef(options);
+  const { clearAuth } = useAuth();
+  const router = useRouter();
 
   // Update options ref to avoid stale closures
   useEffect(() => {
@@ -146,6 +150,25 @@ export function useRealtimeProgress(
       console.error("[SSE] Connection error:", err);
       setIsConnected(false);
       eventSource.close();
+
+      // Check for 401 Unauthorized error
+      // EventSource doesn't expose status code directly, but we can detect it
+      const eventSourceAny = eventSource as any;
+      if (eventSourceAny.readyState === EventSource.CLOSED) {
+        // Try to fetch the endpoint to check if it's 401
+        fetch(`/api/analyze/${caseId}/progress?documentId=${documentId}`)
+          .then(response => {
+            if (response.status === 401) {
+              console.error("[SSE] Unauthorized - logging out");
+              // Clear auth and redirect to login
+              clearAuth();
+              void router.push('/login');
+            }
+          })
+          .catch(fetchError => {
+            console.error("[SSE] Error checking auth status:", fetchError);
+          });
+      }
     };
 
     eventSourceRef.current = eventSource;
