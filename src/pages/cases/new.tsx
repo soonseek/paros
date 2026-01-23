@@ -12,7 +12,7 @@ import { api } from "~/utils/api";
 import { useAuth } from "~/contexts/AuthContext";
 
 const createCaseSchema = z.object({
-  caseNumber: z.string().min(1, "사건번호는 필수 항목입니다"),
+  caseNumber: z.string().optional(), // 사건번호 선택 사항
   debtorName: z.string().min(1, "채무자명은 필수 항목입니다"),
   courtName: z.string().optional(),
   filingDate: z.string().optional(),
