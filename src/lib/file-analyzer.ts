@@ -145,6 +145,11 @@ export async function analyzeFileStructure(
             llmColumnMapping.memo = llmResult.columnMapping.memo;
           }
           
+          // memoInAmountColumn 플래그를 columnMapping에 포함
+          if (llmResult.memoInAmountColumn) {
+            (llmColumnMapping as Record<string, unknown>).memoInAmountColumn = true;
+          }
+          
           return {
             status: "completed",
             columnMapping: llmColumnMapping,
