@@ -33,10 +33,59 @@ interface AIChatAssistantProps {
   transactions: Transaction[];
 }
 
+// 테이블 데이터 인터페이스
+interface TableData {
+  headers: string[];
+  rows: string[][];
+}
+
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  tableData?: TableData; // 테이블 데이터 (선택적)
+}
+
+// 마크다운 테이블 파싱 함수
+function parseMarkdownTable(content: string): TableData | null {
+  const lines = content.split('\n');
+  const tableLines: string[] = [];
+  let inTable = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+      inTable = true;
+      tableLines.push(trimmed);
+    } else if (inTable && trimmed === '') {
+      break;
+    }
+  }
+
+  if (tableLines.length < 2) return null;
+
+  const parseRow = (line: string): string[] => {
+    return line.split('|')
+      .filter((_, i, arr) => i !== 0 && i !== arr.length - 1)
+      .map(cell => cell.trim());
+  };
+
+  const headers = parseRow(tableLines[0] ?? '');
+  // Skip separator line (---|---|---)
+  const rows = tableLines.slice(2).map(parseRow);
+
+  if (headers.length === 0 || rows.length === 0) return null;
+
+  return { headers, rows };
+}
+
+// 엑셀 다운로드 함수
+function downloadAsExcel(tableData: TableData, filename: string = '대출금_추적_결과') {
+  const ws = XLSX.utils.aoa_to_sheet([tableData.headers, ...tableData.rows]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '추적결과');
+  XLSX.writeFile(wb, `${filename}_${new Date().toISOString().split('T')[0]}.xlsx`);
+  toast.success('엑셀 파일이 다운로드되었습니다');
 }
 
 // React.memo로 불필요한 리렌더링 방지
@@ -49,7 +98,6 @@ export const AIChatAssistant = memo<AIChatAssistantProps>(({ caseId, transaction
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const utils = api.useUtils();
   const chatMutation = api.chat.askAssistant.useMutation();
 
   // Auto-scroll to bottom when new message arrives
