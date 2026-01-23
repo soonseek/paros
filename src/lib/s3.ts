@@ -200,13 +200,15 @@ export async function deleteFileFromS3(s3Key: string): Promise<void> {
  * const buffer = await downloadFileFromS3("cases/case-123/1704782400000-550e8400-statement.xlsx");
  */
 export async function downloadFileFromS3(s3Key: string): Promise<Buffer> {
+  const bucket = await getS3Bucket();
   const command = new GetObjectCommand({
-    Bucket: S3_BUCKET,
+    Bucket: bucket,
     Key: s3Key,
   });
 
   try {
-    const response = await getS3Client().send(command);
+    const client = await getS3Client();
+    const response = await client.send(command);
 
     // Handle streaming response and convert to Buffer
     if (!response.Body) {
@@ -222,7 +224,7 @@ export async function downloadFileFromS3(s3Key: string): Promise<Buffer> {
     }
 
     const buffer = Buffer.concat(chunks);
-    console.log(`[S3 Download Success] File downloaded: ${s3Key} (${buffer.length} bytes)`);
+    console.log(`[S3 Download Success] File downloaded from ${bucket}: ${s3Key} (${buffer.length} bytes)`);
     return buffer;
   } catch (error) {
     console.error("[S3 Download Error]", error);
