@@ -3,7 +3,7 @@ import { z } from "zod";
 import * as XLSX from "xlsx";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { FILE_VALIDATION, validateFileSignature } from "~/lib/file-validation";
-import { uploadFileToS3, deleteFileFromS3, downloadFileFromS3 } from "~/lib/s3";
+import { uploadFile, deleteFile, downloadFile } from "~/lib/storage";
 import { analyzeFileStructure } from "~/lib/file-analyzer";
 import { extractAndSaveTransactions, type ColumnMapping } from "~/lib/data-extractor";
 import type { Prisma, PrismaClient } from "@prisma/client";
