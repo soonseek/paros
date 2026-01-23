@@ -9,7 +9,7 @@ import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
 import { Label } from "~/components/ui/label";
 import { FindingList } from "~/components/molecules/finding-list";
-import { TransactionTable } from "~/components/transaction-table";
+import { SimplifiedTransactionTable, type SimplifiedTransaction } from "~/components/simplified-transaction-table";
 import { AIChatAssistant } from "~/components/ai-chat-assistant";
 import { FindingNoteList } from "~/components/molecules/finding-note-list";
 import { FindingNoteForm } from "~/components/molecules/finding-note-form";
