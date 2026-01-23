@@ -1335,6 +1335,11 @@ async function performExtraction(
     }
   }
 
+  // memoInAmountColumn 플래그 전달
+  if (analysisResult.llmAnalysis?.memoInAmountColumn) {
+    numericColumnMapping.memoInAmountColumn = true;
+  }
+
   // Extract and save transactions
   const extractionResult = await extractAndSaveTransactions(
     ctx.db,
