@@ -63,8 +63,13 @@ const CasesIndexPage: NextPage = () => {
   });
 
   // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!user) {
+      void router.push("/login");
+    }
+  }, [user, router]);
+
   if (!user) {
-    void router.push("/login");
     return null;
   }
 
