@@ -182,6 +182,24 @@ const CaseDetailPage: NextPage = () => {
     }));
   }, [transactionsData?.transactions]);
 
+  // 거래내역 정규화 (SimplifiedTransactionTable용)
+  const simplifiedTransactions = useMemo((): SimplifiedTransaction[] => {
+    return (transactionsData?.transactions ?? []).map(tx => {
+      const depositAmount = tx.depositAmount ? Number(tx.depositAmount) : 0;
+      const withdrawalAmount = tx.withdrawalAmount ? Number(tx.withdrawalAmount) : 0;
+      const isDeposit = depositAmount > 0;
+      
+      return {
+        id: tx.id,
+        transactionDate: new Date(tx.transactionDate).toISOString().split('T')[0] ?? '',
+        type: isDeposit ? '입금' as const : '출금' as const,
+        amount: isDeposit ? depositAmount : -withdrawalAmount,
+        balance: tx.balance ? Number(tx.balance) : 0,
+        memo: tx.memo ?? '',
+      };
+    });
+  }, [transactionsData?.transactions]);
+
   // Archive mutation
   const archiveMutation = api.case.archiveCase.useMutation({
     onSuccess: () => {
