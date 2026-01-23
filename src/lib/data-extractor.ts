@@ -378,7 +378,6 @@ export async function extractAndSaveTransactions(
     // 추출 결과 상세 로그
     const duplicatesSkipped = transactions.length - success;
     console.log(`[Data Extractor] Extraction complete:`, {
-      totalRows: rows.length,
       prepared: transactions.length,
       saved: success,
       skippedByValidation: skipped,
