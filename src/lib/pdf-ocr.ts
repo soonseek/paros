@@ -317,8 +317,14 @@ function extractFromTableElementsHTML(tableElements: Array<{
   tablesWithHeaders.sort((a, b) => b.score - a.score);
   const mainTable = tablesWithHeaders[0]!;
 
-  console.log(`[HTML Table] Main table: #${mainTable.index} with ${mainTable.columnCount} columns`);
+  console.log(`[HTML Table] Main table: #${mainTable.index} with ${mainTable.columnCount} columns, ${mainTable.rows.length} data rows`);
   console.log(`[HTML Table] Headers:`, mainTable.headers.join(", "));
+
+  // 모든 파싱된 테이블 요약 출력
+  console.log(`[HTML Table] All parsed tables summary:`);
+  parsedTables.forEach(t => {
+    console.log(`  Table ${t.index}: cols=${t.columnCount}, validHeader=${t.hasValidHeaders}, rows=${t.rows.length}, score=${t.score}`);
+  });
 
   // 3단계: 동일한 거래내역 구조의 테이블들 모두 결합
   // - 같은 헤더 구조 (유효한 헤더가 있는 테이블들)
@@ -330,9 +336,9 @@ function extractFromTableElementsHTML(tableElements: Array<{
     // 메인 테이블은 스킵
     if (table.index === mainTable.index) continue;
 
-    // 컬럼 수 차이 허용 (OCR에서 시각/Teller가 합쳐지거나 분리될 수 있음)
+    // 컬럼 수 차이 허용 (OCR에서 컬럼이 합쳐지거나 분리될 수 있음)
     const columnDiff = Math.abs(table.columnCount - mainTable.columnCount);
-    const isSimilarStructure = columnDiff <= 1;
+    const isSimilarStructure = columnDiff <= 2; // ±2 차이까지 허용 (더 관대하게)
 
     if (isSimilarStructure) {
       if (table.hasValidHeaders) {
@@ -350,7 +356,7 @@ function extractFromTableElementsHTML(tableElements: Array<{
         console.log(`[HTML Table] ✓ Table ${table.index} added as continuation (${table.rows.length + 1} rows)`);
       }
     } else {
-      console.log(`[HTML Table] ⚠️ Table ${table.index} skipped (column count ${table.columnCount} differs from main ${mainTable.columnCount})`);
+      console.log(`[HTML Table] ⚠️ Table ${table.index} skipped (column count ${table.columnCount} vs main ${mainTable.columnCount}, diff=${columnDiff})`);
     }
   }
 
