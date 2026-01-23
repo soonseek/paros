@@ -397,7 +397,7 @@ export const fileRouter = createTRPCRouter({
       try {
         const buffer = Buffer.from(fileBuffer, "base64");
         // LOW-1 FIX: Pass caseId for improved directory structure
-        s3Key = await uploadFileToS3(buffer, caseId, fileName, fileType);
+        s3Key = await uploadFile(buffer, caseId, fileName, fileType);
       } catch (error) {
         console.error("[S3 Upload Error]", error);
         throw new TRPCError({
@@ -429,7 +429,7 @@ export const fileRouter = createTRPCRouter({
 
         // Rollback: Delete S3 object if DB creation fails
         try {
-          await deleteFileFromS3(s3Key);
+          await deleteFile(s3Key);
           console.log("[Rollback Success] S3 object deleted after DB failure");
         } catch (deleteError) {
           // MEDIUM-3 FIX: Record orphaned S3 object for cleanup
@@ -555,7 +555,7 @@ export const fileRouter = createTRPCRouter({
       // Step 5: Download file from S3
       let fileBuffer: Buffer;
       try {
-        fileBuffer = await downloadFileFromS3(document.s3Key);
+        fileBuffer = await downloadFile(document.s3Key);
       } catch (error) {
         console.error("[S3 Download Error]", error);
 
@@ -1158,7 +1158,7 @@ export const fileRouter = createTRPCRouter({
 
       // 5. S3 파일 삭제 (DB 삭제 성공 후, 실패는 로깅만 - non-blocking)
       try {
-        await deleteFileFromS3(document.s3Key);
+        await deleteFile(document.s3Key);
       } catch (error) {
         // S3 삭제 실패는 로깅만 (DB는 이미 삭제됨, 사용자 경험 저하 방지)
         console.error("[S3 Delete Error - Non-blocking]", error);
@@ -1258,7 +1258,7 @@ async function performExtraction(
   const { id: documentId, s3Key, caseId } = document;
 
   // Download file from S3
-  const fileBuffer = await downloadFileFromS3(s3Key);
+  const fileBuffer = await downloadFile(s3Key);
 
   let rawData: unknown[][];
   let headerRow: string[];
