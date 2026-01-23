@@ -25,6 +25,7 @@ import {
   ColumnType,
   getMissingRequiredColumns,
   getColumnTypeLabel,
+  hasAmountColumns,
 } from "./column-mapping";
 import { parsePdfWithUpstage } from "./pdf-ocr";
 
