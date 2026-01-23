@@ -230,6 +230,16 @@ export async function extractAndSaveTransactions(
       let withdrawalAmount: number | null = null;
       let memo = "";
 
+      // 디버그: 첫 5개 행에 대해 컬럼 매핑 확인
+      if (i < 5) {
+        console.log(`[Data Extractor] Row ${i + 1} raw data:`, {
+          deposit: columnMapping.deposit !== undefined ? row[columnMapping.deposit] : 'N/A',
+          withdrawal: columnMapping.withdrawal !== undefined ? row[columnMapping.withdrawal] : 'N/A',
+          memo: columnMapping.memo !== undefined ? row[columnMapping.memo] : 'N/A',
+          memoInAmountColumn: columnMapping.memoInAmountColumn,
+        });
+      }
+
       // Case 1: 입금/출금 분리형 (비고가 금액 컬럼에 섞여있는 특수 케이스 포함)
       if (columnMapping.deposit !== undefined || columnMapping.withdrawal !== undefined) {
         const depositRaw = columnMapping.deposit !== undefined ? row[columnMapping.deposit] : null;
