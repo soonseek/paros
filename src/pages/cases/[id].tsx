@@ -576,25 +576,20 @@ const CaseDetailPage: NextPage = () => {
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="max-w-[1920px] mx-auto">
-        {/* Header with navigation */}
+        {/* Header with navigation - 간소화된 버튼 구성 */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">사건 상세</h1>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => void router.push("/cases")}>
-              목록으로 돌아가기
-            </Button>
-            <Button
-              onClick={() => void router.push(`/cases/${Array.isArray(id) ? id[0] : id}/edit`)}
-            >
-              수정
+              목록
             </Button>
 
-            {/* Upload Button - Story 3.1 */}
+            {/* Upload Button - 핵심 기능 */}
             <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline">
+                <Button variant="default">
                   <Upload className="w-4 h-4 mr-2" />
-                  거래내역서 업로드
+                  업로드
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl">
@@ -608,8 +603,6 @@ const CaseDetailPage: NextPage = () => {
                 <FileUploadZone
                   caseId={id as string}
                   onFilesSelected={(files) => {
-                    // Story 3.3: Files are uploaded to S3 via FileUploadZone
-                    // Just notify user of successful selection
                     if (files.length > 0) {
                       toast.success(
                         `${files.length}개 파일이 처리되었습니다. 분석이 진행 중입니다...`
@@ -617,28 +610,13 @@ const CaseDetailPage: NextPage = () => {
                     }
                   }}
                   onUploadSuccess={(documentId) => {
-                    // Story 3.5+: Refresh case data when file upload completes
                     void refetch();
                   }}
                 />
               </DialogContent>
             </Dialog>
 
-            {/* Story 6.1: 발견사항 분석 버튼 */}
-            <Button
-              variant="default"
-              onClick={() =>
-                analyzeFindingsMutation.mutate({ caseId: id as string })
-              }
-              disabled={analyzeFindingsMutation.isPending}
-            >
-              <Search className="w-4 h-4 mr-2" />
-              {analyzeFindingsMutation.isPending
-                ? "분석 중..."
-                : "발견사항 분석"}
-            </Button>
-
-            {/* Story 7.1: Excel 내보내기 버튼 */}
+            {/* Excel 내보내기 - 핵심 기능 */}
             <ExportOptionsModal
               caseId={id as string}
               onExport={handleExport}
@@ -649,44 +627,6 @@ const CaseDetailPage: NextPage = () => {
                 내보내기
               </Button>
             </ExportOptionsModal>
-
-            {/* Archive/Unarchive Button - Conditional Rendering */}
-            {caseItem?.isArchived ? (
-              <Button
-                variant="secondary"
-                onClick={() => unarchiveMutation.mutate({ id: id as string })}
-                disabled={unarchiveMutation.isPending}
-              >
-                {unarchiveMutation.isPending ? "복원 중..." : "복원"}
-              </Button>
-            ) : (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="destructive"
-                    disabled={archiveMutation.isPending}
-                  >
-                    {archiveMutation.isPending ? "아카이브 중..." : "아카이브"}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>사건 아카이브</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      이 사건을 아카이브하시겠습니까? 아카이브된 사건은 기본 목록에서 숨겨집니다.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>취소</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() => archiveMutation.mutate({ id: id as string })}
-                    >
-                      아카이브
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
           </div>
         </div>
 
