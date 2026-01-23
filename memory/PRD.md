@@ -49,6 +49,21 @@ COLUMN_ANALYZER_URL="http://localhost:8002"
 EMERGENT_LLM_KEY="sk-emergent-21606D0AeC4F526Fc0"
 ```
 
+## 구현 완료 (2026-01-23)
+
+### 간소화된 거래내역 UI 통합
+| 파일 | 설명 |
+|------|------|
+| `/app/src/pages/cases/[id].tsx` | SimplifiedTransactionTable 적용 |
+| `/app/src/components/simplified-transaction-table.tsx` | 간소화된 거래내역 테이블 |
+| `/app/src/lib/transaction-normalizer.ts` | 거래내역 정규화 로직 |
+
+### 변경사항
+- 기존 복잡한 `TransactionTable` → 간소화된 `SimplifiedTransactionTable` 교체
+- 거래내역 표준 형식: 거래일자, 구분(입금/출금), 금액, 잔액, 비고
+- 입금/출금 색상 구분 및 +/- 표시 적용
+- 필터링(전체/입금/출금) 및 검색 기능 유지
+
 ## 백로그
 
 ### P0 (완료)
@@ -56,11 +71,16 @@ EMERGENT_LLM_KEY="sk-emergent-21606D0AeC4F526Fc0"
 - [x] Python FastAPI 서비스 구현
 - [x] TypeScript 클라이언트 구현
 - [x] 3종 PDF 테스트 통과
+- [x] 간소화된 거래내역 UI 적용 (SimplifiedTransactionTable)
+- [x] 거래내역 정규화 로직 통합
 
 ### P1 (향후)
+- [ ] 비고(memo) 컬럼 파싱 로직 개선
 - [ ] 프론트엔드 UI에 LLM 분석 토글 추가
 - [ ] 분석 결과 캐싱 구현
 - [ ] 사용자 피드백 학습 루프
+- [ ] 모바일 최적화
+- [ ] 불필요한 UI 버튼 제거
 
 ### P2 (미래)
 - [ ] 배치 처리 지원
