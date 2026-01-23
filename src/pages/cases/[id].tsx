@@ -658,6 +658,7 @@ const CaseDetailPage: NextPage = () => {
               <SimplifiedTransactionTable
                 transactions={simplifiedTransactions}
                 caseId={id as string}
+                showDocumentName={!selectedDocumentId} // 전체 파일 선택시 문서명 표시
               />
             ) : (
               <div className="text-center py-8 bg-gray-50 rounded-lg">
