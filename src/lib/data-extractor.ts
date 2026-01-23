@@ -225,14 +225,41 @@ export async function extractAndSaveTransactions(
       }
 
       // Parse amounts (optional - at least one of deposit or withdrawal must be present)
-      const depositAmount = parseAmount(
-        columnMapping.deposit !== undefined ? row[columnMapping.deposit] : null
-      );
-      const withdrawalAmount = parseAmount(
-        columnMapping.withdrawal !== undefined
-          ? row[columnMapping.withdrawal]
-          : null
-      );
+      let depositAmount: number | null = null;
+      let withdrawalAmount: number | null = null;
+
+      // Case 1: 입금/출금 분리형
+      if (columnMapping.deposit !== undefined || columnMapping.withdrawal !== undefined) {
+        depositAmount = parseAmount(
+          columnMapping.deposit !== undefined ? row[columnMapping.deposit] : null
+        );
+        withdrawalAmount = parseAmount(
+          columnMapping.withdrawal !== undefined
+            ? row[columnMapping.withdrawal]
+            : null
+        );
+      }
+      // Case 2: 단일 금액 + 거래구분 ([+]/[-])
+      else if (columnMapping.amount !== undefined) {
+        const amount = parseAmount(row[columnMapping.amount]);
+        const transactionType = columnMapping.transaction_type !== undefined
+          ? String(row[columnMapping.transaction_type] ?? "")
+          : "";
+
+        // [+] 또는 입금 관련 키워드면 입금, [-] 또는 출금 관련 키워드면 출금
+        const isDeposit = transactionType.includes("+") ||
+          transactionType.includes("입금") ||
+          transactionType.includes("받기") ||
+          transactionType.includes("충전") ||
+          transactionType.includes("적립");
+
+        if (isDeposit) {
+          depositAmount = amount;
+        } else {
+          withdrawalAmount = amount;
+        }
+      }
+
       const balance = parseAmount(
         columnMapping.balance !== undefined ? row[columnMapping.balance] : null
       );
