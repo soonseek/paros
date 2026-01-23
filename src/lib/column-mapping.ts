@@ -207,6 +207,8 @@ export function getColumnTypeLabel(columnType: ColumnType): string {
     [ColumnType.MEMO]: "메모",
     [ColumnType.COUNTERPARTY]: "거래처",
     [ColumnType.ACCOUNT_NUMBER]: "계좌번호",
+    [ColumnType.AMOUNT]: "거래금액",
+    [ColumnType.TRANSACTION_TYPE]: "거래구분",
     [ColumnType.UNKNOWN]: "알 수 없음",
   };
   return labels[columnType] || columnType;
@@ -220,4 +222,26 @@ export function getColumnTypeLabel(columnType: ColumnType): string {
  */
 export function isRequiredColumn(columnType: ColumnType): boolean {
   return columnType === ColumnType.DATE;
+}
+
+/**
+ * 금액 관련 컬럼이 있는지 확인
+ * 
+ * 다음 중 하나 이상 있어야 함:
+ * - 입금액/출금액 분리형
+ * - 단일 거래금액 + 거래구분
+ */
+export function hasAmountColumns(detectedColumns: ColumnType[]): boolean {
+  const hasDeposit = detectedColumns.includes(ColumnType.DEPOSIT);
+  const hasWithdrawal = detectedColumns.includes(ColumnType.WITHDRAWAL);
+  const hasAmount = detectedColumns.includes(ColumnType.AMOUNT);
+  const hasTransactionType = detectedColumns.includes(ColumnType.TRANSACTION_TYPE);
+  
+  // 입금/출금 분리형
+  if (hasDeposit || hasWithdrawal) return true;
+  
+  // 단일 금액 + 거래구분
+  if (hasAmount) return true;
+  
+  return false;
 }
