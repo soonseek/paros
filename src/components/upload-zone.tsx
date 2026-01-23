@@ -441,88 +441,60 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
     <>
       <Card>
         <CardContent className="pt-6">
-          {/* 2열 그리드: 왼쪽 드롭존, 오른쪽 분석 결과 */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* 왼쪽: 드래그앤드롭 영역 */}
+          {/* 세로 스택 레이아웃 */}
+          <div className="space-y-4">
+            {/* 드래그앤드롭 영역 */}
             <div
               {...getRootProps()}
               role="button"
               tabIndex={0}
               onKeyDown={handleKeyDown}
               className={`
-                relative border-2 border-dashed rounded-lg p-8 text-center cursor-pointer
+                relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer
                 transition-all duration-200 ease-in-out
                 ${isDragActive 
-                  ? "border-primary bg-primary/5 scale-[1.02]" 
+                  ? "border-primary bg-primary/5 scale-[1.01]" 
                   : "border-border hover:border-primary/50 hover:bg-accent/50"
                 }
                 ${isProcessing ? "opacity-60 cursor-not-allowed pointer-events-none" : ""}
               `}
-              aria-label="파일 업로드 영역 - 드래그앤드롭 또는 클릭하여 파일 선택"
+              aria-label="파일 업로드 영역"
             >
               <input {...getInputProps()} ref={fileInputRef} />
               {isProcessing ? (
-                <div className="flex flex-col items-center gap-3">
-                  <div className="relative">
-                    <div className="animate-spin rounded-full h-10 w-10 border-3 border-primary/30 border-t-primary" />
-                  </div>
+                <div className="flex items-center justify-center gap-3">
+                  <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary/30 border-t-primary" />
                   <p className="text-sm font-medium text-muted-foreground">파일 처리 중...</p>
                 </div>
               ) : (
-                <div className="flex flex-col items-center gap-3">
-                  <div className={`
-                    rounded-full p-3 transition-colors
-                    ${isDragActive ? "bg-primary/10" : "bg-muted"}
-                  `}>
-                    <Upload className={`size-6 transition-colors ${
-                      isDragActive ? "text-primary" : "text-muted-foreground"
-                    }`} />
+                <div className="flex items-center justify-center gap-4">
+                  <div className={`rounded-full p-2 ${isDragActive ? "bg-primary/10" : "bg-muted"}`}>
+                    <Upload className={`size-5 ${isDragActive ? "text-primary" : "text-muted-foreground"}`} />
                   </div>
-                  {isDragActive ? (
-                    <p className="text-sm font-semibold text-primary">파일을 놓아주세요</p>
-                  ) : (
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-foreground">
-                        파일을 드래그하거나 <span className="text-primary underline">클릭</span>
-                      </p>
-                      <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <FileSpreadsheet className="size-3" />
-                          <span>Excel, CSV</span>
-                        </div>
-                        <span>•</span>
-                        <div className="flex items-center gap-1">
-                          <FileText className="size-3" />
-                          <span>PDF</span>
-                        </div>
-                        <span>•</span>
-                        <span>최대 50MB</span>
-                      </div>
-                    </div>
-                  )}
+                  <div className="text-left">
+                    <p className="text-sm font-medium">
+                      {isDragActive ? (
+                        <span className="text-primary">파일을 놓아주세요</span>
+                      ) : (
+                        <>파일을 드래그하거나 <span className="text-primary underline">클릭</span></>
+                      )}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Excel, CSV, PDF • 최대 50MB</p>
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* 오른쪽: 분석 결과 또는 안내 */}
-            <div className="flex flex-col">
-              {(analyzingDocumentId || completionData || failedDocumentId) ? (
-                <ProgressBar
-                  progress={progress}
-                  stage={stage}
-                  error={progressError}
-                  completionData={completionData ?? undefined}
-                  onRetry={failedDocumentId ? handleRetry : undefined}
-                />
-              ) : (
-                <div className="flex-1 flex flex-col items-center justify-center p-6 bg-muted/30 rounded-lg border border-dashed">
-                  <FileCheck className="size-8 text-muted-foreground/50 mb-3" />
-                  <p className="text-sm text-muted-foreground text-center">
-                    파일을 업로드하면<br />AI 분석 결과가 여기에 표시됩니다
-                  </p>
-                </div>
-              )}
-            </div>
+            {/* 분석 결과 */}
+            {(analyzingDocumentId || completionData || failedDocumentId) && (
+              <ProgressBar
+                progress={progress}
+                stage={stage}
+                error={progressError}
+                completionData={completionData ?? undefined}
+                onRetry={failedDocumentId ? handleRetry : undefined}
+              />
+            )}
           </div>
 
           {/* Error Messages */}
