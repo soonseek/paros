@@ -54,15 +54,18 @@ EMERGENT_LLM_KEY="sk-emergent-21606D0AeC4F526Fc0"
 ### 간소화된 거래내역 UI 통합
 | 파일 | 설명 |
 |------|------|
-| `/app/src/pages/cases/[id].tsx` | SimplifiedTransactionTable 적용 |
+| `/app/src/pages/cases/[id].tsx` | SimplifiedTransactionTable 적용, UI 버튼 간소화 |
 | `/app/src/components/simplified-transaction-table.tsx` | 간소화된 거래내역 테이블 |
-| `/app/src/lib/transaction-normalizer.ts` | 거래내역 정규화 로직 |
+| `/app/src/lib/transaction-normalizer.ts` | 거래내역 정규화 로직 (비고 감지 개선) |
 
 ### 변경사항
 - 기존 복잡한 `TransactionTable` → 간소화된 `SimplifiedTransactionTable` 교체
-- 거래내역 표준 형식: 거래일자, 구분(입금/출금), 금액, 잔액, 비고
-- 입금/출금 색상 구분 및 +/- 표시 적용
-- 필터링(전체/입금/출금) 및 검색 기능 유지
+- 거래내역 표준 형식: 거래일자, 구분(입금/출금), 금액(+/-), 잔액, 비고
+- 입금(파란색)/출금(빨간색) 색상 구분 및 필터 기능 유지
+- **비고 컬럼 감지 개선**: 금융 패턴 인식, 제외 키워드 필터, 텍스트 품질 점수 강화
+- **UI 간소화**: 불필요한 버튼 제거 (수정, 발견사항 분석, 아카이브)
+  - 유지: 목록, 업로드, 내보내기
+  - 제거: 수정, 발견사항 분석, 아카이브/복원
 
 ## 백로그
 
@@ -73,14 +76,13 @@ EMERGENT_LLM_KEY="sk-emergent-21606D0AeC4F526Fc0"
 - [x] 3종 PDF 테스트 통과
 - [x] 간소화된 거래내역 UI 적용 (SimplifiedTransactionTable)
 - [x] 거래내역 정규화 로직 통합
+- [x] 비고(memo) 컬럼 파싱 개선
+- [x] 불필요한 UI 버튼 제거
 
 ### P1 (향후)
-- [ ] 비고(memo) 컬럼 파싱 로직 개선
 - [ ] 프론트엔드 UI에 LLM 분석 토글 추가
 - [ ] 분석 결과 캐싱 구현
 - [ ] 사용자 피드백 학습 루프
-- [ ] 모바일 최적화
-- [ ] 불필요한 UI 버튼 제거
 
 ### P2 (미래)
 - [ ] 배치 처리 지원
