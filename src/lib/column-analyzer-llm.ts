@@ -19,6 +19,7 @@ export interface LLMColumnAnalysisResult {
     memo?: string;           // 비고 컬럼명
   };
   transactionTypeMethod: 'separate_columns' | 'type_column' | 'sign_in_type' | 'amount_sign';
+  memoInAmountColumn: boolean; // 비고가 입금/출금 컬럼에 섞여있는 특수 케이스
   confidence: number;
   reasoning: string;
   error?: string;
