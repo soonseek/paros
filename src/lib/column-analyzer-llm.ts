@@ -148,6 +148,7 @@ ${JSON.stringify(sampleData, null, 2)}
         memo: result.columnMapping?.memo || undefined,
       },
       transactionTypeMethod: result.transactionTypeMethod || 'separate_columns',
+      memoInAmountColumn: result.memoInAmountColumn || false,
       confidence: result.confidence || 0.8,
       reasoning: result.reasoning || '',
     };
@@ -165,6 +166,7 @@ function createFallbackResult(error: string): LLMColumnAnalysisResult {
     success: false,
     columnMapping: {},
     transactionTypeMethod: 'separate_columns',
+    memoInAmountColumn: false,
     confidence: 0,
     reasoning: '',
     error,
