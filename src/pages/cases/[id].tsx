@@ -570,7 +570,18 @@ const CaseDetailPage: NextPage = () => {
                     }
                   }}
                   onUploadSuccess={(documentId) => {
+                    // 케이스 정보 새로고침
                     void refetch();
+                    // 문서 목록 새로고침
+                    void utils.file.getDocumentsForCase.invalidate({ caseId: id as string });
+                    // 거래내역 새로고침
+                    void utils.transaction.search.invalidate({
+                      caseId: id as string,
+                      ...(selectedDocumentId && { documentId: selectedDocumentId }),
+                    });
+                    // 업로드 모달 닫기
+                    setIsUploadModalOpen(false);
+                    toast.success("업로드 완료! 거래내역이 업데이트되었습니다.");
                   }}
                 />
               </DialogContent>
