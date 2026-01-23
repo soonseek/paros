@@ -29,11 +29,13 @@ import { Prisma, PrismaClient } from "@prisma/client";
  * Maps column type to column index in the Excel sheet
  */
 export interface ColumnMapping {
-  date?: number;        // Date column index
-  deposit?: number;     // Deposit amount column index
-  withdrawal?: number;  // Withdrawal amount column index
-  balance?: number;     // Balance column index
-  memo?: number;        // Memo column index
+  date?: number;            // Date column index
+  deposit?: number;         // Deposit amount column index
+  withdrawal?: number;      // Withdrawal amount column index
+  balance?: number;         // Balance column index
+  memo?: number;            // Memo column index
+  amount?: number;          // Single amount column (with transaction_type)
+  transaction_type?: number; // Transaction type column ([+]/[-])
 }
 
 /**
