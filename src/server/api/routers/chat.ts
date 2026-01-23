@@ -37,6 +37,7 @@ export const chatRouter = createTRPCRouter({
             memo: z.string().nullable(),
             category: z.string().nullable(),
             subcategory: z.string().nullable(),
+            documentName: z.string().nullable().optional(), // 거래내역서 파일명
           })
         ),
       })
