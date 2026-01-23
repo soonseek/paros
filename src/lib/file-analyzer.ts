@@ -52,7 +52,7 @@ export interface AnalysisResult {
   // LLM 분석 메타데이터 (LLM 분석 사용 시)
   llmAnalysis?: {
     transactionTypeMethod: string; // separate_columns, type_column, sign_in_type, amount_sign
-    memoContentType: string; // 입금자명, 계좌정보, 거래설명 등
+    memoInAmountColumn?: boolean; // 비고가 금액 컬럼에 섞여있는 특수 케이스
     reasoning: string; // 분석 근거
   };
 
