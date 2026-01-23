@@ -71,6 +71,13 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
     fileName: string;
     totalTransactions?: number;
     columns?: string[];
+    llmAnalysis?: {
+      transactionTypeMethod: string;
+      memoInAmountColumn?: boolean;
+      reasoning: string;
+      confidence: number;
+      columnMapping: Record<string, string | undefined>;
+    };
   } | null>(null);
 
   // Story 3.7: Track uploaded documents for preview/delete
