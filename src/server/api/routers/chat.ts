@@ -95,12 +95,12 @@ export const chatRouter = createTRPCRouter({
       // 거래내역 전체 사용 (압축 형식)
       const transactionsText = transactions
         .map((tx, idx) => {
-          const date = new Date(tx.transactionDate).toISOString().split('T')[0]; // 2024-07-01 형식
+          const date = new Date(tx.transactionDate).toISOString().split('T')[0];
           const dep = tx.depositAmount ? Number(tx.depositAmount) : 0;
           const wit = tx.withdrawalAmount ? Number(tx.withdrawalAmount) : 0;
           const bal = tx.balance ? Number(tx.balance) : 0;
           const memo = tx.memo || "";
-          const doc = tx.documentName ? tx.documentName.substring(0, 10) : "";
+          const doc = tx.documentName || "";
 
           // 압축 형식: 번호|날짜|입금|출금|잔액|비고|파일
           return `${idx + 1}|${date}|${dep}|${wit}|${bal}|${memo}|${doc}`;
@@ -115,7 +115,7 @@ export const chatRouter = createTRPCRouter({
 
       const systemPrompt = `당신은 파산 사건 관리 시스템의 AI 어시스턴트입니다.
 ${summaryInfo}
-## 거래내역 (형식: 번호|날짜|입금|출금|잔액|비고|파일)
+## 거래내역 (형식: 번호|날짜|입금|출금|잔액|비고|파일명)
 ${transactionsText}
 
 ## 대출금 추적 분석 지침
