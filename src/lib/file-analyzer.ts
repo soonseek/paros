@@ -184,6 +184,12 @@ export async function analyzeFileStructure(
       console.error("[File Analysis] Missing required columns:", missingRequired);
     }
 
+    // 금액 관련 열 검증
+    const hasAmount = hasAmountColumns(detectedTypes);
+    if (!hasAmount) {
+      console.error("[File Analysis] No amount-related columns found");
+    }
+
     // Build column mapping
     const columnMapping: Record<string, string> = {};
     for (const detection of detectedColumns) {
@@ -193,6 +199,18 @@ export async function analyzeFileStructure(
     }
 
     console.log("[File Analysis] Final column mapping:", columnMapping);
+
+    // 에러 메시지 생성
+    let errorMessage: string | undefined;
+    const errorDetails: Record<string, unknown> = {};
+
+    if (missingRequired.length > 0) {
+      errorMessage = `필수 열이 누락되었습니다: ${missingRequired.map(getColumnTypeLabel).join(", ")}`;
+      errorDetails.missingRequired = missingRequired;
+    } else if (!hasAmount) {
+      errorMessage = "파일 구조 분석에서 금액 관련 열(입금액/출금액/거래금액/잔액)을 찾을 수 없습니다";
+      errorDetails.missingAmountColumns = true;
+    }
 
     // Return analysis result
     return {
@@ -204,10 +222,7 @@ export async function analyzeFileStructure(
       hasHeaders: true,
       confidence,
       extractedData, // Include extracted raw data
-      ...(missingRequired.length > 0 && {
-        errorMessage: `필수 열이 누락되었습니다: ${missingRequired.map(getColumnTypeLabel).join(", ")}`,
-        errorDetails: { missingRequired },
-      }),
+      ...(errorMessage && { errorMessage, errorDetails }),
     };
   } catch (error) {
     console.error("[File Analysis Error]", error);
