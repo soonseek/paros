@@ -70,12 +70,34 @@ export const chatRouter = createTRPCRouter({
         });
       }
 
-      // 2. 거래내역을 텍스트 형식으로 변환
-      const transactionsText = transactions
-        .slice(0, 100) // 최대 100건만 사용 (토큰 절약)
+      // 2. 거래내역 분석 및 요약 생성
+      const totalCount = transactions.length;
+      
+      // 통계 계산
+      let totalDeposit = 0;
+      let totalWithdrawal = 0;
+      let depositCount = 0;
+      let withdrawalCount = 0;
+      
+      transactions.forEach(tx => {
+        const dep = tx.depositAmount ? Number(tx.depositAmount) : 0;
+        const wit = tx.withdrawalAmount ? Number(tx.withdrawalAmount) : 0;
+        if (dep > 0) {
+          totalDeposit += dep;
+          depositCount++;
+        }
+        if (wit > 0) {
+          totalWithdrawal += wit;
+          withdrawalCount++;
+        }
+      });
+
+      // 거래내역 요약 (최대 500건 - 대출 추적에 충분한 양)
+      const transactionsToUse = transactions.slice(0, 500);
+      
+      const transactionsText = transactionsToUse
         .map((tx, idx) => {
           const date = new Date(tx.transactionDate).toLocaleDateString("ko-KR");
-          // Decimal 또는 string/number 타입 모두 처리
           const depositAmount = tx.depositAmount ? String(tx.depositAmount) : null;
           const withdrawalAmount = tx.withdrawalAmount ? String(tx.withdrawalAmount) : null;
           const balanceAmount = tx.balance ? String(tx.balance) : null;
@@ -85,16 +107,23 @@ export const chatRouter = createTRPCRouter({
           const balance = balanceAmount ? `${parseInt(balanceAmount).toLocaleString()}원` : "-";
           const memo = tx.memo || "";
           const category = tx.category ? `${tx.category}${tx.subcategory ? ` > ${tx.subcategory}` : ""}` : "";
-          const docName = tx.documentName ? `[파일: ${tx.documentName}]` : "";
+          const docName = tx.documentName ? `[${tx.documentName}]` : "";
 
-          return `${idx + 1}. [${date}] 입금: ${deposit} / 출금: ${withdrawal} / 잔액: ${balance} | ${memo} | ${category} ${docName}`;
+          return `${idx + 1}. [${date}] 입금: ${deposit} / 출금: ${withdrawal} / 잔액: ${balance} | ${memo} ${docName}`;
         })
         .join("\n");
 
       // 3. 시스템 프롬프트 구성 - 대출금 추적 분석 강화
+      const summaryInfo = `
+## 거래내역 요약
+- 전체 거래건수: ${totalCount}건 (표시: ${transactionsToUse.length}건)
+- 입금: ${depositCount}건, 총 ${totalDeposit.toLocaleString()}원
+- 출금: ${withdrawalCount}건, 총 ${totalWithdrawal.toLocaleString()}원
+`;
+
       const systemPrompt = `당신은 파산 사건 관리 시스템(PHAROS BMAD)의 AI 어시스턴트입니다.
 사용자가 제공한 거래내역을 분석하여 질문에 답변해주세요.
-
+${summaryInfo}
 거래내역:
 ${transactionsText}
 
