@@ -524,19 +524,6 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
               )}
             </div>
           </div>
-                      <div className="h-4 w-px bg-border" />
-                      <div className="flex items-center gap-1.5">
-                        <FileText className="size-4" />
-                        <span>PDF</span>
-                      </div>
-                      <div className="h-4 w-px bg-border" />
-                      <span>최대 50MB</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
 
           {/* Error Messages */}
           {fileErrors.length > 0 && (
@@ -550,19 +537,6 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
                   <p className="text-sm text-destructive">{error}</p>
                 </div>
               ))}
-            </div>
-          )}
-
-          {/* Story 3.5: Real-time Progress Display */}
-          {(analyzingDocumentId || completionData || failedDocumentId) && (
-            <div className="mt-6">
-              <ProgressBar
-                progress={progress}
-                stage={stage}
-                error={progressError}
-                completionData={completionData ?? undefined}
-                onRetry={failedDocumentId ? handleRetry : undefined}
-              />
             </div>
           )}
 
