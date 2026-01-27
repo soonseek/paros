@@ -607,11 +607,14 @@ const TemplatesPage: NextPage = () => {
                 <div className="space-y-2">
                   <Label>활성화</Label>
                   <div className="flex items-center gap-2 pt-2">
-                    <Switch
+                    <Checkbox
+                      id="isActive"
                       checked={formData.isActive}
-                      onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
+                      onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked === true })}
                     />
-                    <span className="text-sm">{formData.isActive ? "활성" : "비활성"}</span>
+                    <label htmlFor="isActive" className="text-sm cursor-pointer">
+                      {formData.isActive ? "활성" : "비활성"}
+                    </label>
                   </div>
                 </div>
               </div>
