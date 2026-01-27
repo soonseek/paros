@@ -107,6 +107,8 @@ export async function matchBySimilarity(
     return null;
   }
 
+  // 동적 import로 openai 로드
+  const { default: OpenAI } = await import("openai");
   const openai = new OpenAI({
     apiKey: env.OPENAI_API_KEY,
   });
