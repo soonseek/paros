@@ -266,6 +266,42 @@ const TemplatesPage: NextPage = () => {
     testMatchMutation.mutate({ headers });
   };
 
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // 이미지 파일 검증
+    if (!file.type.startsWith("image/")) {
+      toast.error("이미지 파일만 업로드할 수 있습니다");
+      return;
+    }
+
+    // 파일 크기 제한 (10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("파일 크기는 10MB 이하여야 합니다");
+      return;
+    }
+
+    // FileReader로 Base64 변환
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = (reader.result as string).split(",")[1];
+      if (base64) {
+        analyzeImageMutation.mutate({
+          imageBase64: base64,
+          mimeType: file.type,
+        });
+      }
+    };
+    reader.onerror = () => {
+      toast.error("파일을 읽는 중 오류가 발생했습니다");
+    };
+    reader.readAsDataURL(file);
+
+    // input 초기화
+    event.target.value = "";
+  };
+
   const updateColumnSchema = (columnType: string, field: string, value: any) => {
     setFormData(prev => ({
       ...prev,
