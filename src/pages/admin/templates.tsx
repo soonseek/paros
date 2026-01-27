@@ -50,6 +50,8 @@ import {
   FileSpreadsheet,
   Loader2,
   Info,
+  ImagePlus,
+  Sparkles,
 } from "lucide-react";
 
 // 컬럼 타입 옵션
