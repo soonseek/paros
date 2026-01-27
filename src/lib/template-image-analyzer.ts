@@ -5,7 +5,6 @@
  * OpenAI GPT-4o Vision API 사용
  */
 
-import OpenAI from "openai";
 import { env } from "~/env";
 
 export interface TemplateAnalysisResult {
