@@ -581,8 +581,8 @@ export const fileRouter = createTRPCRouter({
       // Step 6: Analyze file structure
       let analysisData;
       try {
-        // LLM 기반 분석 옵션 전달
-        analysisData = await analyzeFileStructure(fileBuffer, document.mimeType, useLlmAnalysis);
+        // LLM 기반 분석 옵션 전달 + Prisma client for template lookup
+        analysisData = await analyzeFileStructure(fileBuffer, document.mimeType, useLlmAnalysis, ctx.db);
       } catch (error) {
         console.error("[File Analysis Error]", error);
 

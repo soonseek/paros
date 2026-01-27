@@ -87,7 +87,8 @@ interface ColumnDetection {
 export async function analyzeFileStructure(
   fileBuffer: Buffer,
   mimeType: string,
-  useLlmAnalysis: boolean = false
+  useLlmAnalysis: boolean = false,
+  prisma?: any // Prisma client for template lookup
 ): Promise<AnalysisResult> {
   try {
     console.log("[File Analysis] Starting analysis for MIME type:", mimeType);
@@ -106,9 +107,61 @@ export async function analyzeFileStructure(
     console.log("[File Analysis] Header row index:", headerRowIndex);
     console.log("[File Analysis] Total rows:", totalRows);
 
-    // LLM 기반 분석 사용 시 (Python 서비스 없이 직접 OpenAI 호출)
+    // === 3단계 분류 파이프라인 ===
+    // Layer 1 & 2: 템플릿 기반 분류 시도
+    if (prisma && extractedData) {
+      console.log("[File Analysis] Trying template classification (Layer 1 & 2)...");
+      try {
+        const { classifyTransaction } = await import("./template-classifier");
+        const templateResult = await classifyTransaction(prisma, headers, extractedData.rows);
+
+        if (templateResult) {
+          console.log(`[File Analysis] Template match! Layer ${templateResult.layer}: ${templateResult.templateName}`);
+          
+          // 템플릿 컬럼 매핑을 헤더명 기반으로 변환
+          const templateColumnMapping: Record<string, string> = {};
+          
+          for (const [key, index] of Object.entries(templateResult.columnMapping)) {
+            if (typeof index === "number" && index >= 0 && index < headers.length) {
+              templateColumnMapping[key] = headers[index] || "";
+            }
+          }
+
+          // memoInAmountColumn 플래그
+          if (templateResult.memoInAmountColumn) {
+            (templateColumnMapping as Record<string, unknown>).memoInAmountColumn = true;
+          }
+
+          return {
+            status: "completed",
+            columnMapping: templateColumnMapping,
+            headerRowIndex,
+            totalRows,
+            detectedFormat,
+            hasHeaders: true,
+            confidence: templateResult.confidence,
+            extractedData,
+            llmAnalysis: {
+              transactionTypeMethod: templateResult.parseRules?.isDeposit 
+                ? "custom_rule" 
+                : (templateColumnMapping.deposit && templateColumnMapping.withdrawal)
+                  ? "separate_columns"
+                  : "type_column",
+              memoInAmountColumn: templateResult.memoInAmountColumn,
+              reasoning: `템플릿 매칭 (Layer ${templateResult.layer}): ${templateResult.templateName}`,
+            },
+          };
+        }
+
+        console.log("[File Analysis] No template match, proceeding to Layer 3 (LLM fallback)");
+      } catch (error) {
+        console.warn("[File Analysis] Template classification error, falling back to LLM:", error);
+      }
+    }
+
+    // Layer 3: LLM 기반 분석 (기존 로직)
     if (useLlmAnalysis && extractedData) {
-      console.log("[File Analysis] Using LLM-based column analysis...");
+      console.log("[File Analysis] Using LLM-based column analysis (Layer 3)...");
       try {
         const { analyzeColumnsWithLLM } = await import("./column-analyzer-llm");
         

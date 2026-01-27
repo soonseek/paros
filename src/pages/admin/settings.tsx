@@ -198,6 +198,25 @@ export default function AdminSettings() {
             AI 분류 설정
           </h2>
 
+          {/* 템플릿 관리 바로가기 */}
+          <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium text-blue-800 dark:text-blue-200">거래내역서 템플릿 관리</h3>
+                <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
+                  은행별 거래내역서 형식을 정의하여 파싱 정확도를 높입니다
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => router.push("/admin/templates")}
+                className="bg-white dark:bg-gray-800"
+              >
+                템플릿 관리 →
+              </Button>
+            </div>
+          </div>
+
           {/* AI 제공자 선택 */}
           <div className="mb-6">
             <Label htmlFor="ai-provider" className="mb-2 block">

@@ -285,3 +285,37 @@ export const caseModifyProcedure = protectedProcedure
       ctx,
     });
   });
+
+/**
+ * Admin-only procedure
+ *
+ * Use this for procedures that should only be accessible to admin users.
+ * It verifies:
+ * 1. User is authenticated
+ * 2. User has ADMIN role
+ *
+ * @example
+ * adminProcedure
+ *   .mutation(async ({ ctx }) => {
+ *     // Only admins can execute this
+ *   });
+ */
+export const adminProcedure = protectedProcedure
+  .use(async ({ ctx, next }) => {
+    // Fetch user to check role
+    const user = await db.user.findUnique({
+      where: { id: ctx.userId },
+      select: { role: true },
+    });
+
+    if (!user || user.role !== "ADMIN") {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "관리자만 접근할 수 있습니다",
+      });
+    }
+
+    return next({
+      ctx,
+    });
+  });

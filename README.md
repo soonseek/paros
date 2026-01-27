@@ -139,6 +139,21 @@ npm run netlify:deploy
 
 ## 데이터베이스 마이그레이션
 
+### 스키마 변경 시
+
+Prisma 스키마(`prisma/schema.prisma`)를 수정한 후에는 반드시 다음 명령어를 실행하세요:
+
+```bash
+# 개발 환경: 스키마를 DB에 즉시 반영 (데이터 손실 가능)
+npx prisma db push
+
+# 프로덕션 환경: 마이그레이션 파일 생성 후 적용
+npx prisma migrate dev --name [마이그레이션_이름]
+npx prisma migrate deploy
+```
+
+> ⚠️ **주의**: `git pull` 후 새로운 모델이 추가된 경우, `npm install` 후 반드시 `npx prisma db push`를 실행해야 합니다.
+
 ## 개발
 
 ### 사용 가능한 스크립트
