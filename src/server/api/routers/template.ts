@@ -319,4 +319,40 @@ export const templateRouter = createTRPCRouter({
         message: "Layer 1, 2에서 매칭되지 않음. Layer 3 (LLM 폴백) 필요",
       };
     }),
+
+  /**
+   * 이미지 분석 - 스크린샷에서 템플릿 초안 자동 생성
+   */
+  analyzeImage: adminProcedure
+    .input(z.object({
+      imageBase64: z.string(),
+      mimeType: z.string().default("image/png"),
+    }))
+    .mutation(async ({ input }) => {
+      const { analyzeTemplateImage } = await import("~/lib/template-image-analyzer");
+      
+      // Base64를 Buffer로 변환
+      const imageBuffer = Buffer.from(input.imageBase64, "base64");
+      
+      const result = await analyzeTemplateImage(imageBuffer, input.mimeType);
+      
+      if (!result.success) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: result.error || "이미지 분석 실패",
+        });
+      }
+      
+      return {
+        success: true,
+        suggestedName: result.suggestedName,
+        suggestedBankName: result.suggestedBankName,
+        suggestedDescription: result.suggestedDescription,
+        suggestedIdentifiers: result.suggestedIdentifiers,
+        detectedHeaders: result.detectedHeaders,
+        suggestedColumnSchema: result.suggestedColumnSchema,
+        confidence: result.confidence,
+        reasoning: result.reasoning,
+      };
+    }),
 });
