@@ -8,7 +8,6 @@
  */
 
 import { PrismaClient } from "@prisma/client";
-import OpenAI from "openai";
 import { env } from "~/env";
 
 // 템플릿 컬럼 스키마 타입
