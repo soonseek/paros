@@ -834,12 +834,26 @@ const TemplatesPage: NextPage = () => {
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEditorOpen(false)}>
+              {hasDuplicateHeaders && (
+                <p className="text-sm text-red-500 mr-auto">
+                  중복된 헤더가 있습니다. 수정 후 저장해주세요.
+                </p>
+              )}
+              <Button 
+                variant="outline" 
+                onClick={() => setIsEditorOpen(false)}
+                disabled={analyzeFileMutation.isPending}
+              >
                 취소
               </Button>
               <Button
                 onClick={handleSave}
-                disabled={createMutation.isPending || updateMutation.isPending}
+                disabled={
+                  createMutation.isPending || 
+                  updateMutation.isPending || 
+                  analyzeFileMutation.isPending ||
+                  hasDuplicateHeaders
+                }
               >
                 {(createMutation.isPending || updateMutation.isPending) && (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
