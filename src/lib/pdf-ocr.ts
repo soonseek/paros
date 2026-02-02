@@ -98,7 +98,7 @@ export async function parsePdfWithUpstage(
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          Authorization: `Bearer ${finalApiKey}`,
           // Note: Don't set Content-Type when using FormData, browser sets it with boundary
         },
         body: formData,
