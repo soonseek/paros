@@ -782,27 +782,36 @@ const TemplatesPage: NextPage = () => {
                 </div>
 
                 <div className="border rounded-lg">
-                  {Object.keys(formData.columnSchema.columns).length === 0 ? (
-                    <div className="p-4 text-center text-muted-foreground">
-                      컬럼을 추가하세요
-                    </div>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>컬럼 타입</TableHead>
-                          <TableHead>인덱스</TableHead>
-                          <TableHead>헤더명</TableHead>
-                          <TableHead>입금 시</TableHead>
-                          <TableHead>출금 시</TableHead>
-                          <TableHead></TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {(() => {
-                          const entries = Object.entries(formData.columnSchema.columns);
-                          console.log("[Render] 컬럼 매핑 렌더링:", entries.map(([type]) => type));
-                          return entries.map(([type, col]) => (
+                  {(() => {
+                    const columnCount = Object.keys(formData.columnSchema.columns).length;
+                    const columnKeys = Object.keys(formData.columnSchema.columns);
+                    console.log("[Render] 컬럼 매핑 개수:", columnCount);
+                    console.log("[Render] 컬럼 목록:", columnKeys);
+                    
+                    if (columnCount === 0) {
+                      return (
+                        <div className="p-4 text-center text-muted-foreground">
+                          컬럼을 추가하세요
+                        </div>
+                      );
+                    }
+                    
+                    return (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>컬럼 타입</TableHead>
+                            <TableHead>인덱스</TableHead>
+                            <TableHead>헤더명</TableHead>
+                            <TableHead>입금 시</TableHead>
+                            <TableHead>출금 시</TableHead>
+                            <TableHead></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {Object.entries(formData.columnSchema.columns).map(([type, col]) => {
+                            console.log(`[Render] 컬럼 렌더링: ${type} (header: ${col.header})`);
+                            return (
                           <TableRow key={type}>
                             <TableCell className="font-medium">
                               {COLUMN_TYPES.find(t => t.value === type)?.label || type}
@@ -903,11 +912,12 @@ const TemplatesPage: NextPage = () => {
                               </Button>
                             </TableCell>
                           </TableRow>
-                        ));
-                        })()}
-                      </TableBody>
-                    </Table>
-                  )}
+                        );
+                        })}
+                        </TableBody>
+                      </Table>
+                    );
+                  })()}
                 </div>
 
                 {/* 특수 케이스 설명 */}
