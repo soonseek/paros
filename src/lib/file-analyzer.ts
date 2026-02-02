@@ -344,7 +344,8 @@ function detectFileFormat(mimeType: string): "excel" | "csv" | "pdf" {
  */
 async function parseFile(
   fileBuffer: Buffer,
-  format: "excel" | "csv" | "pdf"
+  format: "excel" | "csv" | "pdf",
+  upstageApiKey?: string
 ): Promise<{
   headers: string[];
   totalRows: number;
@@ -355,7 +356,7 @@ async function parseFile(
   if (format === "pdf") {
     // Use Upstage API to parse PDF
     console.log("[PDF Analysis] Starting Upstage Document Parse API...");
-    const tableData = await parsePdfWithUpstage(fileBuffer);
+    const tableData = await parsePdfWithUpstage(fileBuffer, upstageApiKey);
     console.log(`[PDF Analysis] Extracted ${tableData.totalRows} rows`);
     console.log(`[PDF Analysis] Extracted ${tableData.pageTexts?.length || 0} page texts`);
 
