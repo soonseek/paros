@@ -135,6 +135,21 @@ export async function parsePdfWithUpstage(
       }
     });
 
+    // 페이지 텍스트 추출 (테이블 외 텍스트 - 문서 헤더, 은행명 등)
+    const nonTableElements = data.elements.filter(el => 
+      el.category !== "table" && 
+      el.category !== "list" &&
+      el.content?.text?.trim()
+    );
+    const pageTexts = nonTableElements
+      .map(el => el.content?.text?.trim() || "")
+      .filter(text => text.length > 0);
+    
+    console.log(`[Upstage API] Extracted ${pageTexts.length} page text elements`);
+    if (pageTexts.length > 0) {
+      console.log(`[Upstage API] Page texts preview:`, pageTexts.slice(0, 5).join(" | "));
+    }
+
     // Find table elements or concatenate all text
     const tableElements = data.elements.filter(el => el.category === "table");
     const listElements = data.elements.filter(el => el.category === "list");
@@ -145,14 +160,18 @@ export async function parsePdfWithUpstage(
     if (tableElements.length > 0) {
       console.log(`[Upstage API] Processing ${tableElements.length} table(s)...`);
       // Process table elements from HTML
-      return extractFromTableElementsHTML(tableElements);
+      const result = extractFromTableElementsHTML(tableElements);
+      result.pageTexts = pageTexts; // 페이지 텍스트 추가
+      return result;
     }
 
     // Try list elements (some PDFs use list format for tables)
     if (listElements.length > 0) {
       console.log(`[Upstage API] Processing ${listElements.length} list(s)...`);
       try {
-        return extractFromTableElementsHTML(listElements);
+        const result = extractFromTableElementsHTML(listElements);
+        result.pageTexts = pageTexts;
+        return result;
       } catch (error) {
         console.log("[Upstage API] List processing failed, trying fallback...");
       }
@@ -167,7 +186,9 @@ export async function parsePdfWithUpstage(
       console.log("[Upstage API] Content.html preview:", data.content.html.substring(0, 500));
 
       try {
-        return extractTableFromText(data.content.html);
+        const result = extractTableFromText(data.content.html);
+        result.pageTexts = pageTexts;
+        return result;
       } catch (error) {
         console.log("[Upstage API] Failed to parse from content.html, trying element fields...");
       }
