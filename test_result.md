@@ -121,13 +121,16 @@ backend:
     implemented: true
     working: false
     file: "/app/src/lib/pdf-ocr.ts"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
     needs_retesting: true
     status_history:
       - working: false
         agent: "testing"
         comment: "❌ CRITICAL: Upstage API key is invalid (placeholder value 'your-upstage-api-key'). API returns 401 Unauthorized. The PDF parsing logic is implemented correctly (calls document-digitization endpoint with proper parameters), but cannot be tested without a valid API key. Error: 'Your API key is invalid. Please verify your API key or generate a new one from https://console.upstage.ai/api-keys'"
+      - working: false
+        agent: "testing"
+        comment: "❌ CRITICAL BLOCKER (Test Sequence 2): Upstage API key is NOT in database. Checked system_settings table - no UPSTAGE_API_KEY found. .env file contains placeholder 'your-upstage-api-key'. Created comprehensive test script (test_template_system.mjs) that validates entire flow. Test cannot proceed without valid API key. User must either: (1) Obtain key from https://console.upstage.ai/api-keys and insert into DB using provided SQL command, OR (2) Configure via admin settings page."
   
   - task: "Header Normalization (parseHTMLTable)"
     implemented: true
