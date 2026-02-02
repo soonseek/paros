@@ -162,7 +162,7 @@ const TemplatesPage: NextPage = () => {
     },
     onError: (error) => toast.error(error.message),
   });
-  const testMatchMutation = api.template.testMatch.useMutation({
+  const testMatchMutation = api.template.testMatchWithFile.useMutation({
     onSuccess: (data) => {
       setTestResult(data);
     },
