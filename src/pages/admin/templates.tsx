@@ -714,15 +714,43 @@ const TemplatesPage: NextPage = () => {
                                 className="w-20"
                                 value={col.index}
                                 onChange={(e) => updateColumnSchema(type, "index", parseInt(e.target.value) || 0)}
+                                disabled={analyzeFileMutation.isPending}
                               />
                             </TableCell>
                             <TableCell>
-                              <Input
-                                className="w-40"
-                                value={col.header}
-                                onChange={(e) => updateColumnSchema(type, "header", e.target.value)}
-                                placeholder="컬럼 헤더명"
-                              />
+                              {detectedHeaders.length > 0 ? (
+                                <Select
+                                  value={col.header}
+                                  onValueChange={(v) => updateColumnSchema(type, "header", v)}
+                                  disabled={analyzeFileMutation.isPending}
+                                >
+                                  <SelectTrigger className={`w-48 ${
+                                    getDuplicateHeaders().includes(col.header) ? 'border-red-500 bg-red-50' : ''
+                                  }`}>
+                                    <SelectValue placeholder="헤더 선택" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {detectedHeaders.map((header, idx) => (
+                                      <SelectItem key={idx} value={header}>
+                                        [{idx}] {header}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <Input
+                                  className={`w-48 ${
+                                    getDuplicateHeaders().includes(col.header) ? 'border-red-500 bg-red-50' : ''
+                                  }`}
+                                  value={col.header}
+                                  onChange={(e) => updateColumnSchema(type, "header", e.target.value)}
+                                  placeholder="컬럼 헤더명"
+                                  disabled={analyzeFileMutation.isPending}
+                                />
+                              )}
+                              {getDuplicateHeaders().includes(col.header) && (
+                                <p className="text-xs text-red-500 mt-1">중복된 헤더</p>
+                              )}
                             </TableCell>
                             <TableCell>
                               {(type === "deposit" || type === "withdrawal") && (
