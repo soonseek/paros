@@ -60,16 +60,19 @@ interface TableData {
  * Parse PDF using Upstage Document Parse API
  *
  * @param pdfBuffer - PDF file buffer
+ * @param apiKey - Upstage API key (from DB settings)
  * @returns Parsed table data with headers and rows
  * @throws Error if API call fails
  */
 export async function parsePdfWithUpstage(
-  pdfBuffer: Buffer
+  pdfBuffer: Buffer,
+  apiKey?: string
 ): Promise<TableData> {
-  const apiKey = env.UPSTAGE_API_KEY;
+  // API 키 우선순위: 1) 인자로 전달된 키, 2) 환경변수
+  const finalApiKey = apiKey || env.UPSTAGE_API_KEY;
 
-  if (!apiKey) {
-    throw new Error("UPSTAGE_API_KEY가 설정되지 않았습니다");
+  if (!finalApiKey) {
+    throw new Error("UPSTAGE_API_KEY가 설정되지 않았습니다. 관리자 설정 페이지에서 API 키를 입력해주세요.");
   }
 
   // Create FormData for multipart upload
