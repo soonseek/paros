@@ -41,30 +41,18 @@ class TemplateParsingTester:
         
         try:
             # Try to login via tRPC user.login endpoint
-            response = self.session.post(
-                f"{self.api_url}/user.login",
-                json={
-                    "email": email,
-                    "password": password
-                },
-                headers={"Content-Type": "application/json"}
-            )
+            result = self.call_trpc("user.login", {
+                "email": email,
+                "password": password
+            }, is_mutation=True)
             
-            if response.status_code == 200:
-                data = response.json()
-                result = data.get("result", {}).get("data", {})
-                
-                if result.get("success"):
-                    self.auth_token = result.get("accessToken")
-                    self.user_id = result.get("user", {}).get("id")
-                    self.log(f"Authentication successful! User ID: {self.user_id}", "SUCCESS")
-                    return True
-                else:
-                    self.log(f"Login failed: {result.get('message')}", "ERROR")
-                    return False
+            if result and result.get("success"):
+                self.auth_token = result.get("accessToken")
+                self.user_id = result.get("user", {}).get("id")
+                self.log(f"Authentication successful! User ID: {self.user_id}", "SUCCESS")
+                return True
             else:
-                self.log(f"Login request failed: HTTP {response.status_code}", "ERROR")
-                self.log(f"Response: {response.text[:500]}", "DEBUG")
+                self.log(f"Login failed: {result.get('message') if result else 'No response'}", "ERROR")
                 return False
                 
         except Exception as e:
