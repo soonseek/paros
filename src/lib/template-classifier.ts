@@ -332,9 +332,9 @@ export async function classifyTransaction(
     columnSchema: t.columnSchema as TemplateColumnSchema,
   }));
 
-  // Layer 1: 정확한 키워드 매칭
+  // Layer 1: 정확한 키워드 매칭 (페이지 텍스트 사용)
   console.log("[Template Classifier] Layer 1: Exact keyword matching...");
-  const exactMatch = matchByIdentifiers(headers, parsedTemplates);
+  const exactMatch = matchByIdentifiers(headers, parsedTemplates, pageTexts);
   
   if (exactMatch) {
     const { columnMapping, memoInAmountColumn } = convertSchemaToMapping(
