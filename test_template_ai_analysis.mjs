@@ -7,9 +7,9 @@
  */
 
 import { readFileSync } from 'fs';
-import { PrismaClient } from '@prisma/client';
+import { db } from './src/server/db.ts';
 
-const prisma = new PrismaClient();
+const prisma = db;
 
 // ANSI color codes
 const colors = {
