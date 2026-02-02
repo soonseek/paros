@@ -219,10 +219,14 @@ const TemplatesPage: NextPage = () => {
   const hasDuplicateHeaders = getDuplicateHeaders().length > 0;
 
   const openCreateEditor = () => {
-    resetForm();
-    // 필수 컬럼 5개 자동 추가 (거래일자, 입금액, 출금액, 잔액, 비고)
-    setFormData(prev => ({
-      ...prev,
+    // resetForm() 대신 직접 초기화 + 필수 컬럼 5개 설정
+    setFormData({
+      name: "",
+      bankName: "",
+      description: "",
+      identifiers: [],
+      priority: 0,
+      isActive: true,
       columnSchema: {
         columns: {
           date: { index: 0, header: "" },
@@ -243,7 +247,10 @@ const TemplatesPage: NextPage = () => {
         },
         parseRules: {},
       },
-    }));
+    });
+    setIdentifiersInput("");
+    setEditingId(null);
+    setDetectedHeaders([]);
     setIsEditorOpen(true);
   };
 
