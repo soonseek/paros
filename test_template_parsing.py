@@ -13,7 +13,7 @@ import base64
 import sys
 from typing import Dict, Any, Optional
 
-class TemplateParsing Tester:
+class TemplateParsingTester:
     def __init__(self, base_url: str = "http://localhost:3000"):
         self.base_url = base_url
         self.api_url = f"{base_url}/api/trpc"
