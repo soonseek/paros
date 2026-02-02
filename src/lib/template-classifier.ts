@@ -2,13 +2,28 @@
  * Template-based Transaction Classifier
  * 
  * 3단계 분류 파이프라인:
- * Layer 1: 템플릿 키워드 매칭 (identifiers 기반 정확 매칭)
+ * Layer 1: 템플릿 키워드 매칭 (identifiers 기반 정확 매칭 - 페이지 텍스트 사용)
  * Layer 2: LLM 유사도 분류 (템플릿 description과 헤더 비교)
  * Layer 3: 기존 LLM 컬럼 매핑 (현재 방식)
  */
 
 import { PrismaClient } from "@prisma/client";
 import { env } from "~/env";
+
+/**
+ * 문자열 정규화 - 띄어쓰기 제거 및 소문자 변환
+ * OCR에서 "거래 일자", "거래일자", "거 래 일 자" 등 다양하게 읽힐 수 있음
+ */
+export function normalizeText(text: string): string {
+  return text.replace(/\s+/g, "").toLowerCase();
+}
+
+/**
+ * 정규화된 문자열 비교
+ */
+export function normalizedMatch(source: string, target: string): boolean {
+  return normalizeText(source).includes(normalizeText(target));
+}
 
 // 템플릿 컬럼 스키마 타입
 export interface ColumnDefinition {
@@ -58,13 +73,23 @@ export interface ClassificationResult {
 
 /**
  * Layer 1: 정확한 키워드 매칭
- * 헤더에 템플릿의 identifiers가 모두 포함되어 있는지 확인
+ * 페이지 텍스트(문서 헤더)에 템플릿의 identifiers가 모두 포함되어 있는지 확인
+ * 띄어쓰기를 제거하고 비교
  */
 export function matchByIdentifiers(
   headers: string[],
-  templates: TransactionTemplate[]
+  templates: TransactionTemplate[],
+  pageTexts?: string[] // 페이지 텍스트 (테이블 외 문서 텍스트)
 ): TransactionTemplate | null {
-  const headerText = headers.join(" ").toLowerCase();
+  // 페이지 텍스트가 있으면 우선 사용, 없으면 헤더 사용
+  const searchText = pageTexts && pageTexts.length > 0 
+    ? pageTexts.join(" ") 
+    : headers.join(" ");
+  
+  const normalizedSearchText = normalizeText(searchText);
+  
+  console.log(`[Template Classifier] Layer 1: Searching in ${pageTexts?.length || 0} page texts + ${headers.length} headers`);
+  console.log(`[Template Classifier] Normalized search text (first 200 chars): ${normalizedSearchText.substring(0, 200)}`);
   
   // 우선순위 순으로 정렬
   const sortedTemplates = [...templates]
@@ -74,9 +99,9 @@ export function matchByIdentifiers(
   for (const template of sortedTemplates) {
     if (template.identifiers.length === 0) continue;
     
-    // 모든 identifiers가 헤더에 포함되어야 함
+    // 모든 identifiers가 검색 텍스트에 포함되어야 함 (띄어쓰기 제거 후 비교)
     const allMatch = template.identifiers.every(identifier => 
-      headerText.includes(identifier.toLowerCase())
+      normalizedSearchText.includes(normalizeText(identifier))
     );
     
     if (allMatch) {
