@@ -171,12 +171,15 @@ const TemplatesPage: NextPage = () => {
   });
   const analyzeFileMutation = api.template.analyzeFile.useMutation({
     onSuccess: (data) => {
-      // AI 분석 결과를 기본값과 병합 (whenDeposit/whenWithdrawal 보존)
+      // AI 분석 결과를 기존 컬럼과 병합 (기존 컬럼 유지 + LLM 결과 덮어쓰기)
       const suggestedColumns = data.suggestedColumnSchema?.columns || {};
       
-      // 기본값 적용: 입금액/출금액에 일반 케이스 역할 설정
-      const mergedColumns: Record<string, ColumnDefinition> = {};
+      // 기존 컬럼을 베이스로 시작 (필수 컬럼 유지)
+      const mergedColumns: Record<string, ColumnDefinition> = { 
+        ...formData.columnSchema.columns 
+      };
       
+      // LLM 결과로 업데이트 (일반 케이스 기본값 적용)
       for (const [type, col] of Object.entries(suggestedColumns)) {
         if (type === "deposit") {
           mergedColumns.deposit = {
@@ -194,6 +197,8 @@ const TemplatesPage: NextPage = () => {
           mergedColumns[type] = col;
         }
       }
+      
+      console.log("[AI 분석 완료] 병합된 컬럼:", Object.keys(mergedColumns));
       
       setFormData(prev => ({
         ...prev,
