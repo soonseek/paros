@@ -208,11 +208,12 @@ frontend:
 metadata:
   created_by: "testing_agent"
   version: "1.0"
-  test_sequence: 1
+  test_sequence: 2
   run_ui: false
   test_date: "2025-02-02"
   database_setup: "PostgreSQL 15 installed and configured, migrations applied, seed data created"
   test_user: "admin@paros-bmad.com / admin123"
+  test_script_created: "/app/test_template_system.mjs"
 
 test_plan:
   current_focus:
