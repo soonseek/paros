@@ -380,13 +380,32 @@ const TemplatesPage: NextPage = () => {
   };
 
   const addColumn = (columnType: string) => {
+    // 기본값 설정: 일반 케이스 (입금 시 출금액=무시, 출금 시 입금액=무시)
+    let defaultColumn: ColumnDefinition = { index: 0, header: "" };
+    
+    if (columnType === "deposit") {
+      defaultColumn = {
+        index: 0,
+        header: "",
+        whenDeposit: "amount",    // 입금 시: 금액
+        whenWithdrawal: "skip",   // 출금 시: 무시 (일반 케이스 기본값)
+      };
+    } else if (columnType === "withdrawal") {
+      defaultColumn = {
+        index: 0,
+        header: "",
+        whenDeposit: "skip",      // 입금 시: 무시 (일반 케이스 기본값)
+        whenWithdrawal: "amount", // 출금 시: 금액
+      };
+    }
+    
     setFormData(prev => ({
       ...prev,
       columnSchema: {
         ...prev.columnSchema,
         columns: {
           ...prev.columnSchema.columns,
-          [columnType]: { index: 0, header: "" },
+          [columnType]: defaultColumn,
         },
       },
     }));
