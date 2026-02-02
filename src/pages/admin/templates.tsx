@@ -798,59 +798,130 @@ const TemplatesPage: NextPage = () => {
 
         {/* Test Dialog */}
         <Dialog open={isTestDialogOpen} onOpenChange={setIsTestDialogOpen}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="w-[50vw] !max-w-[50vw]">
             <DialogHeader>
               <DialogTitle>템플릿 매칭 테스트</DialogTitle>
               <DialogDescription>
-                헤더를 입력하여 어떤 템플릿과 매칭되는지 테스트합니다
+                거래내역서 PDF 파일을 업로드하여 어떤 템플릿과 매칭되는지 테스트합니다
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4 py-4">
+              {/* PDF 업로드 */}
               <div className="space-y-2">
-                <Label>헤더 (쉼표로 구분)</Label>
-                <Textarea
-                  value={testHeaders}
-                  onChange={(e) => setTestHeaders(e.target.value)}
-                  placeholder="예: 거래일자, 맡기신금액, 찾으신금액, 잔 액 후송, 비고"
-                  rows={3}
-                />
+                <Label>거래내역서 PDF 파일</Label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    onChange={handleTestFileUpload}
+                    className="hidden"
+                    id="test-pdf-upload"
+                    disabled={testMatchMutation.isPending}
+                  />
+                  <Button
+                    asChild
+                    variant="outline"
+                    disabled={testMatchMutation.isPending}
+                  >
+                    <label htmlFor="test-pdf-upload" className="cursor-pointer">
+                      {testMatchMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          분석 중...
+                        </>
+                      ) : (
+                        <>
+                          <FileSpreadsheet className="h-4 w-4 mr-2" />
+                          PDF 업로드
+                        </>
+                      )}
+                    </label>
+                  </Button>
+                  {testFileName && (
+                    <span className="text-sm text-muted-foreground">{testFileName}</span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  첫 3페이지를 Upstage OCR로 파싱하여 템플릿 매칭을 테스트합니다
+                </p>
               </div>
 
-              <Button
-                onClick={handleTest}
-                disabled={testMatchMutation.isPending}
-              >
-                {testMatchMutation.isPending && (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                )}
-                테스트 실행
-              </Button>
-
+              {/* 결과 */}
               {testResult && (
-                <Card className={testResult.matched ? "border-green-200 bg-green-50" : "border-amber-200 bg-amber-50"}>
+                <Card className={testResult.matched ? "border-green-200 bg-green-50" : testResult.error ? "border-red-200 bg-red-50" : "border-amber-200 bg-amber-50"}>
                   <CardContent className="pt-4">
-                    {testResult.matched ? (
-                      <div className="space-y-2">
+                    {testResult.error ? (
+                      <div>
+                        <p className="font-medium text-red-700">오류 발생</p>
+                        <p className="text-sm text-red-600">{testResult.error}</p>
+                      </div>
+                    ) : testResult.matched ? (
+                      <div className="space-y-3">
                         <div className="flex items-center gap-2">
                           <Badge className="bg-green-600">Layer {testResult.layer}</Badge>
                           <span className="font-medium">{testResult.templateName}</span>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          매칭 방식: {testResult.layerName === "exact_match" ? "정확 매칭" : "유사도 매칭"}
+                          매칭 방식: {testResult.layerName === "exact_match" ? "정확 매칭 (키워드)" : "유사도 매칭 (LLM)"}
                         </p>
                         <p className="text-sm">신뢰도: {Math.round(testResult.confidence * 100)}%</p>
-                        <div className="text-xs mt-2">
+                        
+                        {/* 추출된 헤더 */}
+                        {testResult.headers && testResult.headers.length > 0 && (
+                          <div className="text-sm">
+                            <p className="font-medium">추출된 헤더:</p>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {testResult.headers.map((h: string, i: number) => (
+                                <Badge key={i} variant="outline" className="text-xs">{h}</Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 컬럼 매핑 */}
+                        <div className="text-xs">
                           <p className="font-medium">컬럼 매핑:</p>
-                          <pre className="bg-white p-2 rounded mt-1 overflow-auto">
+                          <pre className="bg-white p-2 rounded mt-1 overflow-auto max-h-32">
                             {JSON.stringify(testResult.columnMapping, null, 2)}
                           </pre>
                         </div>
+
+                        {/* 샘플 데이터 */}
+                        {testResult.sampleRows && testResult.sampleRows.length > 0 && (
+                          <div className="text-xs">
+                            <p className="font-medium">샘플 데이터 ({testResult.sampleRows.length}행):</p>
+                            <div className="bg-white p-2 rounded mt-1 overflow-auto max-h-32">
+                              {testResult.sampleRows.map((row: string[], i: number) => (
+                                <div key={i} className="text-xs text-muted-foreground truncate">
+                                  {row.join(" | ")}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ) : (
-                      <div>
-                        <p className="font-medium text-amber-700">매칭 실패</p>
-                        <p className="text-sm text-muted-foreground">{testResult.message}</p>
+                      <div className="space-y-3">
+                        <div>
+                          <p className="font-medium text-amber-700">매칭 실패</p>
+                          <p className="text-sm text-muted-foreground">{testResult.message}</p>
+                        </div>
+                        
+                        {/* 추출된 헤더 (매칭 실패 시에도 표시) */}
+                        {testResult.headers && testResult.headers.length > 0 && (
+                          <div className="text-sm">
+                            <p className="font-medium">추출된 헤더:</p>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {testResult.headers.map((h: string, i: number) => (
+                                <Badge key={i} variant="outline" className="text-xs">{h}</Badge>
+                              ))}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-2">
+                              이 헤더를 기준으로 새 템플릿을 생성하세요
+                            </p>
+                          </div>
+                        )}
                       </div>
                     )}
                   </CardContent>
@@ -859,7 +930,11 @@ const TemplatesPage: NextPage = () => {
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsTestDialogOpen(false)}>
+              <Button variant="outline" onClick={() => {
+                setIsTestDialogOpen(false);
+                setTestResult(null);
+                setTestFileName("");
+              }}>
                 닫기
               </Button>
             </DialogFooter>
