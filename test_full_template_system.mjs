@@ -289,14 +289,6 @@ async function stage2_createTemplate(analyzeResult) {
   logStep(2, 'template.create - 템플릿 생성');
   
   try {
-    const { templateRouter } = await import('./src/server/api/routers/template.ts');
-    
-    const mockCtx = {
-      db: prisma,
-      userId: 'test-admin-user',
-      session: { user: { id: 'test-admin-user', role: 'ADMIN' } },
-    };
-    
     // 템플릿 데이터 준비
     const templateData = {
       name: `국민은행_자동생성_${Date.now()}`,
@@ -306,6 +298,7 @@ async function stage2_createTemplate(analyzeResult) {
       columnSchema: analyzeResult.suggestedColumnSchema || { columns: {} },
       isActive: true,
       priority: 10,
+      createdBy: 'admin-user-1',
     };
     
     logInfo('템플릿 생성 중...');
@@ -313,7 +306,10 @@ async function stage2_createTemplate(analyzeResult) {
     console.log(`  - 은행명: ${templateData.bankName}`);
     console.log(`  - 식별자: ${templateData.identifiers.join(', ')}`);
     
-    const template = await templateRouter.createCaller(mockCtx).create(templateData);
+    // 직접 DB에 생성
+    const template = await prisma.transactionTemplate.create({
+      data: templateData,
+    });
     
     logSuccess(`템플릿 생성 완료: ID = ${template.id}`);
     
