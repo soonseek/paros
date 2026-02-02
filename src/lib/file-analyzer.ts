@@ -349,12 +349,14 @@ async function parseFile(
   totalRows: number;
   headerRowIndex: number;
   extractedData?: { headers: string[]; rows: string[][] }; // Raw extracted data
+  pageTexts?: string[]; // 페이지 텍스트 (PDF only)
 }> {
   if (format === "pdf") {
     // Use Upstage API to parse PDF
     console.log("[PDF Analysis] Starting Upstage Document Parse API...");
     const tableData = await parsePdfWithUpstage(fileBuffer);
     console.log(`[PDF Analysis] Extracted ${tableData.totalRows} rows`);
+    console.log(`[PDF Analysis] Extracted ${tableData.pageTexts?.length || 0} page texts`);
 
     return {
       headers: tableData.headers,
@@ -364,6 +366,7 @@ async function parseFile(
         headers: tableData.headers,
         rows: tableData.rows,
       }, // Save raw data for reuse
+      pageTexts: tableData.pageTexts, // 페이지 텍스트 포함
     };
   }
 
