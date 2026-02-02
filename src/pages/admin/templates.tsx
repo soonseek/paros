@@ -245,6 +245,14 @@ const TemplatesPage: NextPage = () => {
 
   const hasDuplicateHeaders = getDuplicateHeaders().length > 0;
 
+  // 디버깅: formData 변경 시 로그
+  useEffect(() => {
+    const columnKeys = Object.keys(formData.columnSchema.columns);
+    console.log("[formData changed] 컬럼 수:", columnKeys.length);
+    console.log("[formData changed] 컬럼 목록:", columnKeys);
+    console.log("[formData changed] memo 존재:", 'memo' in formData.columnSchema.columns);
+  }, [formData.columnSchema.columns]);
+
   const openCreateEditor = () => {
     // 필수 컬럼 5개를 명시적으로 설정
     setIdentifiersInput("");
