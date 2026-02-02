@@ -124,6 +124,7 @@ const TemplatesPage: NextPage = () => {
   const [testFileName, setTestFileName] = useState("");
   const [testResult, setTestResult] = useState<any>(null);
   const [isTestDialogOpen, setIsTestDialogOpen] = useState(false);
+  const [detectedHeaders, setDetectedHeaders] = useState<string[]>([]); // AI 분석으로 추출된 헤더
 
   // API
   const templatesQuery = api.template.list.useQuery({ includeInactive: true });
@@ -178,6 +179,7 @@ const TemplatesPage: NextPage = () => {
         columnSchema: data.suggestedColumnSchema || prev.columnSchema,
       }));
       setIdentifiersInput((data.suggestedIdentifiers || []).join(", "));
+      setDetectedHeaders(data.detectedHeaders || []); // 분석된 헤더 저장
       toast.success(`AI 분석 완료! (신뢰도: ${Math.round((data.confidence || 0) * 100)}%)`);
     },
     onError: (error) => toast.error(error.message),
