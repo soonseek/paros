@@ -53,6 +53,7 @@ interface TableData {
   headers: string[];
   rows: string[][];
   totalRows: number;
+  pageTexts?: string[]; // 테이블 외 페이지 텍스트 (문서 상단 헤더 등)
 }
 
 /**
