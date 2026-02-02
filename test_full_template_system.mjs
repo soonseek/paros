@@ -340,23 +340,54 @@ async function stage3_testMatch() {
   
   try {
     const pdfBuffer = fs.readFileSync(PDF_PATH);
-    const fileBase64 = pdfBuffer.toString('base64');
     
-    const { templateRouter } = await import('./src/server/api/routers/template.ts');
+    logInfo('템플릿 매칭 테스트 중 (직접 함수 호출)...');
     
-    const mockCtx = {
-      db: prisma,
-      userId: 'test-user',
-      session: { user: { id: 'test-user', role: 'USER' } },
-    };
+    // 직접 함수 호출
+    const { classifyTransaction } = await import('./src/lib/template-classifier.ts');
+    const { extractTablesFromPDF } = await import('./src/lib/pdf-ocr.ts');
+    const { SettingsService } = await import('./src/server/services/settings-service.ts');
     
-    logInfo('템플릿 매칭 테스트 중...');
+    // Upstage API 키 가져오기
+    const settingsService = new SettingsService(prisma);
+    const upstageApiKey = await settingsService.getSetting('UPSTAGE_API_KEY');
     
-    const result = await templateRouter.createCaller(mockCtx).testMatchWithFile({
-      fileBase64,
-      fileName: '국민은행_new.pdf',
-      mimeType: 'application/pdf',
-    });
+    if (!upstageApiKey) {
+      throw new Error('Upstage API 키가 설정되지 않았습니다');
+    }
+    
+    // PDF 파싱
+    const pdfResult = await extractTablesFromPDF(pdfBuffer, 3, upstageApiKey);
+    const headers = pdfResult.headers;
+    const sampleRows = pdfResult.rows.slice(0, 10);
+    const pageTexts = pdfResult.pageTexts || [];
+    
+    logInfo(`추출 완료: ${headers.length}개 헤더, ${sampleRows.length}개 행, ${pageTexts.length}개 페이지 텍스트`);
+    
+    // 템플릿 매칭
+    const classificationResult = await classifyTransaction(prisma, headers, sampleRows, pageTexts);
+    
+    let result;
+    if (classificationResult) {
+      result = {
+        matched: true,
+        layer: classificationResult.layer,
+        layerName: classificationResult.layerName,
+        templateId: classificationResult.templateId,
+        templateName: classificationResult.templateName,
+        confidence: classificationResult.confidence,
+        columnMapping: classificationResult.columnMapping,
+        headers,
+        sampleRows: sampleRows.slice(0, 5),
+      };
+    } else {
+      result = {
+        matched: false,
+        message: "Layer 1, 2에서 매칭되지 않음. Layer 3 (LLM 폴백) 필요",
+        headers,
+        sampleRows: sampleRows.slice(0, 5),
+      };
+    }
     
     console.log('\n📊 매칭 결과:');
     console.log(`  - 매칭 여부: ${result.matched ? '✅ 성공' : '❌ 실패'}`);
