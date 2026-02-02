@@ -88,7 +88,8 @@ export async function analyzeFileStructure(
   fileBuffer: Buffer,
   mimeType: string,
   useLlmAnalysis: boolean = false,
-  prisma?: any // Prisma client for template lookup
+  prisma?: any, // Prisma client for template lookup
+  upstageApiKey?: string // Upstage API key from DB
 ): Promise<AnalysisResult> {
   try {
     console.log("[File Analysis] Starting analysis for MIME type:", mimeType);
@@ -99,7 +100,7 @@ export async function analyzeFileStructure(
     console.log("[File Analysis] Detected format:", detectedFormat);
 
     // Parse file based on format
-    const parsedData = await parseFile(fileBuffer, detectedFormat);
+    const parsedData = await parseFile(fileBuffer, detectedFormat, upstageApiKey);
     const { headers, totalRows, headerRowIndex, extractedData } = parsedData;
 
     // DEBUG: Log detected headers
