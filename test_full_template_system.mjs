@@ -87,21 +87,141 @@ async function stage1_analyzeFile() {
     // tRPC 라우터 직접 호출 (서버 사이드)
     const { templateRouter } = await import('./src/server/api/routers/template.ts');
     
-    // Mock context 생성
-    const mockCtx = {
-      db: prisma,
-      userId: 'test-admin-user',
-      session: { user: { id: 'test-admin-user', role: 'ADMIN' } },
-    };
+    logInfo('template.analyzeFile 호출 중 (직접 함수 호출)...');
     
-    logInfo('template.analyzeFile 호출 중...');
+    // tRPC 라우터 대신 직접 함수 호출
+    const { extractTablesFromPDF } = await import('./src/lib/pdf-ocr.ts');
+    const { SettingsService } = await import('./src/server/services/settings-service.ts');
     
-    // analyzeFile 호출
-    const result = await templateRouter.createCaller(mockCtx).analyzeFile({
-      fileBase64,
-      fileName: '국민은행_new.pdf',
-      mimeType: 'application/pdf',
-    });
+    // Upstage API 키 가져오기
+    const settingsService = new SettingsService(prisma);
+    const upstageApiKey = await settingsService.getSetting('UPSTAGE_API_KEY');
+    
+    if (!upstageApiKey) {
+      throw new Error('Upstage API 키가 설정되지 않았습니다');
+    }
+    
+    logInfo('PDF 파싱 중...');
+    const pdfResult = await extractTablesFromPDF(pdfBuffer, 3, upstageApiKey);
+    
+    const headers = pdfResult.headers;
+    const sampleRows = pdfResult.rows.slice(0, 10);
+    const pageTexts = pdfResult.pageTexts || [];
+    
+    logInfo(`추출 완료: ${headers.length}개 헤더, ${sampleRows.length}개 행, ${pageTexts.length}개 페이지 텍스트`);
+    
+    // OpenAI로 LLM 분석 (선택적)
+    let result;
+    const openaiKey = await settingsService.getSetting('OPENAI_API_KEY');
+    
+    if (openaiKey) {
+      logInfo('OpenAI로 템플릿 분석 중...');
+      const { default: OpenAI } = await import('openai');
+      const openai = new OpenAI({ apiKey: openaiKey });
+      
+      const sampleDataStr = sampleRows.slice(0, 5).map(row => row.join(" | ")).join("\n");
+      const pageTextsStr = pageTexts.slice(0, 10).join(" / ");
+      
+      const prompt = `다음은 은행 거래내역서 PDF에서 추출한 정보입니다.
+이 정보를 분석하여 템플릿 초안을 생성하세요.
+
+## 페이지 텍스트 (문서 상단의 은행명, 타이틀 등)
+${pageTextsStr || "(없음)"}
+
+## 테이블 헤더
+${headers.join(", ")}
+
+## 샘플 데이터 (최대 5행)
+${sampleDataStr}
+
+## 응답 형식 (JSON만 반환)
+{
+  "bankName": "추정되는 은행명 (페이지 텍스트에서 추출, 확실하지 않으면 빈 문자열)",
+  "description": "이 거래내역서의 특징 설명 (2-3문장)",
+  "identifiers": ["식별자1", "식별자2", "식별자3"],
+  "columnMapping": {
+    "date": { "index": 0, "header": "거래일자 컬럼명" },
+    "deposit": { "index": 1, "header": "입금 컬럼명" },
+    "withdrawal": { "index": 2, "header": "출금 컬럼명" },
+    "balance": { "index": 3, "header": "잔액 컬럼명" },
+    "memo": { "index": 4, "header": "비고 컬럼명" }
+  },
+  "confidence": 0.0~1.0,
+  "reasoning": "분석 근거"
+}
+
+중요:
+- **identifiers**: 페이지 텍스트(문서 상단)에서 이 문서를 구분할 수 있는 고유 키워드 2-4개 추출 (예: "국민은행", "입출금거래내역")
+  테이블 헤더가 아닌 페이지 상단의 은행명, 계좌 종류, 문서 타이틀 등에서 추출해야 함
+- JSON만 반환`;
+
+      try {
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.1,
+          max_tokens: 1500,
+        });
+        
+        const content = response.choices[0]?.message?.content?.trim() || "";
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        
+        if (jsonMatch) {
+          const llmResult = JSON.parse(jsonMatch[0]);
+          result = {
+            success: true,
+            suggestedName: llmResult.bankName 
+              ? `${llmResult.bankName}_${new Date().toISOString().slice(0, 10)}`
+              : `템플릿_${new Date().toISOString().slice(0, 10)}`,
+            suggestedBankName: llmResult.bankName || "",
+            suggestedDescription: llmResult.description || "",
+            suggestedIdentifiers: llmResult.identifiers || pageTexts.slice(0, 3),
+            detectedHeaders: headers,
+            suggestedColumnSchema: { columns: llmResult.columnMapping || {} },
+            confidence: llmResult.confidence || 0.7,
+            reasoning: llmResult.reasoning || "",
+          };
+        } else {
+          throw new Error('LLM JSON 파싱 실패');
+        }
+      } catch (error) {
+        logWarning(`LLM 분석 실패, 폴백 사용: ${error.message}`);
+        // 폴백: 페이지 텍스트에서 식별자 추출
+        const fallbackIdentifiers = pageTexts.length > 0 
+          ? pageTexts.slice(0, 3).flatMap(t => t.split(/\s+/).slice(0, 2)).filter(Boolean).slice(0, 4)
+          : headers.slice(0, 3);
+        
+        result = {
+          success: true,
+          suggestedName: `템플릿_${new Date().toISOString().slice(0, 10)}`,
+          suggestedBankName: "",
+          suggestedDescription: `헤더: ${headers.join(", ")}`,
+          suggestedIdentifiers: fallbackIdentifiers,
+          detectedHeaders: headers,
+          suggestedColumnSchema: { columns: {} },
+          confidence: 0.5,
+          reasoning: `LLM 분석 실패 - 기본 정보만 추출됨`,
+        };
+      }
+    } else {
+      logWarning('OpenAI API 키 없음, 폴백 사용');
+      // 폴백: 페이지 텍스트에서 식별자 추출
+      const fallbackIdentifiers = pageTexts.length > 0 
+        ? pageTexts.slice(0, 3).map(t => t.split(/\s+/)[0]).filter(Boolean)
+        : headers.slice(0, 3);
+      
+      result = {
+        success: true,
+        suggestedName: `템플릿_${new Date().toISOString().slice(0, 10)}`,
+        suggestedBankName: "",
+        suggestedDescription: `헤더: ${headers.join(", ")}`,
+        suggestedIdentifiers: fallbackIdentifiers,
+        detectedHeaders: headers,
+        suggestedColumnSchema: { columns: {} },
+        confidence: 0.5,
+        reasoning: "OpenAI API 키 없음 - 기본 정보만 추출됨",
+      };
+    }
     
     logSuccess('PDF 분석 완료');
     
