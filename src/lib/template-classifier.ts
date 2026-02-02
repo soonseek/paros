@@ -307,10 +307,12 @@ function findColumnIndex(colDef: ColumnDefinition, headers: string[]): number {
 export async function classifyTransaction(
   prisma: PrismaClient,
   headers: string[],
-  sampleRows: string[][]
+  sampleRows: string[][],
+  pageTexts?: string[] // 페이지 텍스트 (테이블 외 문서 텍스트)
 ): Promise<ClassificationResult | null> {
   console.log("[Template Classifier] Starting 3-layer classification pipeline...");
   console.log("[Template Classifier] Headers:", headers.slice(0, 5).join(", "));
+  console.log("[Template Classifier] Page texts count:", pageTexts?.length || 0);
 
   // 템플릿 로드
   const templates = await prisma.transactionTemplate.findMany({
