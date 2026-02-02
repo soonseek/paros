@@ -297,6 +297,20 @@ export const templateRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const { classifyTransaction } = await import("~/lib/template-classifier");
       const { extractTablesFromPDF } = await import("~/lib/pdf-ocr");
+      const { SettingsService } = await import("~/server/services/settings-service");
+      
+      // DB에서 Upstage API 키 가져오기
+      const settingsService = new SettingsService(ctx.db);
+      const upstageApiKey = await settingsService.getSetting('UPSTAGE_API_KEY');
+      
+      if (!upstageApiKey) {
+        return {
+          matched: false,
+          error: "Upstage API 키가 설정되지 않았습니다. 관리자 설정 페이지에서 API 키를 입력해주세요.",
+          headers: [],
+          sampleRows: [],
+        };
+      }
       
       // Base64를 Buffer로 변환
       const fileBuffer = Buffer.from(input.fileBase64, "base64");
@@ -309,7 +323,7 @@ export const templateRouter = createTRPCRouter({
       let pageTexts: string[] = [];
       
       try {
-        const pdfResult = await extractTablesFromPDF(fileBuffer, 3); // maxPages = 3
+        const pdfResult = await extractTablesFromPDF(fileBuffer, 3, upstageApiKey); // maxPages = 3, API key 전달
         
         if (pdfResult.headers && pdfResult.headers.length > 0) {
           headers = pdfResult.headers;
