@@ -648,3 +648,27 @@ function parseMarkdownRow(rowLine: string): string[] {
   // Split by | and trim each cell
   return cleanLine.split("|").map((cell) => cell.trim());
 }
+
+
+/**
+ * Extract tables from PDF for template testing
+ * 
+ * @param pdfBuffer - PDF file buffer
+ * @param maxPages - Maximum pages to process (default: 3)
+ * @returns TableData with headers and rows
+ */
+export async function extractTablesFromPDF(
+  pdfBuffer: Buffer,
+  maxPages: number = 3
+): Promise<TableData> {
+  console.log(`[extractTablesFromPDF] Processing PDF (maxPages: ${maxPages})...`);
+  
+  // Use the existing parsePdfWithUpstage function
+  // Note: Upstage API doesn't support page limit directly,
+  // but we limit the rows returned
+  const result = await parsePdfWithUpstage(pdfBuffer);
+  
+  console.log(`[extractTablesFromPDF] Extracted ${result.headers.length} headers, ${result.rows.length} rows`);
+  
+  return result;
+}
