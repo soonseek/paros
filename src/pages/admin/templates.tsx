@@ -839,13 +839,33 @@ const TemplatesPage: NextPage = () => {
                 <div className="bg-muted/50 p-4 rounded-lg">
                   <div className="flex items-start gap-2">
                     <Info className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
-                    <div className="text-sm">
-                      <p className="font-medium">입금/출금에 따른 역할 변경</p>
-                      <p className="text-muted-foreground mt-1">
-                        부산은행 등 일부 은행에서는 입금 거래 시 출금 컬럼에 비고가, 
-                        출금 거래 시 입금 컬럼에 비고가 들어갑니다. 
-                        이 경우 "입금 시"/"출금 시" 역할을 다르게 설정하세요.
-                      </p>
+                    <div className="text-sm space-y-2">
+                      <div>
+                        <p className="font-medium">입금 시 / 출금 시 역할 설정</p>
+                        <p className="text-muted-foreground mt-1">
+                          컬럼에 들어가는 값의 역할이 입금/출금 거래에 따라 다른 경우에만 변경하세요.
+                        </p>
+                      </div>
+                      
+                      <div className="border-l-2 border-blue-300 pl-3 space-y-1">
+                        <p className="font-medium text-blue-700">일반 케이스 (기본값)</p>
+                        <p className="text-muted-foreground text-xs">
+                          • 입금 거래: 입금액에만 값, 출금액은 빈 셀<br/>
+                          • 출금 거래: 출금액에만 값, 입금액은 빈 셀<br/>
+                          → 입금액: 입금 시=금액, 출금 시=무시<br/>
+                          → 출금액: 입금 시=무시, 출금 시=금액
+                        </p>
+                      </div>
+                      
+                      <div className="border-l-2 border-amber-300 pl-3 space-y-1">
+                        <p className="font-medium text-amber-700">특수 케이스 (부산은행 등)</p>
+                        <p className="text-muted-foreground text-xs">
+                          • 입금 거래: 입금액=금액, 출금액=비고<br/>
+                          • 출금 거래: 입금액=비고, 출금액=금액<br/>
+                          → 입금액: 입금 시=금액, 출금 시=비고<br/>
+                          → 출금액: 입금 시=비고, 출금 시=금액
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
