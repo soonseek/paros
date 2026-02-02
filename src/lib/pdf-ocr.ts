@@ -478,7 +478,13 @@ function parseHTMLTable(html: string): TableData {
 
   // Parse headers from first row
   const headerRow = matches[0][1];
-  const headers = extractCellsFromHTML(headerRow);
+  const rawHeaders = extractCellsFromHTML(headerRow);
+  
+  // 띄어쓰기 정규화: OCR에서 "거래 일자", "출 금 금 액" 등으로 읽히는 경우 처리
+  const headers = rawHeaders.map(h => h.replace(/\s+/g, ""));
+  
+  console.log("[HTML Table] Raw headers (before normalization):", rawHeaders);
+  console.log("[HTML Table] Normalized headers (after removing spaces):", headers);
 
   // Skip separator rows (rows with only dashes/spaces or HTML tags without text)
   const dataRows = matches.slice(1).filter(match => {
@@ -494,7 +500,7 @@ function parseHTMLTable(html: string): TableData {
   const rows = dataRows.map(match => extractCellsFromHTML(match[1]));
 
   console.log(`[HTML Table] ${headers.length} columns, ${rows.length} data rows`);
-  console.log("[HTML Table] Headers:", headers);
+  console.log("[HTML Table] Final headers:", headers);
 
   return {
     headers,
