@@ -204,7 +204,19 @@ const TemplatesPage: NextPage = () => {
     setFormData(emptyFormData);
     setIdentifiersInput("");
     setEditingId(null);
+    setDetectedHeaders([]); // 분석된 헤더 초기화
   };
+
+  // 중복 헤더 검사
+  const getDuplicateHeaders = (): string[] => {
+    const headers = Object.values(formData.columnSchema.columns).map(col => col.header);
+    const duplicates = headers.filter((header, index) => 
+      header && headers.indexOf(header) !== index
+    );
+    return [...new Set(duplicates)]; // 중복 제거
+  };
+
+  const hasDuplicateHeaders = getDuplicateHeaders().length > 0;
 
   const openCreateEditor = () => {
     resetForm();
