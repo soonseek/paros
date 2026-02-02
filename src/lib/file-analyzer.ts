@@ -113,7 +113,9 @@ export async function analyzeFileStructure(
       console.log("[File Analysis] Trying template classification (Layer 1 & 2)...");
       try {
         const { classifyTransaction } = await import("./template-classifier");
-        const templateResult = await classifyTransaction(prisma, headers, extractedData.rows);
+        // 페이지 텍스트 전달 (PDF의 경우)
+        const pageTexts = (parsedData as any).pageTexts;
+        const templateResult = await classifyTransaction(prisma, headers, extractedData.rows, pageTexts);
 
         if (templateResult) {
           console.log(`[File Analysis] Template match! Layer ${templateResult.layer}: ${templateResult.templateName}`);
