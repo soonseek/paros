@@ -549,7 +549,7 @@ const TemplatesPage: NextPage = () => {
             </DialogHeader>
 
             <div className="space-y-6 py-4">
-              {/* AI 이미지 분석 */}
+              {/* AI 파일 분석 */}
               {!editingId && (
                 <div className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
                   <div className="flex items-center justify-between">
@@ -560,27 +560,27 @@ const TemplatesPage: NextPage = () => {
                       <div>
                         <h3 className="font-medium text-purple-800 dark:text-purple-200">AI 자동 분석</h3>
                         <p className="text-sm text-purple-600 dark:text-purple-400">
-                          거래내역서 스크린샷을 업로드하면 자동으로 템플릿 초안을 생성합니다
+                          거래내역서 PDF 또는 스크린샷을 업로드하면 자동으로 템플릿 초안을 생성합니다
                         </p>
                       </div>
                     </div>
                     <div>
                       <input
                         type="file"
-                        accept="image/*"
-                        onChange={handleImageUpload}
+                        accept="image/*,.pdf,application/pdf"
+                        onChange={handleTemplateFileUpload}
                         className="hidden"
-                        id="template-image-upload"
-                        disabled={analyzeImageMutation.isPending}
+                        id="template-file-upload"
+                        disabled={analyzeFileMutation.isPending}
                       />
                       <Button
                         asChild
                         variant="outline"
                         className="bg-white dark:bg-gray-800 cursor-pointer"
-                        disabled={analyzeImageMutation.isPending}
+                        disabled={analyzeFileMutation.isPending}
                       >
-                        <label htmlFor="template-image-upload" className="cursor-pointer">
-                          {analyzeImageMutation.isPending ? (
+                        <label htmlFor="template-file-upload" className="cursor-pointer">
+                          {analyzeFileMutation.isPending ? (
                             <>
                               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                               분석 중...
@@ -588,6 +588,15 @@ const TemplatesPage: NextPage = () => {
                           ) : (
                             <>
                               <ImagePlus className="h-4 w-4 mr-2" />
+                              파일 업로드
+                            </>
+                          )}
+                        </label>
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
                               이미지 업로드
                             </>
                           )}
