@@ -247,7 +247,7 @@ const TemplatesPage: NextPage = () => {
 
   const openCreateEditor = () => {
     // resetForm() 대신 직접 초기화 + 필수 컬럼 5개 설정
-    setFormData({
+    const initialData = {
       name: "",
       bankName: "",
       description: "",
@@ -274,7 +274,12 @@ const TemplatesPage: NextPage = () => {
         },
         parseRules: {},
       },
-    });
+    };
+    
+    console.log("[openCreateEditor] 필수 컬럼 5개 설정:", Object.keys(initialData.columnSchema.columns));
+    console.log("[openCreateEditor] memo 포함 여부:", 'memo' in initialData.columnSchema.columns);
+    
+    setFormData(initialData);
     setIdentifiersInput("");
     setEditingId(null);
     setDetectedHeaders([]);
