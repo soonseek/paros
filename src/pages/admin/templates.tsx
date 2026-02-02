@@ -620,10 +620,10 @@ const TemplatesPage: NextPage = () => {
                 <Input
                   value={identifiersInput}
                   onChange={(e) => setIdentifiersInput(e.target.value)}
-                  placeholder="쉼표로 구분. 예: 부산은행, 맡기신금액, 찾으신금액"
+                  placeholder="쉼표로 구분. 예: 국민은행, 거래내역, 입출금"
                 />
                 <p className="text-xs text-muted-foreground">
-                  헤더에 이 키워드들이 모두 포함되면 자동 매칭됩니다 (Layer 1)
+                  문서 상단의 은행명, 타이틀 등 페이지 텍스트에서 이 키워드들이 모두 포함되면 자동 매칭됩니다 (Layer 1)
                 </p>
               </div>
 
@@ -805,7 +805,7 @@ const TemplatesPage: NextPage = () => {
             <DialogHeader>
               <DialogTitle>템플릿 매칭 테스트</DialogTitle>
               <DialogDescription>
-                거래내역서 PDF 파일을 업로드하여 어떤 템플릿과 매칭되는지 테스트합니다
+                거래내역서 PDF 파일을 업로드하여 문서 상단의 은행명, 타이틀 등을 기준으로 어떤 템플릿과 매칭되는지 테스트합니다
               </DialogDescription>
             </DialogHeader>
 
@@ -846,7 +846,7 @@ const TemplatesPage: NextPage = () => {
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  첫 3페이지를 Upstage OCR로 파싱하여 템플릿 매칭을 테스트합니다
+                  첫 3페이지를 OCR로 파싱하여 페이지 텍스트(은행명, 타이틀 등)를 기준으로 템플릿 매칭을 테스트합니다
                 </p>
               </div>
 
