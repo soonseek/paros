@@ -306,6 +306,7 @@ export const templateRouter = createTRPCRouter({
       // Upstage로 PDF 파싱 (첫 3페이지만)
       let headers: string[] = [];
       let sampleRows: string[][] = [];
+      let pageTexts: string[] = [];
       
       try {
         const pdfResult = await extractTablesFromPDF(fileBuffer, 3); // maxPages = 3
@@ -313,9 +314,14 @@ export const templateRouter = createTRPCRouter({
         if (pdfResult.headers && pdfResult.headers.length > 0) {
           headers = pdfResult.headers;
           sampleRows = pdfResult.rows.slice(0, 10); // 샘플로 최대 10행
+          pageTexts = pdfResult.pageTexts || []; // 페이지 텍스트 추출
           
           console.log(`[Template Test] Extracted headers: ${headers.join(", ")}`);
           console.log(`[Template Test] Sample rows: ${sampleRows.length}`);
+          console.log(`[Template Test] Page texts: ${pageTexts.length} items`);
+          if (pageTexts.length > 0) {
+            console.log(`[Template Test] Page texts preview: ${pageTexts.slice(0, 3).join(" | ")}`);
+          }
         } else {
           return {
             matched: false,
@@ -334,8 +340,8 @@ export const templateRouter = createTRPCRouter({
         };
       }
       
-      // 템플릿 매칭 테스트
-      const result = await classifyTransaction(ctx.db, headers, sampleRows);
+      // 템플릿 매칭 테스트 (페이지 텍스트 전달)
+      const result = await classifyTransaction(ctx.db, headers, sampleRows, pageTexts);
 
       if (result) {
         return {
