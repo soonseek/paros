@@ -286,21 +286,56 @@ export const templateRouter = createTRPCRouter({
     }),
 
   /**
-   * 템플릿 테스트 - 헤더와 샘플 데이터로 매칭 테스트
+   * 템플릿 테스트 - PDF 파일로 매칭 테스트 (Upstage 파싱 후)
    */
-  testMatch: protectedProcedure
+  testMatchWithFile: protectedProcedure
     .input(z.object({
-      headers: z.array(z.string()),
-      sampleRows: z.array(z.array(z.string())).optional(),
+      fileBase64: z.string(),
+      fileName: z.string(),
+      mimeType: z.string().default("application/pdf"),
     }))
     .mutation(async ({ ctx, input }) => {
       const { classifyTransaction } = await import("~/lib/template-classifier");
+      const { extractTablesFromPDF } = await import("~/lib/pdf-ocr");
       
-      const result = await classifyTransaction(
-        ctx.db,
-        input.headers,
-        input.sampleRows || []
-      );
+      // Base64를 Buffer로 변환
+      const fileBuffer = Buffer.from(input.fileBase64, "base64");
+      
+      console.log(`[Template Test] Processing file: ${input.fileName} (${fileBuffer.length} bytes)`);
+      
+      // Upstage로 PDF 파싱 (첫 3페이지만)
+      let headers: string[] = [];
+      let sampleRows: string[][] = [];
+      
+      try {
+        const pdfResult = await extractTablesFromPDF(fileBuffer, 3); // maxPages = 3
+        
+        if (pdfResult.headers && pdfResult.headers.length > 0) {
+          headers = pdfResult.headers;
+          sampleRows = pdfResult.rows.slice(0, 10); // 샘플로 최대 10행
+          
+          console.log(`[Template Test] Extracted headers: ${headers.join(", ")}`);
+          console.log(`[Template Test] Sample rows: ${sampleRows.length}`);
+        } else {
+          return {
+            matched: false,
+            error: "PDF에서 테이블 헤더를 추출할 수 없습니다",
+            headers: [],
+            sampleRows: [],
+          };
+        }
+      } catch (error) {
+        console.error("[Template Test] PDF parsing error:", error);
+        return {
+          matched: false,
+          error: error instanceof Error ? error.message : "PDF 파싱 실패",
+          headers: [],
+          sampleRows: [],
+        };
+      }
+      
+      // 템플릿 매칭 테스트
+      const result = await classifyTransaction(ctx.db, headers, sampleRows);
 
       if (result) {
         return {
@@ -311,12 +346,16 @@ export const templateRouter = createTRPCRouter({
           templateName: result.templateName,
           confidence: result.confidence,
           columnMapping: result.columnMapping,
+          headers,
+          sampleRows: sampleRows.slice(0, 5), // UI에 표시할 샘플
         };
       }
 
       return {
         matched: false,
         message: "Layer 1, 2에서 매칭되지 않음. Layer 3 (LLM 폴백) 필요",
+        headers,
+        sampleRows: sampleRows.slice(0, 5),
       };
     }),
 
