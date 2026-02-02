@@ -535,17 +535,23 @@ ${sampleDataStr}
           };
         } catch (error) {
           console.error("[Template Analyze] LLM error:", error);
-          // LLM 실패해도 기본 정보는 반환
+          console.error("[Template Analyze] LLM error details:", error instanceof Error ? error.stack : String(error));
+          
+          // LLM 실패해도 기본 정보는 반환 (페이지 텍스트 활용)
+          const fallbackIdentifiers = pageTexts.length > 0 
+            ? pageTexts.slice(0, 3).flatMap(t => t.split(/\s+/).slice(0, 2)).filter(Boolean).slice(0, 4)
+            : headers.slice(0, 3);
+          
           return {
             success: true,
             suggestedName: `템플릿_${new Date().toISOString().slice(0, 10)}`,
             suggestedBankName: "",
             suggestedDescription: `헤더: ${headers.join(", ")}`,
-            suggestedIdentifiers: headers.slice(0, 3),
+            suggestedIdentifiers: fallbackIdentifiers,
             detectedHeaders: headers,
             suggestedColumnSchema: { columns: {} },
             confidence: 0.5,
-            reasoning: "LLM 분석 실패 - 기본 정보만 추출됨",
+            reasoning: `LLM 분석 실패 - 기본 정보만 추출됨 (오류: ${error instanceof Error ? error.message : String(error)})`,
           };
         }
       } else {
