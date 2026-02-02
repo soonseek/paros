@@ -388,7 +388,7 @@ export const templateRouter = createTRPCRouter({
       fileName: z.string(),
       mimeType: z.string(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const fileBuffer = Buffer.from(input.fileBase64, "base64");
       const isPdf = input.mimeType === "application/pdf" || input.fileName.toLowerCase().endsWith(".pdf");
       
@@ -399,13 +399,25 @@ export const templateRouter = createTRPCRouter({
         const { extractTablesFromPDF } = await import("~/lib/pdf-ocr");
         const { default: OpenAI } = await import("openai");
         const { env } = await import("~/env");
+        const { SettingsService } = await import("~/server/services/settings-service");
+        
+        // DB에서 Upstage API 키 가져오기
+        const settingsService = new SettingsService(ctx.db);
+        const upstageApiKey = await settingsService.getSetting('UPSTAGE_API_KEY');
+        
+        if (!upstageApiKey) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Upstage API 키가 설정되지 않았습니다. 관리자 설정 페이지에서 API 키를 입력해주세요.",
+          });
+        }
         
         // PDF 파싱
         let headers: string[] = [];
         let sampleRows: string[][] = [];
         
         try {
-          const pdfResult = await extractTablesFromPDF(fileBuffer, 3);
+          const pdfResult = await extractTablesFromPDF(fileBuffer, 3, upstageApiKey);
           headers = pdfResult.headers;
           sampleRows = pdfResult.rows.slice(0, 10);
         } catch (error) {
