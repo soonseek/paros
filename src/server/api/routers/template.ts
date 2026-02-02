@@ -467,14 +467,17 @@ export const templateRouter = createTRPCRouter({
         const sampleDataStr = sampleRows.slice(0, 5).map(row => row.join(" | ")).join("\n");
         const pageTextsStr = pageTexts.slice(0, 10).join(" / ");
         
+        // 헤더를 인덱스와 함께 명시적으로 포맷 (LLM이 정확한 인덱스를 파악하도록)
+        const headersWithIndex = headers.map((h, idx) => `[${idx}] ${h}`).join("\n");
+        
         const prompt = `다음은 은행 거래내역서 PDF에서 추출한 정보입니다.
 이 정보를 분석하여 템플릿 초안을 생성하세요.
 
 ## 페이지 텍스트 (문서 상단의 은행명, 타이틀 등)
 ${pageTextsStr || "(없음)"}
 
-## 테이블 헤더
-${headers.join(", ")}
+## 테이블 헤더 (인덱스와 컬럼명)
+${headersWithIndex}
 
 ## 샘플 데이터 (최대 5행)
 ${sampleDataStr}
@@ -498,10 +501,18 @@ ${sampleDataStr}
 중요:
 - **identifiers**: 페이지 텍스트(문서 상단)에서 이 문서를 구분할 수 있는 고유 키워드 2-4개 추출 (예: "국민은행", "입출금거래내역", "보통예금")
   테이블 헤더가 아닌 페이지 상단의 은행명, 계좌 종류, 문서 타이틀 등에서 추출해야 함
-- index는 0부터 시작
+- **index**: 위의 "테이블 헤더" 섹션에 표시된 [숫자]를 정확히 사용 (0부터 시작)
+  예: "[3] 입금금액"이면 deposit의 index는 3
+- **header**: 위의 "테이블 헤더" 섹션에 표시된 컬럼명을 정확히 복사 (띄어쓰기 제거된 상태)
 - 해당 없는 컬럼은 columnMapping에서 생략
 - whenDeposit/whenWithdrawal은 입금/출금에 따라 역할이 바뀌는 특수 케이스에서만 사용
-- JSON만 반환`;
+- JSON만 반환
+
+예시 (위 헤더가 "[0] 거래일자, [1] 구분, [2] 출금금액, [3] 입금금액, [4] 잔액"인 경우):
+"date": { "index": 0, "header": "거래일자" },
+"deposit": { "index": 3, "header": "입금금액" },
+"withdrawal": { "index": 2, "header": "출금금액" },
+"balance": { "index": 4, "header": "잔액" }`;
 
         try {
           const response = await openai.chat.completions.create({
