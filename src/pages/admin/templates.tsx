@@ -677,7 +677,7 @@ const TemplatesPage: NextPage = () => {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <Label className="text-base font-semibold">컬럼 매핑</Label>
-                  <Select onValueChange={addColumn}>
+                  <Select onValueChange={addColumn} disabled={analyzeFileMutation.isPending}>
                     <SelectTrigger className="w-40">
                       <SelectValue placeholder="컬럼 추가" />
                     </SelectTrigger>
