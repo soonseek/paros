@@ -581,8 +581,15 @@ export const fileRouter = createTRPCRouter({
       // Step 6: Analyze file structure
       let analysisData;
       try {
-        // LLM 기반 분석 옵션 전달 + Prisma client for template lookup
-        analysisData = await analyzeFileStructure(fileBuffer, document.mimeType, useLlmAnalysis, ctx.db);
+        // DB에서 Upstage API 키 가져오기
+        const { SettingsService } = await import("~/server/services/settings-service");
+        const settingsService = new SettingsService(ctx.db);
+        const upstageApiKey = await settingsService.getSetting('UPSTAGE_API_KEY');
+        
+        console.log("[File Analysis] Upstage API key loaded from DB:", upstageApiKey ? "YES" : "NO");
+        
+        // LLM 기반 분석 옵션 전달 + Prisma client for template lookup + API key
+        analysisData = await analyzeFileStructure(fileBuffer, document.mimeType, useLlmAnalysis, ctx.db, upstageApiKey || undefined);
       } catch (error) {
         console.error("[File Analysis Error]", error);
 
