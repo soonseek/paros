@@ -121,7 +121,7 @@ const TemplatesPage: NextPage = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<TemplateFormData>(emptyFormData);
   const [identifiersInput, setIdentifiersInput] = useState("");
-  const [testHeaders, setTestHeaders] = useState("");
+  const [testFileName, setTestFileName] = useState("");
   const [testResult, setTestResult] = useState<any>(null);
   const [isTestDialogOpen, setIsTestDialogOpen] = useState(false);
 
