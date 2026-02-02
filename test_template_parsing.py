@@ -71,7 +71,7 @@ class TemplateParsingTester:
             self.log(f"Authentication error: {str(e)}", "ERROR")
             return False
     
-    def call_trpc(self, procedure: str, input_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def call_trpc(self, procedure: str, input_data: Dict[str, Any], is_mutation: bool = True) -> Optional[Dict[str, Any]]:
         """
         Call tRPC procedure
         """
@@ -83,29 +83,41 @@ class TemplateParsingTester:
             if self.auth_token:
                 headers["Authorization"] = f"Bearer {self.auth_token}"
             
-            # tRPC batch format
-            payload = {
-                "0": {
-                    "json": input_data
-                }
-            }
+            # tRPC HTTP format
+            if is_mutation:
+                url = f"{self.api_url}/{procedure}"
+                payload = input_data
+            else:
+                # Query format
+                url = f"{self.api_url}/{procedure}?input={json.dumps({'json': input_data})}"
+                payload = None
             
-            url = f"{self.api_url}/{procedure}"
             self.log(f"Calling {procedure}...", "DEBUG")
+            self.log(f"URL: {url}", "DEBUG")
             
-            response = self.session.post(
-                url,
-                json=payload,
-                headers=headers,
-                timeout=120
-            )
+            if is_mutation:
+                response = self.session.post(
+                    url,
+                    json=payload,
+                    headers=headers,
+                    timeout=120
+                )
+            else:
+                response = self.session.get(
+                    url,
+                    headers=headers,
+                    timeout=120
+                )
             
             self.log(f"Response status: {response.status_code}", "DEBUG")
             
             if response.status_code == 200:
                 data = response.json()
-                # tRPC batch response format
-                result = data.get("0", {}).get("result", {}).get("data", {})
+                # tRPC response format
+                result = data.get("result", {}).get("data", {})
+                if not result:
+                    # Try alternative format
+                    result = data.get("result", {})
                 return result
             else:
                 self.log(f"tRPC call failed: HTTP {response.status_code}", "ERROR")
