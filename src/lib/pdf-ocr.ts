@@ -148,10 +148,17 @@ export async function parsePdfWithUpstage(
       .map(el => el.content?.text?.trim() || "")
       .filter(text => text.length > 0);
     
-    console.log(`[Upstage API] Extracted ${pageTexts.length} page text elements`);
+    console.log(`[Upstage API] ========== PAGE TEXTS EXTRACTION ==========`);
+    console.log(`[Upstage API] Extracted ${pageTexts.length} page text elements (non-table text)`);
     if (pageTexts.length > 0) {
-      console.log(`[Upstage API] Page texts preview:`, pageTexts.slice(0, 5).join(" | "));
+      console.log(`[Upstage API] Page texts (for template identifiers):`);
+      pageTexts.slice(0, 10).forEach((text, idx) => {
+        console.log(`  [${idx + 1}] ${text.substring(0, 100)}${text.length > 100 ? '...' : ''}`);
+      });
+    } else {
+      console.warn(`[Upstage API] ⚠️ WARNING: No page texts found! Template identifier matching may fail.`);
     }
+    console.log(`[Upstage API] ===============================================`);
 
     // Find table elements or concatenate all text
     const tableElements = data.elements.filter(el => el.category === "table");
