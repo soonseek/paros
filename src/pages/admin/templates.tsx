@@ -311,19 +311,22 @@ const TemplatesPage: NextPage = () => {
     event.target.value = "";
   };
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleTemplateFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // 이미지 파일 검증
-    if (!file.type.startsWith("image/")) {
-      toast.error("이미지 파일만 업로드할 수 있습니다");
+    // 이미지 또는 PDF 파일 검증
+    const isImage = file.type.startsWith("image/");
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    
+    if (!isImage && !isPdf) {
+      toast.error("이미지 또는 PDF 파일만 업로드할 수 있습니다");
       return;
     }
 
-    // 파일 크기 제한 (10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("파일 크기는 10MB 이하여야 합니다");
+    // 파일 크기 제한 (50MB)
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error("파일 크기는 50MB 이하여야 합니다");
       return;
     }
 
@@ -332,8 +335,9 @@ const TemplatesPage: NextPage = () => {
     reader.onload = () => {
       const base64 = (reader.result as string).split(",")[1];
       if (base64) {
-        analyzeImageMutation.mutate({
-          imageBase64: base64,
+        analyzeFileMutation.mutate({
+          fileBase64: base64,
+          fileName: file.name,
           mimeType: file.type,
         });
       }
