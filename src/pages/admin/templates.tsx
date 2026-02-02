@@ -799,7 +799,10 @@ const TemplatesPage: NextPage = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {Object.entries(formData.columnSchema.columns).map(([type, col]) => (
+                        {(() => {
+                          const entries = Object.entries(formData.columnSchema.columns);
+                          console.log("[Render] 컬럼 매핑 렌더링:", entries.map(([type]) => type));
+                          return entries.map(([type, col]) => (
                           <TableRow key={type}>
                             <TableCell className="font-medium">
                               {COLUMN_TYPES.find(t => t.value === type)?.label || type}
