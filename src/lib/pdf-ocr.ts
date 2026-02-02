@@ -686,18 +686,20 @@ function parseMarkdownRow(rowLine: string): string[] {
  * 
  * @param pdfBuffer - PDF file buffer
  * @param maxPages - Maximum pages to process (default: 3)
+ * @param apiKey - Upstage API key (from DB settings)
  * @returns TableData with headers and rows
  */
 export async function extractTablesFromPDF(
   pdfBuffer: Buffer,
-  maxPages: number = 3
+  maxPages: number = 3,
+  apiKey?: string
 ): Promise<TableData> {
   console.log(`[extractTablesFromPDF] Processing PDF (maxPages: ${maxPages})...`);
   
   // Use the existing parsePdfWithUpstage function
   // Note: Upstage API doesn't support page limit directly,
   // but we limit the rows returned
-  const result = await parsePdfWithUpstage(pdfBuffer);
+  const result = await parsePdfWithUpstage(pdfBuffer, apiKey);
   
   console.log(`[extractTablesFromPDF] Extracted ${result.headers.length} headers, ${result.rows.length} rows`);
   
