@@ -171,12 +171,39 @@ const TemplatesPage: NextPage = () => {
   });
   const analyzeFileMutation = api.template.analyzeFile.useMutation({
     onSuccess: (data) => {
+      // AI 분석 결과를 기본값과 병합 (whenDeposit/whenWithdrawal 보존)
+      const suggestedColumns = data.suggestedColumnSchema?.columns || {};
+      
+      // 기본값 적용: 입금액/출금액에 일반 케이스 역할 설정
+      const mergedColumns: Record<string, ColumnDefinition> = {};
+      
+      for (const [type, col] of Object.entries(suggestedColumns)) {
+        if (type === "deposit") {
+          mergedColumns.deposit = {
+            ...col,
+            whenDeposit: col.whenDeposit || "amount",
+            whenWithdrawal: col.whenWithdrawal || "skip", // 일반 케이스 기본값
+          };
+        } else if (type === "withdrawal") {
+          mergedColumns.withdrawal = {
+            ...col,
+            whenDeposit: col.whenDeposit || "skip", // 일반 케이스 기본값
+            whenWithdrawal: col.whenWithdrawal || "amount",
+          };
+        } else {
+          mergedColumns[type] = col;
+        }
+      }
+      
       setFormData(prev => ({
         ...prev,
         name: data.suggestedName || prev.name,
         bankName: data.suggestedBankName || prev.bankName,
         description: data.suggestedDescription || prev.description,
-        columnSchema: data.suggestedColumnSchema || prev.columnSchema,
+        columnSchema: {
+          columns: mergedColumns,
+          parseRules: data.suggestedColumnSchema?.parseRules || {},
+        },
       }));
       setIdentifiersInput((data.suggestedIdentifiers || []).join(", "));
       setDetectedHeaders(data.detectedHeaders || []); // 분석된 헤더 저장
