@@ -489,7 +489,7 @@ const TemplatesPage: NextPage = () => {
 
         {/* Editor Dialog */}
         <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
-          <DialogContent className="w-[90vw] max-w-[1400px] max-h-[90vh] overflow-y-auto">
+          <DialogContent className="w-[50vw] !max-w-[50vw] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {editingId ? "템플릿 수정" : "새 템플릿 생성"}
