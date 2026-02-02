@@ -146,7 +146,7 @@ class TemplateParsingTester:
         self.log(f"Identifiers: {template_data['identifiers']}")
         self.log(f"Column schema: {json.dumps(template_data['columnSchema'], ensure_ascii=False, indent=2)}")
         
-        result = self.call_trpc("template.create", template_data)
+        result = self.call_trpc("template.create", template_data, is_mutation=True)
         
         if result:
             template_id = result.get("id")
