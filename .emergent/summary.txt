@@ -1,94 +1,230 @@
 <analysis>**original_problem_statement:**
-The user wants to clone the GitHub repository  and enhance it. The core requirements are:
+The user wants to clone the GitHub repository  and enhance it. The initial requirements were:
 1.  Create an admin settings page for AI provider API keys and S3 credentials.
 2.  Implement dark mode.
-3.  Improve mobile optimization (later deprioritized).
-4.  Standardize parsing of various bank transaction statement PDFs into a unified format:  (Date),  (Type),  (Amount),  (Balance),  (Memo).
-5.  Simplify the transaction display UI.
-6.  Implement an LLM-based feature to track the usage of loan funds across transactions and export the results to Excel.
-7.  All work must be done on the  git branch.
+3.  Standardize parsing of various bank transaction statement PDFs into a unified format.
+4.  Simplify the transaction display UI.
+5.  Implement an LLM-based feature to track the usage of loan funds.
+
+This has since evolved into a major architectural overhaul. The new core requirement is to build a robust, template-based data extraction system. This system should:
+1.  Allow an admin to create and manage templates for different bank statement formats.
+2.  Each template defines identifiers (keywords from the document text) and a column schema (rules for extracting data like date, amount, memo).
+3.  When a new PDF is uploaded, the system should first try to match it to an existing template using the identifiers.
+4.  If a template is matched, it is used to parse the data. If not, the system falls back to the general-purpose LLM analysis.
+5.  Provide an AI-assisted way to create templates by uploading a sample PDF or screenshot, which pre-fills the template form.
+6.  All work must be done on the  git branch.
 
 **User's preferred language**: Korean (한국어)
 
 **what currently exists?**
-The agent has successfully cloned the  repository, a Next.js application, and is working on the  branch. The key features implemented include an admin settings page, a simplified transaction table UI, and a data normalization pipeline.
+The application is a Next.js/tRPC/Prisma stack. A significant architectural change has been implemented to address persistent PDF parsing issues. A new Transaction Template system has been built, allowing users to define parsing rules for different document formats.
 
-The PDF parsing logic has evolved significantly. It now uses a multi-layered approach: Upstage OCR for table extraction () and a direct OpenAI API call for dynamic column analysis (), which replaced a previous implementation that required a separate Python server. This was done to simplify the user's local testing environment.
+This new system includes:
+-   A  model in the database ().
+-   A full CRUD tRPC API for managing templates ().
+-   An admin UI at  to create, edit, delete, and test templates.
+-   An AI-assist feature in the template editor that analyzes an uploaded PDF or image to create a template draft.
+-   A multi-layered classification engine () that is now integrated into the main file analysis flow (). When a file is uploaded, it first tries to find a matching template before falling back to the previous LLM-based analysis.
 
-The agent has also implemented several user-requested features: auto-refreshing the transaction list after uploads, displaying the document name, removing validation for the 'case number' field, and creating a sophisticated LLM-powered chat feature for tracing loan expenditures. However, the core data extraction pipeline is currently unstable and buggy.
+The agent has also made several UI/UX improvements based on user feedback, such as redesigning the file upload modal and widening the template editor dialog. However, the user has been facing a series of build errors locally, which the agent has been fixing reactively.
 
 **Last working item**:
--   **Last item agent was working:** The agent was in the middle of a complex debugging session for two critical, intertwined bugs in the PDF data extraction pipeline.
-    1.  **Incomplete Data Extraction:** A user-provided PDF () containing 112 transactions was only yielding 94, indicating that the logic in  fails to correctly combine all tables from the multi-page document.
-    2.  **Runtime Error:** A  was crashing the data-saving process in . The agent had pushed a fix, but the user's latest logs confirm the error persists on their local machine, likely because they have not pulled the latest changes.
+-   **Last item agent was working:** The agent was refining the template matching logic based on user feedback. The implementation involved two key changes:
+    1.  **Identifier Matching**: Using the full text from the first few pages of a PDF (not just table headers) to find matching templates. This involved modifying  to extract this text.
+    2.  **Column Matching**: Normalizing column headers by removing all whitespace before comparing them against the template's column definitions to improve matching robustness. This logic was added to .
 -   **Status:** IN PROGRESS
 -   **Agent Testing Done:** N
--   **Which testing method agent to use?** Manual testing. The next agent must first instruct the user to pull the latest changes from the  branch to ensure they have the fix for the . Then, the agent must analyze the new user-provided logs to debug why rows are still being dropped from the PDF.
+-   **Which testing method agent to use?** Backend testing agent. The agent should create a test that:
+    1.  Creates a new transaction template via the API.
+    2.  Uploads a test PDF that should match this template.
+    3.  Verifies that the  endpoint correctly identifies the template using the page text and successfully extracts data by applying the whitespace-normalized column mapping.
 -   **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Incomplete data extraction from multi-page PDFs (P0)**
--   **Issue 2: Incorrect 'memo' (비고) parsing (P1)**
--   **Issue 3:  in  (P1)**
+-   **Issue 1: User's local build environment is unstable (P0)**
+-   **Issue 2: The new template-based parsing system is untested (P0)**
+-   **Issue 3: Incorrect 'memo' (비고) parsing for special cases (P1)**
 
 **Issues Detail:**
 -   **Issue 1:**
-    -   **Description**: The logic in  fails to correctly identify and combine all tables from paginated PDFs, causing a significant number of transaction rows to be dropped during parsing. For example, a file with 112 transactions was processed as only 94. Logs indicate that some tables are being skipped because of minor variations in column count or because the logic fails to identify them as continuation tables.
-    -   **Attempted fixes**: The agent implemented a scoring system to select the best table and added a tolerance for column count differences (±1). The latest attempt was to add more logging to trace every table's processing.
+    -   **Description**: The user is repeatedly encountering build errors (, ) after the agent commits changes and the user pulls them. This indicates a synchronization problem with dependencies or generated files. The agent has been fixing these as they arise (e.g., adding usage: openai [-h] [-v] [-b API_BASE] [-k API_KEY] [-p PROXY [PROXY ...]]
+              [-o ORGANIZATION] [-t {openai,azure}]
+              [--api-version API_VERSION] [--azure-endpoint AZURE_ENDPOINT]
+              [--azure-ad-token AZURE_AD_TOKEN] [-V]
+              {api,tools,migrate,grit} ...
+
+positional arguments:
+  {api,tools,migrate,grit}
+    api                 Direct API calls
+    tools               Client side tools for convenience
+
+options:
+  -h, --help            show this help message and exit
+  -v, --verbose         Set verbosity.
+  -b API_BASE, --api-base API_BASE
+                        What API base url to use.
+  -k API_KEY, --api-key API_KEY
+                        What API key to use.
+  -p PROXY [PROXY ...], --proxy PROXY [PROXY ...]
+                        What proxy to use.
+  -o ORGANIZATION, --organization ORGANIZATION
+                        Which organization to run as (will use your default
+                        organization if not specified)
+  -t {openai,azure}, --api-type {openai,azure}
+                        The backend API to call, must be `openai` or `azure`
+  --api-version API_VERSION
+                        The Azure API version, e.g.
+                        'https://learn.microsoft.com/en-us/azure/ai-
+                        services/openai/reference#rest-api-versioning'
+  --azure-endpoint AZURE_ENDPOINT
+                        The Azure endpoint, e.g.
+                        'https://endpoint.openai.azure.com'
+  --azure-ad-token AZURE_AD_TOKEN
+                        A token from Azure Active Directory,
+                        https://www.microsoft.com/en-
+                        us/security/business/identity-access/microsoft-entra-
+                        id
+  -V, --version         show program's version number and exit package, ,  component, then fixing DB schema mismatches). This is the highest priority as it blocks any user testing.
+    -   **Attempted fixes**: The agent installed missing packages (usage: openai [-h] [-v] [-b API_BASE] [-k API_KEY] [-p PROXY [PROXY ...]]
+              [-o ORGANIZATION] [-t {openai,azure}]
+              [--api-version API_VERSION] [--azure-endpoint AZURE_ENDPOINT]
+              [--azure-ad-token AZURE_AD_TOKEN] [-V]
+              {api,tools,migrate,grit} ...
+
+positional arguments:
+  {api,tools,migrate,grit}
+    api                 Direct API calls
+    tools               Client side tools for convenience
+
+options:
+  -h, --help            show this help message and exit
+  -v, --verbose         Set verbosity.
+  -b API_BASE, --api-base API_BASE
+                        What API base url to use.
+  -k API_KEY, --api-key API_KEY
+                        What API key to use.
+  -p PROXY [PROXY ...], --proxy PROXY [PROXY ...]
+                        What proxy to use.
+  -o ORGANIZATION, --organization ORGANIZATION
+                        Which organization to run as (will use your default
+                        organization if not specified)
+  -t {openai,azure}, --api-type {openai,azure}
+                        The backend API to call, must be `openai` or `azure`
+  --api-version API_VERSION
+                        The Azure API version, e.g.
+                        'https://learn.microsoft.com/en-us/azure/ai-
+                        services/openai/reference#rest-api-versioning'
+  --azure-endpoint AZURE_ENDPOINT
+                        The Azure endpoint, e.g.
+                        'https://endpoint.openai.azure.com'
+  --azure-ad-token AZURE_AD_TOKEN
+                        A token from Azure Active Directory,
+                        https://www.microsoft.com/en-
+                        us/security/business/identity-access/microsoft-entra-
+                        id
+  -V, --version         show program's version number and exit, ), added missing procedures to , replaced a missing component with an alternative (Switch -> Checkbox), and instructed the user to run Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "paros", schema "public" at "127.0.0.1:5432".
     -   **Next debug checklist**:
-        -   Analyze the detailed logs from the user for the  file.
-        -   Focus on the  function in .
-        -   Specifically, investigate why  (from the user's logs) is being skipped entirely.
-        -   Refine the conditions for identifying and merging continuation tables, even if they have valid headers.
-    -   **Why fix this issue?** This is a critical data integrity bug. The application is useless if it cannot be trusted to extract all transactions.
+        -   First, confirm with the user if running Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "paros", schema "public" at "127.0.0.1:5432" solved the last error ().
+        -   If new build errors occur, systematically check , , and any generated Prisma files to ensure they are correctly configured and committed.
+        -   Advise the user to delete  and  folders and run 
+> paros-t3@0.1.0 postinstall
+> prisma generate
+
+Prisma schema loaded from prisma/schema.prisma
+
+✔ Generated Prisma Client (v6.19.1) to ./node_modules/@prisma/client in 340ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Need your database queries to be 1000x faster? Accelerate offers you that and more: https://pris.ly/tip-2-accelerate
+
+
+up to date, audited 954 packages in 7s
+
+208 packages are looking for funding
+  run `npm fund` for details
+
+26 vulnerabilities (3 low, 1 moderate, 22 high)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues possible (including breaking changes), run:
+  npm audit fix --force
+
+Some issues need review, and may require choosing
+a different dependency.
+
+Run `npm audit` for details. again as a clean slate.
+    -   **Why fix this issue?** The user cannot test or validate any of the new functionality if their local application fails to build.
     -   **Status**: IN PROGRESS
     -   **Is recurring issue?** Y
-    -   **Should Test frontend/backend/both after fix?** Backend
+    -   **Should Test frontend/backend/both after fix?** Frontend (build process)
     -   **Blocked on other issue**: No
 
 -   **Issue 2:**
-    -   **Description**: The 'memo' (비고) field is not being populated correctly for many transactions, appearing as - or . This is critical because the memo contains information needed to identify loan-related transactions. The cause is likely twofold: the LLM in  is not correctly identifying complex memo patterns (e.g., when the memo is in the amount columns), and the parsing logic in  fails to extract the value even when the column is identified.
-    -   **Attempted fixes**: The agent enhanced the LLM prompt to recognize special memo cases and added extensive debug logging in  to trace the memo value from raw row to final object.
+    -   **Description**: A large new feature, the template-based parsing system, has been architected and implemented but has not been tested end-to-end. Its effectiveness at solving the original data integrity problems is unknown. The recent changes to use page text and normalize whitespace are also untested.
+    -   **Attempted fixes**: N/A (This is about testing the implementation).
     -   **Next debug checklist**:
-        -   Review the new debug logs () from the user's terminal.
-        -   Verify if  has the correct index and if  contains the expected raw value.
-        -   If the LLM is failing, refine the prompt in  further.
-    -   **Why fix this issue?** The memo field is essential for the user's core task of analyzing loan fund usage.
-    -   **Status**: IN PROGRESS
-    -   **Is recurring issue?** Y
-    -   **Should Test frontend/backend/both after fix?** Backend
-    -   **Blocked on other issue**: No
+        -   Define a test case with a known problematic PDF (e.g.,  or ).
+        -   Use the  UI to create a template for this PDF.
+        -   Upload the PDF through the main application flow and trace the logs in  and .
+        -   Verify that: 1) Layer 1 (template matching) succeeds. 2) Correct data (all rows) is extracted using the template. 3) The fallback to Layer 2/3 (LLM analysis) is correctly skipped.
+    -   **Why fix this issue?** This is the core feature requested by the user to solve the application's biggest problem. It must be verified to work correctly.
+    -   **Status**: NOT STARTED
+    -   **Is recurring issue?** N
+    -   **Should Test frontend/backend/both after fix?** Both
+    -   **Blocked on other issue**: Issue 1: User's local build environment is unstable
 
 -   **Issue 3:**
-    -   **Description**: A  in  crashes the data extraction process. The error is in a logging statement () where the  variable is out of scope. The agent has already committed a fix for this.
-    -   **Attempted fixes**: The agent corrected the code to use a variable that is in scope ().
+    -   **Description**: The 'memo' (비고) field is still not being parsed correctly for many statement types, especially complex ones like the Busan Bank file where the memo is mixed in with amount columns. The user explicitly stated, no document is extracting the memo field correctly.
+    -   **Attempted fixes**: The new template system is the primary fix, allowing explicit definition of memo columns, including special rules (, ). The agent also added fallback logic to search for a 비고-like column if the LLM fails.
     -   **Next debug checklist**:
-        -   **Crucially, instruct the user to run  in their local environment.** The user is testing locally and does not have the latest code.
-        -   Confirm with the user that this specific error is resolved after pulling the changes.
-    -   **Why fix this issue?** It's a fatal runtime error that blocks all data from being saved.
+        -   As part of testing Issue 2, specifically check if the memo field is populated correctly when using a template.
+        -   Create a template for the Busan Bank file, defining the conditional logic for the memo.
+        -   Test and verify that the memo is extracted. If not, debug the  logic in .
+    -   **Why fix this issue?** The memo field is critical for the user's primary goal of analyzing transaction details.
     -   **Status**: IN PROGRESS
     -   **Is recurring issue?** Y
     -   **Should Test frontend/backend/both after fix?** Backend
-    -   **Blocked on other issue**: Blocked on user action (pulling latest code).
+    -   **Blocked on other issue**: Issue 2: The new template-based parsing system is untested
+
+**In progress Task List**:
+-   **Task 1: Validate and Stabilize the Template-Based Parsing System (P0)**
+    -   **Where to resume**: The agent has just committed the code for using page text as identifiers and normalizing column header whitespace. The next logical step is to guide the user to get their environment working and then conduct the first end-to-end test of the new system.
+    -   **What will be achieved?** A working, user-configurable data extraction pipeline that reliably parses different PDF formats, fulfilling the user's main architectural request.
+    -   **Status**: IN PROGRESS
+    -   **Should Test frontend/backend/both after fix?** Both
+    -   **Blocked on something**: Issue 1 (User's local build issues).
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks:**
-    -   **(P1) Verify Loan Tracking LLM Feature**: Once data extraction is reliable, the user needs to test the LLM-based loan tracking and Excel export functionality.
-    -   **(P1) Enhance Transaction Table UI**: Implement color-coding for deposits/withdrawals and add / prefixes to the  (Amount) column in .
+    -   **(P1) Test AI-Assisted Template Generation**: Test the feature where uploading a PDF/image creates a template draft. Verify its accuracy and tune the LLM prompt in  if needed.
+    -   **(P1) Verify Loan Tracking LLM Feature**: Once data extraction is reliable, this original feature needs to be tested with clean data.
+    -   **(P2) Enhance Transaction Table UI**: Add / prefixes to the amount column in .
 -   **Future Tasks:**
-    -   **(P2) Full Mobile Optimization**: This task was requested by the user but later deprioritized.
-    -   **(P2) Scheduled Batch Jobs**: The user inquired about scheduled jobs; this could be implemented using .
+    -   **(P2) Full Mobile Optimization**.
+    -   **(P2) Scheduled Batch Jobs** ().
+    -   **(P2) Template Success Rate Tracking**: Implement logic to automatically track and display how often each template successfully parses a document.
+    -   **(P2) User Feedback Learning Loop**: A system for fine-tuning templates or the classifier based on user corrections.
 
 **Completed work in this session**
--   **Refactored PDF Column Analysis:** Replaced the external Python microservice with a direct OpenAI API call within the Next.js backend (), simplifying the local development environment for the user.
--   **Integrated Simplified UI:** Replaced the old transaction table with the new  and removed unnecessary UI elements from the case details page.
--   **Implemented Core Features:**
-    -   Added auto-refresh of transaction data after file uploads.
-    -   Added the document name to the transaction list.
-    -   Removed backend and frontend validation for the  field.
-    -   Built the LLM-powered loan tracking feature with question presets and an Excel download button.
--   **Advanced PDF Parsing:** Made significant improvements to handle new PDF formats, multi-page documents, and special memo cases, although bugs remain.
--   **Addressed Rate Limits:** Mitigated OpenAI TPM (Tokens Per Minute) errors by compressing the transaction data format before sending it to the LLM.
+-   **Architectural Overhaul**: Designed and implemented a complete template-based parsing system, including a new DB model (), a tRPC API, an admin UI, and a classification engine.
+-   **AI-Assisted Template Creation**: Implemented a feature for users to upload a PDF or image to get an AI-generated template draft.
+-   **PDF-based Matching Test**: Reworked the template test functionality from simple text input to allow uploading a full PDF file for more realistic matching simulations.
+-   **UI/UX Improvements**:
+    -   Redesigned the main case page into a 2-column layout (transactions left, AI assistant right).
+    -   Overhauled the upload progress UI to display detailed LLM analysis results.
+    -   Repeatedly widened and improved the layout of the template editor modal based on user screenshots and feedback.
+-   **Reactive Bug Fixing**: Addressed a series of local build errors reported by the user, including missing packages, missing tRPC procedures, and JSX syntax issues.
+-   **Logic Refinement**: Improved the template matching logic to use full page text for identifiers and to normalize whitespace in column headers, making the matching process more robust.
+
+**Known issue recurrence from previous fork**
+-   **Issue recurrence in previous fork**: Incomplete data extraction and Incorrect memo parsing.
+-   **Recurrence count**: High (these issues have been the primary focus for a long time).
+-   **Status**: IN PROGRESS. The new template architecture is the latest attempt to resolve these for good, but its success is not yet verified.
 
 **Code Architecture**
 
@@ -96,55 +232,132 @@ The agent has also implemented several user-requested features: auto-refreshing 
 **Key Technical Concepts**
 -   **Frameworks**: Next.js, tRPC, Prisma, Tailwind CSS
 -   **Database**: PostgreSQL
--   **PDF Parsing**: A complex pipeline involving Upstage OCR for visual structure analysis () and an LLM for semantic column understanding ().
--   **Local-First Development**: All recent work is tailored to the user's local testing environment, avoiding reliance on platform-specific features or preview URLs.
+-   **PDF Parsing**: A sophisticated multi-layer pipeline:
+    -   **Layer 1 (Template Classifier)**:  matches a document to a user-defined  based on text identifiers.
+    -   **Layer 2 (LLM Analysis)**: If no template matches,  uses OpenAI to dynamically determine the column structure.
+    -   **Layer 3 (Fallback)**: Rule-based analysis as a final attempt.
+-   **OCR**: Upstage Solar API is used to extract both tables and plain text from PDFs ().
+-   **AI-assisted configuration**: Using OpenAI Vision API () to analyze screenshots/PDFs and bootstrap the configuration for a new template, reducing manual data entry.
 
 **key DB schema**
--   : { id, email, name, password, role }
--   : { id, key, value, category }
--   , , : Core application models.
--   : Stores the outcome of the PDF analysis. The agent decided to embed the  flag within the  JSON object of this model rather than altering the schema.
+-   , , , : Core application models.
+-   ****: (New)
+    -   uid=0(root) gid=0(root) groups=0(root): String
+    -   : String
+    -   : String[] (Keywords to match this template)
+    -   : String?
+    -   : JSON (Defines mapping for Mon Feb  2 01:23:17 UTC 2026, , , etc., with conditional logic)
+    -   : JSON (Defines parsing rules like )
+    -   : Boolean
+    -   : Int
+    -   : Float
 
 **All files of reference**
--   **/app/src/lib/data-extractor.ts**: Core logic for parsing transaction rows and saving them to the database. Contains critical bugs and new debug logging.
--   **/app/src/lib/pdf-ocr.ts**: Logic for extracting tables from multi-page PDFs. Contains a critical bug causing rows to be dropped.
--   **/app/src/lib/column-analyzer-llm.ts**: New file that calls the OpenAI API directly for column analysis, replacing the need for a Python service.
--   **/app/src/server/api/routers/file.ts**: The tRPC router orchestrating the entire file processing pipeline.
--   **/app/src/server/api/routers/chat.ts**: Backend tRPC router for the LLM chat feature; the prompt logic was recently updated.
--   **/app/src/components/ai-chat-assistant.tsx**: Frontend component for the LLM loan tracking feature.
+-   **/app/src/pages/admin/templates.tsx**: The new, complex frontend page for all template management. Contains logic for the editor, AI analysis, and testing.
+-   **/app/src/server/api/routers/template.ts**: The new tRPC backend router that powers the templates page.
+-   **/app/src/lib/template-classifier.ts**: The core logic for the new template matching system (Layer 1).
+-   **/app/src/lib/file-analyzer.ts**: The orchestrator that was modified to integrate the new template classifier.
+-   **/app/src/lib/pdf-ocr.ts**: Modified to extract not just tables, but all page text to be used as identifiers.
+-   **/app/src/server/api/trpc.ts**: Modified to add an  for securing admin-only APIs.
+-   **/app/prisma/schema.prisma**: Modified to add the  table.
+-   **/app/src/components/upload-zone.tsx**: Heavily modified to show detailed analysis results in the UI.
 
 **Critical Info for New Agent**
--   **USER IS TESTING LOCALLY**: Your top priority is to guide the user. The  and  issues from the previous handoff are **not relevant** right now. The user's local environment is the source of truth.
--   **INSTRUCT USER TO PULL CHANGES**: The  bug has been fixed, but the user does not have the code. Your first action should be to ask the user to run  and confirm the error is resolved.
--   **FOCUS ON DATA INTEGRITY BUGS**: The primary goal is to fix the two critical data extraction bugs: the incomplete row extraction from multi-page PDFs () and the incorrect parsing of the 'memo' field ( and ).
--   **LEVERAGE DEBUG LOGS**: The previous agent added extensive logging. Use the user's terminal output to diagnose the root causes of the data extraction issues.
+-   **Prioritize User's Local Environment**: The user is blocked by local build errors. Your first action must be to help them resolve these issues. Do not proceed with new features until the user confirms their application is running. Be prepared to debug npm <command>
+
+Usage:
+
+npm install        install all the dependencies in your project
+npm install <foo>  add the <foo> dependency to your project
+npm test           run this project's tests
+npm run <foo>      run the script named <foo>
+npm <command> -h   quick help on <command>
+npm -l             display usage info for all commands
+npm help <term>    search for help on <term>
+npm help npm       more involved overview
+
+All commands:
+
+    access, adduser, audit, bugs, cache, ci, completion,
+    config, dedupe, deprecate, diff, dist-tag, docs, doctor,
+    edit, exec, explain, explore, find-dupes, fund, get, help,
+    help-search, hook, init, install, install-ci-test,
+    install-test, link, ll, login, logout, ls, org, outdated,
+    owner, pack, ping, pkg, prefix, profile, prune, publish,
+    query, rebuild, repo, restart, root, run-script, sbom,
+    search, set, shrinkwrap, star, stars, start, stop, team,
+    test, token, uninstall, unpublish, unstar, update, version,
+    view, whoami
+
+Specify configs in the ini-formatted file:
+    /root/.npmrc
+or on the command line via: npm <command> --key=value
+
+More configuration info: npm help config
+Configuration fields: npm help 7 config
+
+npm@10.8.2 /usr/lib/node_modules/npm dependency issues and Prisma migration problems.
+-   **The Template System is the Mission**: The entire focus has shifted to building and stabilizing this new architecture. All efforts should be directed at testing it, refining it, and ensuring it solves the user's data extraction problems.
+-   **Follow the Test Plan**: The immediate task after unblocking the user is to perform the first end-to-end test of the template system, including the latest changes (page text identifiers and whitespace normalization).
+-   **Communicate Clearly**: When asking the user to perform actions, be very specific (e.g., Please run Prisma schema loaded from prisma/schema.prisma Datasource "db": PostgreSQL database "paros", schema "public" at "127.0.0.1:5432" in your terminal and let me know the output.).
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User (Msg 522):** Provides detailed logs showing  is still occurring, and that a PDF with 112 transactions only yields 94. The logs also show 'memo' is not being parsed.
-2.  **User (Msg 512):** Reports  and provides the  file that is being parsed incorrectly (112 rows expected, 94 extracted).
-3.  **User (Msg 498):** Reports that 'memo' parsing is failing (showing as -) and asks for better debug logging for this specific issue.
-4.  **User (Msg 492):** Reports an OpenAI  error due to high token usage (TPM).
-5.  **User (Msg 484):** Reports a discrepancy between the transaction count on the upload summary (1,060) and the actual number of rows displayed in the UI (996).
-6.  **User (Msg 478):** Asks why there should be any limit on the number of transactions sent to the LLM.
-7.  **User (Msg 462):** Reports that 'memo' is not being read at all and that the LLM seems to be only processing the first 100 transactions out of 2000.
-8.  **User (Msg 454):** Reports that a large PDF with 25 tables is only saving a fraction of the total rows. Provides logs.
-9.  **User (Msg 448):** Informs the agent they have pushed changes to the  branch and to pull them.
-10. **User (Msg 380):** Reports multiple issues: the upload modal closes too early, extracted data (493 rows) doesn't appear in the UI, and the 'memo' parsing is incorrect for a specific file type.
+1.  **User (Msg 337-350):** Reports modal width is still insufficient, providing CSS debugging info. Agent adjusts the width using  Tailwind class to override defaults. (Completed)
+2.  **User (Msg 351):** Requests a major change to the matching test: it should accept a PDF file, not just text, and use the first 3 pages to test the match. (Completed)
+3.  **User (Msg 395):** Requests that the New Template flow also support PDF file uploads for AI analysis, not just images. (Completed)
+4.  **User (Msg 423):** Provides critical feedback: 1) Template identifiers should be based on general page text, not just table headers. 2) All column name matching (in templates and from PDFs) should ignore whitespace for robustness. (In Progress)
+5.  **User (latest from previous fork):** Multiple messages reporting a series of build errors locally (usage: openai [-h] [-v] [-b API_BASE] [-k API_KEY] [-p PROXY [PROXY ...]]
+              [-o ORGANIZATION] [-t {openai,azure}]
+              [--api-version API_VERSION] [--azure-endpoint AZURE_ENDPOINT]
+              [--azure-ad-token AZURE_AD_TOKEN] [-V]
+              {api,tools,migrate,grit} ...
+
+positional arguments:
+  {api,tools,migrate,grit}
+    api                 Direct API calls
+    tools               Client side tools for convenience
+
+options:
+  -h, --help            show this help message and exit
+  -v, --verbose         Set verbosity.
+  -b API_BASE, --api-base API_BASE
+                        What API base url to use.
+  -k API_KEY, --api-key API_KEY
+                        What API key to use.
+  -p PROXY [PROXY ...], --proxy PROXY [PROXY ...]
+                        What proxy to use.
+  -o ORGANIZATION, --organization ORGANIZATION
+                        Which organization to run as (will use your default
+                        organization if not specified)
+  -t {openai,azure}, --api-type {openai,azure}
+                        The backend API to call, must be `openai` or `azure`
+  --api-version API_VERSION
+                        The Azure API version, e.g.
+                        'https://learn.microsoft.com/en-us/azure/ai-
+                        services/openai/reference#rest-api-versioning'
+  --azure-endpoint AZURE_ENDPOINT
+                        The Azure endpoint, e.g.
+                        'https://endpoint.openai.azure.com'
+  --azure-ad-token AZURE_AD_TOKEN
+                        A token from Azure Active Directory,
+                        https://www.microsoft.com/en-
+                        us/security/business/identity-access/microsoft-entra-
+                        id
+  -V, --version         show program's version number and exit not found,  not found,  not found, Radix UI not found, DB table not found), which the agent has been fixing one by one. The last reported issue was a missing DB table. (In Progress)
 
 **Project Health Check:**
--   **Broken**: The core data extraction pipeline is critically flawed. It suffers from a fatal runtime error (), drops a significant percentage of data from multi-page PDFs, and fails to parse essential fields like 'memo' correctly. These issues make the application's primary function unreliable.
--   **Mocked**: AWS S3 functionality remains replaced by a local filesystem storage solution.
+-   **Broken**: The application is in a major state of flux due to the new template architecture. The user is experiencing repeated, blocking build and runtime errors in their local environment, preventing any testing of the new, complex features.
+-   **Mocked**: AWS S3 is still mocked with local file storage.
 
 **3rd Party Integrations**
--   **OpenAI GPT-4o-mini**: Used for column analysis () and the chat assistant feature (). The integration is a direct API call from the Next.js backend.
--   **Upstage Solar**: Used for the OCR component of the PDF parsing pipeline ().
--   **Anthropic**: Configurable in admin settings, but not actively used in recent tasks.
+-   **OpenAI GPT-4o-mini**: Used for the fallback column analysis (), the chat assistant (), and the new AI-assisted template generation ().
+-   **Upstage Solar**: Used for the core OCR and document layout parsing in .
 
 **Testing status**
 -   **Testing agent used after significant changes:** NO
 -   **Troubleshoot agent used after agent stuck in loop:** NO
 -   **Test files created:** None
--   **Known regressions:** The data extraction logic has regressed; it is less reliable now than in previous stages, failing to extract all rows from complex documents.
+-   **Known regressions:** A series of build-time regressions have been introduced and subsequently fixed due to dependency mismatches between the agent's environment and the user's. The core functionality is in an untested state.
 
 **Credentials to test flow:**
 -   **Email**: 
