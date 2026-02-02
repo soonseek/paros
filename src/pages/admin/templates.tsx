@@ -763,6 +763,7 @@ const TemplatesPage: NextPage = () => {
                                 <Select
                                   value={col.whenDeposit || "amount"}
                                   onValueChange={(v) => updateColumnSchema(type, "whenDeposit", v)}
+                                  disabled={analyzeFileMutation.isPending}
                                 >
                                   <SelectTrigger className="w-24">
                                     <SelectValue />
@@ -782,6 +783,7 @@ const TemplatesPage: NextPage = () => {
                                 <Select
                                   value={col.whenWithdrawal || "amount"}
                                   onValueChange={(v) => updateColumnSchema(type, "whenWithdrawal", v)}
+                                  disabled={analyzeFileMutation.isPending}
                                 >
                                   <SelectTrigger className="w-24">
                                     <SelectValue />
@@ -802,6 +804,7 @@ const TemplatesPage: NextPage = () => {
                                 size="sm"
                                 className="text-destructive"
                                 onClick={() => removeColumn(type)}
+                                disabled={analyzeFileMutation.isPending}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
