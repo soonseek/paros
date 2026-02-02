@@ -246,8 +246,13 @@ const TemplatesPage: NextPage = () => {
   const hasDuplicateHeaders = getDuplicateHeaders().length > 0;
 
   const openCreateEditor = () => {
-    // resetForm() 대신 직접 초기화 + 필수 컬럼 5개 설정
-    const initialData = {
+    // 필수 컬럼 5개를 명시적으로 설정
+    setIdentifiersInput("");
+    setEditingId(null);
+    setDetectedHeaders([]);
+    
+    // 상태를 직접 설정 (타입 명시)
+    setFormData({
       name: "",
       bankName: "",
       description: "",
@@ -256,33 +261,36 @@ const TemplatesPage: NextPage = () => {
       isActive: true,
       columnSchema: {
         columns: {
-          date: { index: 0, header: "" },
+          date: { 
+            index: 0, 
+            header: "" 
+          } as ColumnDefinition,
           deposit: { 
             index: 0, 
             header: "",
-            whenDeposit: "amount",
-            whenWithdrawal: "skip",
-          },
+            whenDeposit: "amount" as const,
+            whenWithdrawal: "skip" as const,
+          } as ColumnDefinition,
           withdrawal: { 
             index: 0, 
             header: "",
-            whenDeposit: "skip",
-            whenWithdrawal: "amount",
-          },
-          balance: { index: 0, header: "" },
-          memo: { index: 0, header: "" },
+            whenDeposit: "skip" as const,
+            whenWithdrawal: "amount" as const,
+          } as ColumnDefinition,
+          balance: { 
+            index: 0, 
+            header: "" 
+          } as ColumnDefinition,
+          memo: { 
+            index: 0, 
+            header: "" 
+          } as ColumnDefinition,
         },
         parseRules: {},
       },
-    };
+    });
     
-    console.log("[openCreateEditor] 필수 컬럼 5개 설정:", Object.keys(initialData.columnSchema.columns));
-    console.log("[openCreateEditor] memo 포함 여부:", 'memo' in initialData.columnSchema.columns);
-    
-    setFormData(initialData);
-    setIdentifiersInput("");
-    setEditingId(null);
-    setDetectedHeaders([]);
+    console.log("[openCreateEditor] 실행됨");
     setIsEditorOpen(true);
   };
 
