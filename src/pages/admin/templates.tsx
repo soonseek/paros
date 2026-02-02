@@ -597,15 +597,6 @@ const TemplatesPage: NextPage = () => {
                   </div>
                 </div>
               )}
-                              이미지 업로드
-                            </>
-                          )}
-                        </label>
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* 기본 정보 */}
               <div className="grid grid-cols-2 gap-4">
