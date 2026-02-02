@@ -257,13 +257,44 @@ const TemplatesPage: NextPage = () => {
     }
   };
 
-  const handleTest = () => {
-    const headers = testHeaders.split(",").map(s => s.trim()).filter(s => s.length > 0);
-    if (headers.length === 0) {
-      toast.error("헤더를 입력하세요");
+  const handleTestFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // PDF 파일 검증
+    if (file.type !== "application/pdf") {
+      toast.error("PDF 파일만 업로드할 수 있습니다");
       return;
     }
-    testMatchMutation.mutate({ headers });
+
+    // 파일 크기 제한 (50MB)
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error("파일 크기는 50MB 이하여야 합니다");
+      return;
+    }
+
+    setTestFileName(file.name);
+    setTestResult(null);
+
+    // FileReader로 Base64 변환
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = (reader.result as string).split(",")[1];
+      if (base64) {
+        testMatchMutation.mutate({
+          fileBase64: base64,
+          fileName: file.name,
+          mimeType: file.type,
+        });
+      }
+    };
+    reader.onerror = () => {
+      toast.error("파일을 읽는 중 오류가 발생했습니다");
+    };
+    reader.readAsDataURL(file);
+
+    // input 초기화
+    event.target.value = "";
   };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
