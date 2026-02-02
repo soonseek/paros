@@ -168,21 +168,6 @@ const TemplatesPage: NextPage = () => {
     },
     onError: (error) => toast.error(error.message),
   });
-  const analyzeImageMutation = api.template.analyzeImage.useMutation({
-    onSuccess: (data) => {
-      // 분석 결과로 폼 채우기
-      setFormData(prev => ({
-        ...prev,
-        name: data.suggestedName || prev.name,
-        bankName: data.suggestedBankName || prev.bankName,
-        description: data.suggestedDescription || prev.description,
-        columnSchema: data.suggestedColumnSchema || prev.columnSchema,
-      }));
-      setIdentifiersInput((data.suggestedIdentifiers || []).join(", "));
-      toast.success(`AI 분석 완료! (신뢰도: ${Math.round((data.confidence || 0) * 100)}%)`);
-    },
-    onError: (error) => toast.error(error.message),
-  });
   const analyzeFileMutation = api.template.analyzeFile.useMutation({
     onSuccess: (data) => {
       setFormData(prev => ({
