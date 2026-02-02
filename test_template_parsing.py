@@ -191,7 +191,7 @@ class TemplateParsingTester:
                 "mimeType": "application/pdf"
             }
             
-            result = self.call_trpc("template.testMatchWithFile", test_data)
+            result = self.call_trpc("template.testMatchWithFile", test_data, is_mutation=True)
             
             if result:
                 self.log("=" * 60)
