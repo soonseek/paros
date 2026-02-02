@@ -415,12 +415,20 @@ export const templateRouter = createTRPCRouter({
         // PDF 파싱
         let headers: string[] = [];
         let sampleRows: string[][] = [];
+        let pageTexts: string[] = [];
         
         try {
           const pdfResult = await extractTablesFromPDF(fileBuffer, 3, upstageApiKey);
           headers = pdfResult.headers;
           sampleRows = pdfResult.rows.slice(0, 10);
+          pageTexts = pdfResult.pageTexts || [];
+          
+          console.log(`[Template Analyze] Extracted ${headers.length} headers, ${sampleRows.length} rows, ${pageTexts.length} page texts`);
+          if (pageTexts.length > 0) {
+            console.log(`[Template Analyze] Page texts preview: ${pageTexts.slice(0, 3).join(" | ")}`);
+          }
         } catch (error) {
+          console.error("[Template Analyze] PDF parsing error:", error);
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
             message: error instanceof Error ? error.message : "PDF 파싱 실패",
@@ -437,12 +445,17 @@ export const templateRouter = createTRPCRouter({
         // LLM으로 템플릿 초안 생성
         if (!env.OPENAI_API_KEY) {
           // API 키 없으면 기본 정보만 반환
+          // 페이지 텍스트에서 식별자 추출 (첫 3개 단어)
+          const fallbackIdentifiers = pageTexts.length > 0 
+            ? pageTexts.slice(0, 3).map(t => t.split(/\s+/)[0]).filter(Boolean)
+            : headers.slice(0, 3);
+          
           return {
             success: true,
             suggestedName: `템플릿_${new Date().toISOString().slice(0, 10)}`,
             suggestedBankName: "",
             suggestedDescription: `헤더: ${headers.join(", ")}`,
-            suggestedIdentifiers: headers.slice(0, 3),
+            suggestedIdentifiers: fallbackIdentifiers,
             detectedHeaders: headers,
             suggestedColumnSchema: { columns: {} },
             confidence: 0.5,
@@ -452,11 +465,15 @@ export const templateRouter = createTRPCRouter({
         
         const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
         const sampleDataStr = sampleRows.slice(0, 5).map(row => row.join(" | ")).join("\n");
+        const pageTextsStr = pageTexts.slice(0, 10).join(" / ");
         
-        const prompt = `다음은 은행 거래내역서 PDF에서 추출한 헤더와 샘플 데이터입니다.
+        const prompt = `다음은 은행 거래내역서 PDF에서 추출한 정보입니다.
 이 정보를 분석하여 템플릿 초안을 생성하세요.
 
-## 헤더
+## 페이지 텍스트 (문서 상단의 은행명, 타이틀 등)
+${pageTextsStr || "(없음)"}
+
+## 테이블 헤더
 ${headers.join(", ")}
 
 ## 샘플 데이터 (최대 5행)
@@ -464,7 +481,7 @@ ${sampleDataStr}
 
 ## 응답 형식 (JSON만 반환)
 {
-  "bankName": "추정되는 은행명 (확실하지 않으면 빈 문자열)",
+  "bankName": "추정되는 은행명 (페이지 텍스트에서 추출, 확실하지 않으면 빈 문자열)",
   "description": "이 거래내역서의 특징 설명 (2-3문장)",
   "identifiers": ["식별자1", "식별자2", "식별자3"],
   "columnMapping": {
@@ -478,7 +495,9 @@ ${sampleDataStr}
   "reasoning": "분석 근거"
 }
 
-주의:
+중요:
+- **identifiers**: 페이지 텍스트(문서 상단)에서 이 문서를 구분할 수 있는 고유 키워드 2-4개 추출 (예: "국민은행", "입출금거래내역", "보통예금")
+  테이블 헤더가 아닌 페이지 상단의 은행명, 계좌 종류, 문서 타이틀 등에서 추출해야 함
 - index는 0부터 시작
 - 해당 없는 컬럼은 columnMapping에서 생략
 - whenDeposit/whenWithdrawal은 입금/출금에 따라 역할이 바뀌는 특수 케이스에서만 사용
