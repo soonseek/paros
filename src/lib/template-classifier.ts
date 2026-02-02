@@ -276,6 +276,7 @@ export function convertSchemaToMapping(
 
 /**
  * 컬럼 정의에서 실제 인덱스 찾기
+ * 띄어쓰기를 제거하고 비교
  */
 function findColumnIndex(colDef: ColumnDefinition, headers: string[]): number {
   // 1. index가 지정되어 있고 유효하면 사용
@@ -283,13 +284,18 @@ function findColumnIndex(colDef: ColumnDefinition, headers: string[]): number {
     return colDef.index;
   }
 
-  // 2. header 이름으로 찾기
+  // 2. header 이름으로 찾기 (띄어쓰기 제거 후 비교)
   if (colDef.header) {
-    const idx = headers.findIndex(h => 
-      h.toLowerCase().includes(colDef.header.toLowerCase()) ||
-      colDef.header.toLowerCase().includes(h.toLowerCase())
-    );
-    if (idx !== -1) return idx;
+    const normalizedTarget = normalizeText(colDef.header);
+    const idx = headers.findIndex(h => {
+      const normalizedHeader = normalizeText(h);
+      return normalizedHeader.includes(normalizedTarget) ||
+             normalizedTarget.includes(normalizedHeader);
+    });
+    if (idx !== -1) {
+      console.log(`[findColumnIndex] Matched "${colDef.header}" to header[${idx}]="${headers[idx]}" (normalized)`);
+      return idx;
+    }
   }
 
   return -1;
