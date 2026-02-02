@@ -220,6 +220,30 @@ const TemplatesPage: NextPage = () => {
 
   const openCreateEditor = () => {
     resetForm();
+    // 필수 컬럼 5개 자동 추가 (거래일자, 입금액, 출금액, 잔액, 비고)
+    setFormData(prev => ({
+      ...prev,
+      columnSchema: {
+        columns: {
+          date: { index: 0, header: "" },
+          deposit: { 
+            index: 0, 
+            header: "",
+            whenDeposit: "amount",
+            whenWithdrawal: "skip",
+          },
+          withdrawal: { 
+            index: 0, 
+            header: "",
+            whenDeposit: "skip",
+            whenWithdrawal: "amount",
+          },
+          balance: { index: 0, header: "" },
+          memo: { index: 0, header: "" },
+        },
+        parseRules: {},
+      },
+    }));
     setIsEditorOpen(true);
   };
 
