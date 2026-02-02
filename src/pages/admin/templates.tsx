@@ -605,6 +605,7 @@ const TemplatesPage: NextPage = () => {
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="예: 부산은행_일반계좌"
+                    disabled={analyzeFileMutation.isPending}
                   />
                 </div>
                 <div className="space-y-2">
@@ -613,6 +614,7 @@ const TemplatesPage: NextPage = () => {
                     value={formData.bankName}
                     onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
                     placeholder="예: 부산은행"
+                    disabled={analyzeFileMutation.isPending}
                   />
                 </div>
               </div>
@@ -625,6 +627,7 @@ const TemplatesPage: NextPage = () => {
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="이 템플릿이 적용되는 거래내역서의 특징을 상세히 기술하세요. LLM이 유사도 매칭에 사용합니다."
                   rows={4}
+                  disabled={analyzeFileMutation.isPending}
                 />
               </div>
 
@@ -635,6 +638,7 @@ const TemplatesPage: NextPage = () => {
                   value={identifiersInput}
                   onChange={(e) => setIdentifiersInput(e.target.value)}
                   placeholder="쉼표로 구분. 예: 국민은행, 거래내역, 입출금"
+                  disabled={analyzeFileMutation.isPending}
                 />
                 <p className="text-xs text-muted-foreground">
                   문서 상단의 은행명, 타이틀 등 페이지 텍스트에서 이 키워드들이 모두 포함되면 자동 매칭됩니다 (Layer 1)
@@ -649,6 +653,7 @@ const TemplatesPage: NextPage = () => {
                     type="number"
                     value={formData.priority}
                     onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) || 0 })}
+                    disabled={analyzeFileMutation.isPending}
                   />
                   <p className="text-xs text-muted-foreground">높을수록 먼저 매칭 시도</p>
                 </div>
@@ -659,6 +664,7 @@ const TemplatesPage: NextPage = () => {
                       id="isActive"
                       checked={formData.isActive}
                       onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked === true })}
+                      disabled={analyzeFileMutation.isPending}
                     />
                     <label htmlFor="isActive" className="text-sm cursor-pointer">
                       {formData.isActive ? "활성" : "비활성"}
