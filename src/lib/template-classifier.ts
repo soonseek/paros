@@ -89,6 +89,7 @@ export function matchByIdentifiers(
   const normalizedSearchText = normalizeText(searchText);
   
   console.log(`[Template Classifier] Layer 1: Searching in ${pageTexts?.length || 0} page texts + ${headers.length} headers`);
+  console.log(`[Template Classifier] Headers (normalized): ${headers.map(h => normalizeText(h)).join(", ")}`);
   console.log(`[Template Classifier] Normalized search text (first 200 chars): ${normalizedSearchText.substring(0, 200)}`);
   
   // 우선순위 순으로 정렬
@@ -100,16 +101,26 @@ export function matchByIdentifiers(
     if (template.identifiers.length === 0) continue;
     
     // 모든 identifiers가 검색 텍스트에 포함되어야 함 (띄어쓰기 제거 후 비교)
-    const allMatch = template.identifiers.every(identifier => 
-      normalizedSearchText.includes(normalizeText(identifier))
-    );
+    const matchResults = template.identifiers.map(identifier => ({
+      identifier,
+      normalized: normalizeText(identifier),
+      matched: normalizedSearchText.includes(normalizeText(identifier))
+    }));
+    
+    const allMatch = matchResults.every(r => r.matched);
+    
+    console.log(`[Template Classifier] Testing template "${template.name}":`);
+    matchResults.forEach(r => {
+      console.log(`  - "${r.identifier}" (normalized: "${r.normalized}") -> ${r.matched ? "✓ MATCH" : "✗ NO MATCH"}`);
+    });
     
     if (allMatch) {
-      console.log(`[Template Classifier] Layer 1 MATCH: "${template.name}" (identifiers: ${template.identifiers.join(", ")})`);
+      console.log(`[Template Classifier] Layer 1 MATCH: "${template.name}" (all ${template.identifiers.length} identifiers matched)`);
       return template;
     }
   }
   
+  console.log("[Template Classifier] Layer 1: No exact match found");
   return null;
 }
 
