@@ -360,38 +360,167 @@ export const templateRouter = createTRPCRouter({
     }),
 
   /**
-   * 이미지 분석 - 스크린샷에서 템플릿 초안 자동 생성
+   * 파일 분석 - 이미지 또는 PDF에서 템플릿 초안 자동 생성
    */
-  analyzeImage: adminProcedure
+  analyzeFile: adminProcedure
     .input(z.object({
-      imageBase64: z.string(),
-      mimeType: z.string().default("image/png"),
+      fileBase64: z.string(),
+      fileName: z.string(),
+      mimeType: z.string(),
     }))
     .mutation(async ({ input }) => {
-      const { analyzeTemplateImage } = await import("~/lib/template-image-analyzer");
+      const fileBuffer = Buffer.from(input.fileBase64, "base64");
+      const isPdf = input.mimeType === "application/pdf" || input.fileName.toLowerCase().endsWith(".pdf");
       
-      // Base64를 Buffer로 변환
-      const imageBuffer = Buffer.from(input.imageBase64, "base64");
+      console.log(`[Template Analyze] Processing ${isPdf ? "PDF" : "Image"}: ${input.fileName}`);
       
-      const result = await analyzeTemplateImage(imageBuffer, input.mimeType);
-      
-      if (!result.success) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: result.error || "이미지 분석 실패",
-        });
+      if (isPdf) {
+        // PDF 파일: Upstage 파싱 → LLM 분석
+        const { extractTablesFromPDF } = await import("~/lib/pdf-ocr");
+        const { default: OpenAI } = await import("openai");
+        const { env } = await import("~/env");
+        
+        // PDF 파싱
+        let headers: string[] = [];
+        let sampleRows: string[][] = [];
+        
+        try {
+          const pdfResult = await extractTablesFromPDF(fileBuffer, 3);
+          headers = pdfResult.headers;
+          sampleRows = pdfResult.rows.slice(0, 10);
+        } catch (error) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: error instanceof Error ? error.message : "PDF 파싱 실패",
+          });
+        }
+        
+        if (headers.length === 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "PDF에서 테이블 헤더를 추출할 수 없습니다",
+          });
+        }
+        
+        // LLM으로 템플릿 초안 생성
+        if (!env.OPENAI_API_KEY) {
+          // API 키 없으면 기본 정보만 반환
+          return {
+            success: true,
+            suggestedName: `템플릿_${new Date().toISOString().slice(0, 10)}`,
+            suggestedBankName: "",
+            suggestedDescription: `헤더: ${headers.join(", ")}`,
+            suggestedIdentifiers: headers.slice(0, 3),
+            detectedHeaders: headers,
+            suggestedColumnSchema: { columns: {} },
+            confidence: 0.5,
+            reasoning: "OpenAI API 키 없음 - 기본 정보만 추출됨",
+          };
+        }
+        
+        const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
+        const sampleDataStr = sampleRows.slice(0, 5).map(row => row.join(" | ")).join("\n");
+        
+        const prompt = `다음은 은행 거래내역서 PDF에서 추출한 헤더와 샘플 데이터입니다.
+이 정보를 분석하여 템플릿 초안을 생성하세요.
+
+## 헤더
+${headers.join(", ")}
+
+## 샘플 데이터 (최대 5행)
+${sampleDataStr}
+
+## 응답 형식 (JSON만 반환)
+{
+  "bankName": "추정되는 은행명 (확실하지 않으면 빈 문자열)",
+  "description": "이 거래내역서의 특징 설명 (2-3문장)",
+  "identifiers": ["식별자1", "식별자2", "식별자3"],
+  "columnMapping": {
+    "date": { "index": 0, "header": "거래일자 컬럼명" },
+    "deposit": { "index": 1, "header": "입금 컬럼명", "whenDeposit": "amount", "whenWithdrawal": "memo" },
+    "withdrawal": { "index": 2, "header": "출금 컬럼명", "whenDeposit": "memo", "whenWithdrawal": "amount" },
+    "balance": { "index": 3, "header": "잔액 컬럼명" },
+    "memo": { "index": 4, "header": "비고 컬럼명" }
+  },
+  "confidence": 0.0~1.0,
+  "reasoning": "분석 근거"
+}
+
+주의:
+- index는 0부터 시작
+- 해당 없는 컬럼은 columnMapping에서 생략
+- whenDeposit/whenWithdrawal은 입금/출금에 따라 역할이 바뀌는 특수 케이스에서만 사용
+- JSON만 반환`;
+
+        try {
+          const response = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.1,
+            max_tokens: 1500,
+          });
+          
+          const content = response.choices[0]?.message?.content?.trim() || "";
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          
+          if (!jsonMatch) {
+            throw new Error("LLM 응답 파싱 실패");
+          }
+          
+          const result = JSON.parse(jsonMatch[0]);
+          
+          return {
+            success: true,
+            suggestedName: result.bankName 
+              ? `${result.bankName}_${new Date().toISOString().slice(0, 10)}`
+              : `템플릿_${new Date().toISOString().slice(0, 10)}`,
+            suggestedBankName: result.bankName || "",
+            suggestedDescription: result.description || "",
+            suggestedIdentifiers: result.identifiers || headers.slice(0, 3),
+            detectedHeaders: headers,
+            suggestedColumnSchema: { columns: result.columnMapping || {} },
+            confidence: result.confidence || 0.7,
+            reasoning: result.reasoning || "",
+          };
+        } catch (error) {
+          console.error("[Template Analyze] LLM error:", error);
+          // LLM 실패해도 기본 정보는 반환
+          return {
+            success: true,
+            suggestedName: `템플릿_${new Date().toISOString().slice(0, 10)}`,
+            suggestedBankName: "",
+            suggestedDescription: `헤더: ${headers.join(", ")}`,
+            suggestedIdentifiers: headers.slice(0, 3),
+            detectedHeaders: headers,
+            suggestedColumnSchema: { columns: {} },
+            confidence: 0.5,
+            reasoning: "LLM 분석 실패 - 기본 정보만 추출됨",
+          };
+        }
+      } else {
+        // 이미지 파일: 기존 Vision API 사용
+        const { analyzeTemplateImage } = await import("~/lib/template-image-analyzer");
+        
+        const result = await analyzeTemplateImage(fileBuffer, input.mimeType);
+        
+        if (!result.success) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: result.error || "이미지 분석 실패",
+          });
+        }
+        
+        return {
+          success: true,
+          suggestedName: result.suggestedName,
+          suggestedBankName: result.suggestedBankName,
+          suggestedDescription: result.suggestedDescription,
+          suggestedIdentifiers: result.suggestedIdentifiers,
+          detectedHeaders: result.detectedHeaders,
+          suggestedColumnSchema: result.suggestedColumnSchema,
+          confidence: result.confidence,
+          reasoning: result.reasoning,
+        };
       }
-      
-      return {
-        success: true,
-        suggestedName: result.suggestedName,
-        suggestedBankName: result.suggestedBankName,
-        suggestedDescription: result.suggestedDescription,
-        suggestedIdentifiers: result.suggestedIdentifiers,
-        detectedHeaders: result.detectedHeaders,
-        suggestedColumnSchema: result.suggestedColumnSchema,
-        confidence: result.confidence,
-        reasoning: result.reasoning,
-      };
     }),
 });
