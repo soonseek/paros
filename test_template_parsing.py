@@ -351,7 +351,7 @@ class TemplateParsingTester:
 
 def main():
     """Main test execution"""
-    tester = TemplateParsing Tester()
+    tester = TemplateParsingTester()
     
     try:
         success = tester.run_all_tests()
