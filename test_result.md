@@ -191,6 +191,18 @@ backend:
       - working: "NA"
         agent: "testing"
         comment: "⚠️ Cannot test: Requires document upload and authentication. The endpoint is implemented and calls analyzeFileStructure() which integrates with template classification. Cannot test end-to-end without valid API keys."
+  
+  - task: "Template AI Analysis API (template.analyzeFile)"
+    implemented: true
+    working: "NA"
+    file: "/app/src/server/api/routers/template.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "testing"
+        comment: "✅ IMPLEMENTATION VERIFIED (Test Sequence 3): Code review confirms all required functionality is correctly implemented. The template.analyzeFile endpoint (lines 385-582) includes: (1) PDF parsing via extractTablesFromPDF with Upstage API, (2) Page text extraction from non-table elements (pdf-ocr.ts lines 142-149), (3) Identifier extraction from page texts (not headers) in fallback logic (lines 449-451, 541-543), (4) LLM analysis with OpenAI GPT-4o-mini (lines 466-535), (5) Comprehensive logging including '[Template Analyze] Page texts preview' and '[Upstage API] PAGE TEXTS EXTRACTION' sections. ❌ BLOCKER: Cannot execute end-to-end test - UPSTAGE_API_KEY is placeholder in .env and not in database. OPENAI_API_KEY also placeholder. Test script created: /app/test_template_ai_simple.mjs. User must configure API keys via SQL commands provided in test output or admin settings page."
 
 frontend:
   - task: "N/A - Backend testing only"
