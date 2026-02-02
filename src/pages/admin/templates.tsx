@@ -903,7 +903,8 @@ const TemplatesPage: NextPage = () => {
                               </Button>
                             </TableCell>
                           </TableRow>
-                        ))}
+                        ));
+                        })()}
                       </TableBody>
                     </Table>
                   )}
