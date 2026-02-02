@@ -421,7 +421,7 @@ async function main() {
     console.error(error.stack);
     process.exit(1);
   } finally {
-    await prisma.$disconnect();
+    // Prisma client is managed by the app, no need to disconnect
   }
 }
 
