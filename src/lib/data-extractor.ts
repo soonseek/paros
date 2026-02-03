@@ -391,7 +391,8 @@ export async function extractAndSaveTransactions(
         }
       }
 
-      const balance = parseAmount(
+      // Parse balance (마지막 숫자 추출 - 병합된 행 대응)
+      const balance = parseBalance(
         columnMapping.balance !== undefined ? row[columnMapping.balance] : null
       );
 
