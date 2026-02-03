@@ -46,6 +46,7 @@ export interface TemplateColumnSchema {
   parseRules?: {
     isDeposit?: string;  // 입금 판별 조건 (JS 표현식)
     memoExtraction?: string; // 비고 추출 규칙
+    rowMergePattern?: "pair" | "none"; // 행 병합 패턴 (2행 → 1거래)
   };
 }
 
