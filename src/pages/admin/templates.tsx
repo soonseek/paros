@@ -358,9 +358,9 @@ const TemplatesPage: NextPage = () => {
       return;
     }
 
-    // 파일 크기 제한 (50MB)
-    if (file.size > 50 * 1024 * 1024) {
-      toast.error("파일 크기는 50MB 이하여야 합니다");
+    // 파일 크기 제한 (1GB)
+    if (file.size > 1024 * 1024 * 1024) {
+      toast.error("파일 크기는 1GB 이하여야 합니다");
       return;
     }
 
@@ -401,9 +401,9 @@ const TemplatesPage: NextPage = () => {
       return;
     }
 
-    // 파일 크기 제한 (50MB)
-    if (file.size > 50 * 1024 * 1024) {
-      toast.error("파일 크기는 50MB 이하여야 합니다");
+    // 파일 크기 제한 (1GB)
+    if (file.size > 1024 * 1024 * 1024) {
+      toast.error("파일 크기는 1GB 이하여야 합니다");
       return;
     }
 
