@@ -57,10 +57,17 @@ export function LoanTrackingModal({ isOpen, onClose, caseId }: LoanTrackingModal
 
     // 요약 정보 추가
     if (data.summary) {
-      excelData.push({} as typeof excelData[0]);
+      excelData.push({
+        "날짜": "",
+        "구분": "-" as "대출실행" | "출금" | "이체",
+        "금액": 0,
+        "잔액": 0,
+        "남은 대출금": 0,
+        "비고": "",
+      });
       excelData.push({
         "날짜": "=== 요약 ===",
-        "구분": "",
+        "구분": "-" as "대출실행" | "출금" | "이체",
         "금액": 0,
         "잔액": 0,
         "남은 대출금": 0,
@@ -68,7 +75,7 @@ export function LoanTrackingModal({ isOpen, onClose, caseId }: LoanTrackingModal
       });
       excelData.push({
         "날짜": "대출금 총액",
-        "구분": "",
+        "구분": "-" as "대출실행" | "출금" | "이체",
         "금액": data.summary.loanAmount,
         "잔액": 0,
         "남은 대출금": 0,
@@ -76,7 +83,7 @@ export function LoanTrackingModal({ isOpen, onClose, caseId }: LoanTrackingModal
       });
       excelData.push({
         "날짜": "사용 금액",
-        "구분": "",
+        "구분": "-" as "대출실행" | "출금" | "이체",
         "금액": data.summary.totalUsed,
         "잔액": 0,
         "남은 대출금": 0,
@@ -84,7 +91,7 @@ export function LoanTrackingModal({ isOpen, onClose, caseId }: LoanTrackingModal
       });
       excelData.push({
         "날짜": "사용 건수",
-        "구분": "",
+        "구분": "-" as "대출실행" | "출금" | "이체",
         "금액": data.summary.usageCount,
         "잔액": 0,
         "남은 대출금": 0,
