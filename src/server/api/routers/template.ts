@@ -96,15 +96,18 @@ export const templateRouter = createTRPCRouter({
       isActive: z.boolean().default(true),
     }))
     .mutation(async ({ ctx, input }) => {
-      // 중복 이름 체크
-      const existing = await ctx.db.transactionTemplate.findUnique({
-        where: { name: input.name },
+      // 중복 체크: 은행명 + 이름이 모두 동일한 경우만
+      const existing = await ctx.db.transactionTemplate.findFirst({
+        where: {
+          name: input.name,
+          bankName: input.bankName || null,
+        },
       });
 
       if (existing) {
         throw new TRPCError({
           code: "CONFLICT",
-          message: "이미 동일한 이름의 템플릿이 존재합니다",
+          message: `이미 동일한 템플릿이 존재합니다 (은행: ${input.bankName || "미지정"}, 이름: ${input.name})`,
         });
       }
 
