@@ -565,8 +565,22 @@ function parseHTMLTable(html: string): TableData {
 
   console.log(`[HTML Table] Found ${matches.length} <tr> tags`);
 
-  // Parse headers from first row
-  const headerRow = matches[0][1];
+  // 모든 행의 컬럼 수를 계산하여 가장 많은 컬럼을 가진 행을 헤더로 선택
+  let maxColumns = 0;
+  let headerRowIndex = 0;
+  
+  for (let i = 0; i < Math.min(matches.length, 5); i++) {
+    const cells = extractCellsFromHTML(matches[i][1]);
+    if (cells.length > maxColumns) {
+      maxColumns = cells.length;
+      headerRowIndex = i;
+    }
+  }
+  
+  console.log(`[HTML Table] 헤더 행 선택: row ${headerRowIndex + 1} (${maxColumns} columns)`);
+  
+  // Parse headers from selected row
+  const headerRow = matches[headerRowIndex][1];
   const rawHeaders = extractCellsFromHTML(headerRow);
   
   // 띄어쓰기 정규화: OCR에서 "거래 일자", "출 금 금 액" 등으로 읽히는 경우 처리
@@ -576,7 +590,7 @@ function parseHTMLTable(html: string): TableData {
   console.log("[HTML Table] Normalized headers (after removing spaces):", headers);
 
   // Skip separator rows (rows with only dashes/spaces or HTML tags without text)
-  const dataRows = matches.slice(1).filter(match => {
+  const dataRows = matches.slice(headerRowIndex + 1).filter(match => {
     const cells = extractCellsFromHTML(match[1]);
     // Check if row has actual text content (not just dashes or separators)
     const hasContent = cells.some(cell => {
