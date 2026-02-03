@@ -833,10 +833,12 @@ const TemplatesPage: NextPage = () => {
                             <TableCell>
                               <Input
                                 type="number"
-                                className="w-20"
+                                className={`w-20 ${detectedHeaders.length > 0 ? 'bg-muted' : ''}`}
                                 value={col.index}
                                 onChange={(e) => updateColumnSchema(type, "index", parseInt(e.target.value) || 0)}
-                                disabled={analyzeFileMutation.isPending}
+                                disabled={analyzeFileMutation.isPending || detectedHeaders.length > 0}
+                                readOnly={detectedHeaders.length > 0}
+                                title={detectedHeaders.length > 0 ? "헤더 선택 시 자동 설정됨" : ""}
                               />
                             </TableCell>
                             <TableCell>
