@@ -717,11 +717,11 @@ const TemplatesPage: NextPage = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>은행명</Label>
+                  <Label>은행명 / 카드사명</Label>
                   <Input
                     value={formData.bankName}
                     onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
-                    placeholder="예: 부산은행"
+                    placeholder="예: 국민은행, 삼성카드"
                     disabled={analyzeFileMutation.isPending}
                   />
                 </div>
