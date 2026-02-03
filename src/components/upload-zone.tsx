@@ -164,7 +164,7 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
             try {
               const result = await getAnalysisResultQuery.refetch();
               if (result.data?.success && result.data.analysisResult) {
-                const { document, analysisResult } = result.data;
+                const { document, analysisResult, savedTransactionCount } = result.data;
 
                 // Extract column mapping
                 const columnMapping = analysisResult.columnMapping as Record<string, string | undefined> ?? {};
