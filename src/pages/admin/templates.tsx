@@ -1114,7 +1114,12 @@ const TemplatesPage: NextPage = () => {
                       <div className="space-y-3">
                         <div className="flex items-center gap-2">
                           <Badge className="bg-green-600">Layer {testResult.layer}</Badge>
-                          <span className="font-medium">{testResult.templateName}</span>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{testResult.templateName}</span>
+                            {testResult.bankName && (
+                              <span className="text-xs text-muted-foreground">{testResult.bankName}</span>
+                            )}
+                          </div>
                         </div>
                         <p className="text-sm text-muted-foreground">
                           매칭 방식: {testResult.layerName === "exact_match" ? "정확 매칭 (키워드)" : "유사도 매칭 (LLM)"}
