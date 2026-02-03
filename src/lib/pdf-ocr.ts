@@ -358,23 +358,25 @@ function extractFromTableElementsHTML(tableElements: Array<{
       dataScore += Math.min(tableData.rows.length * 2, 20);
       
       const score = headerScore + dataScore + tableData.headers.length;
-    const hasValidHeaders = hasDateColumn && !firstCellLooksLikeDate;
+      const hasValidHeaders = hasDateColumn && !firstCellLooksLikeDate;
 
-    console.log(`[HTML Table] Table ${i + 1}: cols=${tableData.headers.length}, rows=${tableData.rows.length}, validHeader=${hasValidHeaders}, headerScore=${headerScore}, dataScore=${dataScore}, totalScore=${score}`);
-    if (!hasValidHeaders) {
-      console.log(`[HTML Table]    First row (potential data):`, tableData.headers.slice(0, 5).join(", "));
+      const tableId = `${i + 1}-${j + 1}`;
+      console.log(`[HTML Table] Table ${tableId}: cols=${tableData.headers.length}, rows=${tableData.rows.length}, validHeader=${hasValidHeaders}, headerScore=${headerScore}, dataScore=${dataScore}, totalScore=${score}`);
+      if (!hasValidHeaders) {
+        console.log(`[HTML Table]    First row (potential data):`, tableData.headers.slice(0, 5).join(", "));
+      }
+
+      parsedTables.push({
+        index: parsedTables.length + 1, // 전체 테이블 카운트
+        headers: tableData.headers,
+        rows: tableData.rows,
+        columnCount: tableData.headers.length,
+        hasValidHeaders,
+        headerScore,
+        dataScore,
+        score,
+      });
     }
-
-    parsedTables.push({
-      index: i + 1,
-      headers: tableData.headers,
-      rows: tableData.rows,
-      columnCount: tableData.headers.length,
-      hasValidHeaders,
-      headerScore,
-      dataScore,
-      score,
-    });
   }
 
   if (parsedTables.length === 0) {
