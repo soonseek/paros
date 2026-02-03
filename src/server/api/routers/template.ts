@@ -30,6 +30,7 @@ const columnSchemaSchema = z.object({
   parseRules: z.object({
     isDeposit: z.string().optional(),
     memoExtraction: z.string().optional(),
+    rowMergePattern: z.enum(["pair", "none"]).optional(), // 행 병합 패턴
   }).optional(),
 });
 
