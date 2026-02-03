@@ -204,7 +204,7 @@ async function parseSinglePdf(
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${finalApiKey}`,
+          Authorization: `Bearer ${apiKey}`,
           // Note: Don't set Content-Type when using FormData, browser sets it with boundary
         },
         body: formData,
