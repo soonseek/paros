@@ -134,6 +134,11 @@ export async function analyzeFileStructure(
           if (templateResult.memoInAmountColumn) {
             (templateColumnMapping as Record<string, unknown>).memoInAmountColumn = true;
           }
+          
+          // rowMergePattern 플래그
+          if (templateResult.parseRules?.rowMergePattern) {
+            (templateColumnMapping as Record<string, unknown>).rowMergePattern = templateResult.parseRules.rowMergePattern;
+          }
 
           return {
             status: "completed",
