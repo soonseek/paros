@@ -369,12 +369,19 @@ export const templateRouter = createTRPCRouter({
       const result = await classifyTransaction(ctx.db, headers, sampleRows, pageTexts);
 
       if (result) {
+        // 템플릿 정보 조회 (은행명 포함)
+        const matchedTemplate = await ctx.db.transactionTemplate.findUnique({
+          where: { id: result.templateId },
+          select: { bankName: true },
+        });
+        
         return {
           matched: true,
           layer: result.layer,
           layerName: result.layerName,
           templateId: result.templateId,
           templateName: result.templateName,
+          bankName: matchedTemplate?.bankName || null,
           confidence: result.confidence,
           columnMapping: result.columnMapping,
           headers,
