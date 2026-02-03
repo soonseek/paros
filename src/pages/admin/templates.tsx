@@ -925,35 +925,51 @@ const TemplatesPage: NextPage = () => {
                   })()}
                 </div>
 
-                {/* 특수 케이스 설명 */}
+                {/* 컬럼 매핑 유형 안내 */}
                 <div className="bg-muted/50 p-4 rounded-lg">
                   <div className="flex items-start gap-2">
                     <Info className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
-                    <div className="text-sm space-y-2">
+                    <div className="text-sm space-y-3">
                       <div>
-                        <p className="font-medium">입금 시 / 출금 시 역할 설정</p>
+                        <p className="font-medium">컬럼 매핑 유형 가이드</p>
                         <p className="text-muted-foreground mt-1">
-                          컬럼에 들어가는 값의 역할이 입금/출금 거래에 따라 다른 경우에만 변경하세요.
+                          은행마다 거래내역서 형식이 다릅니다. 아래 유형을 참고하여 설정하세요.
                         </p>
                       </div>
                       
-                      <div className="border-l-2 border-blue-300 pl-3 space-y-1">
-                        <p className="font-medium text-blue-700">일반 케이스 (기본값)</p>
+                      <div className="border-l-2 border-green-300 pl-3 space-y-1">
+                        <p className="font-medium text-green-700">📗 유형 A: 입금액/출금액 분리형 (가장 일반적)</p>
                         <p className="text-muted-foreground text-xs">
-                          • 입금 거래: 입금액에만 값, 출금액은 빈 셀<br/>
-                          • 출금 거래: 출금액에만 값, 입금액은 빈 셀<br/>
-                          → 입금액: 입금 시=금액, 출금 시=무시<br/>
-                          → 출금액: 입금 시=무시, 출금 시=금액
+                          예: 국민은행, 신한은행, 우리은행<br/>
+                          <span className="font-mono bg-white px-1 rounded">거래일자 | 입금액 | 출금액 | 잔액 | 비고</span><br/>
+                          • 입금 거래: 입금액에만 값, 출금액 빈 셀<br/>
+                          • 출금 거래: 출금액에만 값, 입금액 빈 셀<br/>
+                          → <strong>설정</strong>: 입금액/출금액/잔액/비고 컬럼 매핑<br/>
+                          → <strong>역할</strong>: 입금액(입금=금액, 출금=무시), 출금액(입금=무시, 출금=금액)
+                        </p>
+                      </div>
+                      
+                      <div className="border-l-2 border-purple-300 pl-3 space-y-1">
+                        <p className="font-medium text-purple-700">📕 유형 B: 거래구분 + 단일금액형</p>
+                        <p className="text-muted-foreground text-xs">
+                          예: 일부 증권사, 카드사<br/>
+                          <span className="font-mono bg-white px-1 rounded">거래일자 | 구분 | 거래금액 | 잔액 | 비고</span><br/>
+                          • 구분 컬럼: "입금", "출금", "+", "-" 등의 텍스트<br/>
+                          • 거래금액: 단일 금액 (구분에 따라 입금/출금 판별)<br/>
+                          → <strong>설정</strong>: 거래구분/거래금액(단일)/잔액/비고 컬럼 매핑<br/>
+                          → <strong>주의</strong>: 입금액/출금액 컬럼은 추가하지 마세요
                         </p>
                       </div>
                       
                       <div className="border-l-2 border-amber-300 pl-3 space-y-1">
-                        <p className="font-medium text-amber-700">특수 케이스 (부산은행 등)</p>
+                        <p className="font-medium text-amber-700">📙 유형 C: 비고 혼재형 (특수)</p>
                         <p className="text-muted-foreground text-xs">
+                          예: 부산은행<br/>
+                          <span className="font-mono bg-white px-1 rounded">거래일자 | 입금액/비고 | 출금액/비고 | 잔액</span><br/>
                           • 입금 거래: 입금액=금액, 출금액=비고<br/>
                           • 출금 거래: 입금액=비고, 출금액=금액<br/>
-                          → 입금액: 입금 시=금액, 출금 시=비고<br/>
-                          → 출금액: 입금 시=비고, 출금 시=금액
+                          → <strong>설정</strong>: 입금액/출금액/잔액 컬럼 매핑 (비고 컬럼 제거)<br/>
+                          → <strong>역할</strong>: 입금액(입금=금액, 출금=비고), 출금액(입금=비고, 출금=금액)
                         </p>
                       </div>
                     </div>
