@@ -259,7 +259,7 @@ function extractFromTableElementsHTML(tableElements: Array<{
 
   console.log(`[HTML Table] Extracting data from ${tableElements.length} tables...`);
 
-  // 1단계: 모든 테이블 파싱 (컬럼 수 제한 없이)
+  // 1단계: 모든 테이블 파싱 (중첩 테이블 포함)
   interface ParsedTable {
     index: number;
     headers: string[];
@@ -283,19 +283,34 @@ function extractFromTableElementsHTML(tableElements: Array<{
     console.log(`[HTML Table] Processing table ${i + 1}/${tableElements.length}...`);
     console.log(`[HTML Table] Table ${i + 1} HTML length: ${tableHTML.length}, preview: ${tableHTML.substring(0, 100)}...`);
 
-    let tableData;
-    try {
-      tableData = parseHTMLTable(tableHTML);
-    } catch (error) {
-      console.log(`[HTML Table] ⚠️ Table ${i + 1} skipped - Parse error: ${error instanceof Error ? error.message : String(error)}`);
-      continue;
-    }
+    // 중첩 테이블 감지: HTML 내부에 또 다른 <table> 태그가 있는지 확인
+    const allTablesInHTML = tableHTML.match(/<table[^>]*>[\s\S]*?<\/table>/gi) || [];
     
-    // 최소 컬럼 수를 3으로 완화 (일부 PDF는 날짜, 금액, 잔액만 있음)
-    if (tableData.headers.length < 3) {
-      console.log(`[HTML Table] ⚠️ Table ${i + 1} skipped - Too few columns (${tableData.headers.length})`);
-      continue;
-    }
+    console.log(`[HTML Table] Found ${allTablesInHTML.length} nested table(s) in element ${i + 1}`);
+    
+    // 각 중첩 테이블을 개별적으로 파싱
+    const tablesToParse = allTablesInHTML.length > 1 
+      ? allTablesInHTML  // 중첩 테이블이 있으면 모두 파싱
+      : [tableHTML];      // 없으면 원본 파싱
+    
+    for (let j = 0; j < tablesToParse.length; j++) {
+      const singleTableHTML = tablesToParse[j];
+      
+      console.log(`[HTML Table] Parsing nested table ${j + 1}/${tablesToParse.length}...`);
+      
+      let tableData;
+      try {
+        tableData = parseHTMLTable(singleTableHTML);
+      } catch (error) {
+        console.log(`[HTML Table] ⚠️ Nested table ${j + 1} skipped - Parse error: ${error instanceof Error ? error.message : String(error)}`);
+        continue;
+      }
+      
+      // 최소 컬럼 수를 3으로 완화 (일부 PDF는 날짜, 금액, 잔액만 있음)
+      if (tableData.headers.length < 3) {
+        console.log(`[HTML Table] ⚠️ Nested table ${j + 1} skipped - Too few columns (${tableData.headers.length})`);
+        continue;
+      }
 
     // 헤더가 실제 헤더인지 검사 (날짜 컬럼명 포함 여부)
     let headerScore = 0;
