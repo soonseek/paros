@@ -242,8 +242,8 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
           // Bugfix Issue #4: Invalidate queries to refresh transaction list
           void (async () => {
             try {
-              // Invalidate transaction queries to refresh the list
-              await utils.transaction.getByCase.invalidate({ caseId });
+              // Invalidate transaction search query (실제 사용하는 쿼리)
+              await utils.transaction.search.invalidate({ caseId });
               // Invalidate document list to refresh uploaded files
               await utils.document.list.invalidate({ caseId });
               // Invalidate file analysis status
