@@ -27,6 +27,12 @@ export interface ProgressBarProps {
     totalTransactions?: number;
     columns?: string[];
     llmAnalysis?: LLMAnalysisResult;
+    templateMatch?: {
+      templateName: string;
+      bankName?: string;
+      layer: number;
+      confidence: number;
+    };
   };
   onRetry?: () => void;
 }
@@ -108,12 +114,37 @@ export function ProgressBar({
               <CheckCircle2 className="size-5 text-green-600" />
               <span className="font-medium text-green-700">분석 완료</span>
             </div>
-            {llmAnalysis && (
-              <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700">
-                AI 신뢰도 {Math.round(llmAnalysis.confidence * 100)}%
-              </span>
-            )}
+            <div className="flex gap-2">
+              {completionData.templateMatch && (
+                <span className="text-xs px-2 py-1 rounded bg-purple-100 text-purple-700">
+                  Layer {completionData.templateMatch.layer}
+                </span>
+              )}
+              {llmAnalysis && (
+                <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700">
+                  신뢰도 {Math.round(llmAnalysis.confidence * 100)}%
+                </span>
+              )}
+            </div>
           </div>
+
+          {/* Template Match Info */}
+          {completionData.templateMatch && (
+            <div className="mb-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+              <div className="text-xs text-purple-600 mb-1">템플릿 매칭</div>
+              <div className="font-medium text-purple-900">
+                {completionData.templateMatch.templateName}
+              </div>
+              {completionData.templateMatch.bankName && (
+                <div className="text-sm text-purple-700">
+                  {completionData.templateMatch.bankName}
+                </div>
+              )}
+              <div className="text-xs text-purple-600 mt-1">
+                신뢰도: {Math.round(completionData.templateMatch.confidence * 100)}%
+              </div>
+            </div>
+          )}
 
           {/* File Info */}
           <div className="space-y-2 text-sm mb-3">
