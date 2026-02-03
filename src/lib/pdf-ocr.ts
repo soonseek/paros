@@ -283,52 +283,64 @@ function extractFromTableElementsHTML(tableElements: Array<{
     console.log(`[HTML Table] Processing table ${i + 1}/${tableElements.length}...`);
     console.log(`[HTML Table] Table ${i + 1} HTML length: ${tableHTML.length}, preview: ${tableHTML.substring(0, 100)}...`);
 
-    // 중첩 테이블 추출: 모든 <table> 시작 위치 찾기
-    const allTables: string[] = [];
-    let searchPos = 0;
-    
-    console.log(`[HTML Table] 중첩 테이블 검색 시작...`);
-    
-    while (searchPos < tableHTML.length) {
-      const startIdx = tableHTML.indexOf('<table', searchPos);
-      if (startIdx === -1) {
-        console.log(`[HTML Table] 더 이상 <table 태그 없음 (searchPos: ${searchPos})`);
-        break;
-      }
+    // 중첩 테이블 추출: 재귀적으로 모든 <table> 추출
+    const extractAllTables = (html: string, level: number = 0): string[] => {
+      const tables: string[] = [];
+      let searchPos = 0;
       
-      console.log(`[HTML Table] <table 발견 at position ${startIdx}`);
+      const indent = '  '.repeat(level);
+      console.log(`${indent}[extractAllTables] Level ${level} 검색 시작 (HTML length: ${html.length})`);
       
-      // 매칭되는 </table> 찾기 (중첩 레벨 고려)
-      let depth = 0;
-      let endIdx = -1;
-      
-      for (let k = startIdx; k < tableHTML.length; k++) {
-        if (tableHTML.substring(k, k + 6) === '<table') {
-          depth++;
-          console.log(`[HTML Table]   pos ${k}: <table found, depth=${depth}`);
-        } else if (tableHTML.substring(k, k + 8) === '</table>') {
-          depth--;
-          console.log(`[HTML Table]   pos ${k}: </table> found, depth=${depth}`);
-          if (depth === 0) {
-            endIdx = k + 8;
-            console.log(`[HTML Table]   ✓ Table matched: ${startIdx} ~ ${endIdx}`);
-            break;
+      while (searchPos < html.length) {
+        const startIdx = html.indexOf('<table', searchPos);
+        if (startIdx === -1) {
+          console.log(`${indent}[extractAllTables] 더 이상 <table 태그 없음`);
+          break;
+        }
+        
+        console.log(`${indent}[extractAllTables] <table 발견 at position ${startIdx}`);
+        
+        // 매칭되는 </table> 찾기 (중첩 레벨 고려)
+        let depth = 0;
+        let endIdx = -1;
+        
+        for (let k = startIdx; k < html.length; k++) {
+          if (html.substring(k, k + 6) === '<table') {
+            depth++;
+          } else if (html.substring(k, k + 8) === '</table>') {
+            depth--;
+            if (depth === 0) {
+              endIdx = k + 8;
+              break;
+            }
           }
+        }
+        
+        if (endIdx > startIdx) {
+          const extractedTable = html.substring(startIdx, endIdx);
+          tables.push(extractedTable);
+          console.log(`${indent}[extractAllTables] ✓ Extracted table ${tables.length}: ${startIdx}~${endIdx} (${extractedTable.length} chars)`);
+          
+          // 추출한 테이블 내부에서 재귀적으로 중첩 테이블 찾기
+          const innerTables = extractAllTables(extractedTable, level + 1);
+          if (innerTables.length > 0) {
+            console.log(`${indent}[extractAllTables] Found ${innerTables.length} nested table(s) inside`);
+            tables.push(...innerTables);
+          }
+          
+          searchPos = endIdx;
+        } else {
+          console.log(`${indent}[extractAllTables] ⚠️ No matching </table> found`);
+          break;
         }
       }
       
-      if (endIdx > startIdx) {
-        const extractedTable = tableHTML.substring(startIdx, endIdx);
-        allTables.push(extractedTable);
-        console.log(`[HTML Table] ✓ Extracted table ${allTables.length}: length=${extractedTable.length}`);
-        searchPos = endIdx;
-      } else {
-        console.log(`[HTML Table] ⚠️ No matching </table> found for <table at ${startIdx}`);
-        break;
-      }
-    }
+      console.log(`${indent}[extractAllTables] Level ${level} 완료: ${tables.length}개 추출`);
+      return tables;
+    };
     
-    console.log(`[HTML Table] 총 ${allTables.length}개 테이블 추출 완료`);
+    const allTables = extractAllTables(tableHTML);
+    console.log(`[HTML Table] 총 ${allTables.length}개 테이블 추출 완료 (중첩 포함)`);
     
     // 각 테이블을 개별 파싱
     for (let j = 0; j < allTables.length; j++) {
