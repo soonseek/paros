@@ -291,6 +291,12 @@ function extractFromTableElementsHTML(tableElements: Array<{
       const indent = '  '.repeat(level);
       console.log(`${indent}[extractAllTables] Level ${level} 검색 시작 (HTML length: ${html.length})`);
       
+      // 무한 재귀 방지: 레벨 10 이상이면 중단
+      if (level > 10) {
+        console.log(`${indent}[extractAllTables] ⚠️ Max recursion depth reached`);
+        return tables;
+      }
+      
       while (searchPos < html.length) {
         const startIdx = html.indexOf('<table', searchPos);
         if (startIdx === -1) {
@@ -321,11 +327,17 @@ function extractFromTableElementsHTML(tableElements: Array<{
           tables.push(extractedTable);
           console.log(`${indent}[extractAllTables] ✓ Extracted table ${tables.length}: ${startIdx}~${endIdx} (${extractedTable.length} chars)`);
           
-          // 추출한 테이블 내부에서 재귀적으로 중첩 테이블 찾기
-          const innerTables = extractAllTables(extractedTable, level + 1);
-          if (innerTables.length > 0) {
-            console.log(`${indent}[extractAllTables] Found ${innerTables.length} nested table(s) inside`);
-            tables.push(...innerTables);
+          // 내부 콘텐츠만 재귀 검색 (외부 <table> 태그 제외)
+          const tableTagEndPos = extractedTable.indexOf('>') + 1; // <table ...> 종료
+          const innerContent = extractedTable.substring(tableTagEndPos, extractedTable.lastIndexOf('</table>'));
+          
+          if (innerContent.includes('<table')) {
+            console.log(`${indent}[extractAllTables] 내부에 <table 태그 발견, 재귀 검색...`);
+            const innerTables = extractAllTables(innerContent, level + 1);
+            if (innerTables.length > 0) {
+              console.log(`${indent}[extractAllTables] Found ${innerTables.length} nested table(s) inside`);
+              tables.push(...innerTables);
+            }
           }
           
           searchPos = endIdx;
