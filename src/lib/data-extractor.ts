@@ -429,7 +429,17 @@ export async function extractAndSaveTransactions(
       // Parse memo (optional) - memoInAmountColumn이 아닌 경우에만
       if (!memo && columnMapping.memo !== undefined) {
         const memoRaw = row[columnMapping.memo];
-        memo = String(memoRaw ?? "");
+        const memoStr = String(memoRaw ?? "");
+        
+        // 병합된 행 대응: 마지막 부분 추출 ("출금 NH올원뱅크" → "NH올원뱅크")
+        // 단, 거래구분 컬럼과 같은 인덱스면 두 번째 단어 추출
+        if (columnMapping.rowMergePattern === "pair" && 
+            columnMapping.memo === columnMapping.transaction_type) {
+          const words = memoStr.split(/\s+/);
+          memo = words.length > 1 ? words.slice(1).join(" ") : memoStr;
+        } else {
+          memo = memoStr;
+        }
         
         // 디버그: 첫 10개 행에 대해 비고 파싱 상세 로그
         if (i < 10) {
