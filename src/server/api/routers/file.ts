@@ -1383,6 +1383,12 @@ async function performExtraction(
       numericColumnMapping.memoInAmountColumn = true;
       continue;
     }
+    // rowMergePattern 전달
+    if (key === "rowMergePattern" && (columnName === "pair" || columnName === "none")) {
+      numericColumnMapping.rowMergePattern = columnName;
+      console.log(`[performExtraction] rowMergePattern: ${columnName}`);
+      continue;
+    }
     if (typeof columnName === "string") {
       const index = headerRow.indexOf(columnName);
       if (index !== -1) {
