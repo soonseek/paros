@@ -257,9 +257,18 @@ export async function extractAndSaveTransactions(
 
   // Start from the row after the header
   const startRow = headerRowIndex + 1;
+  
+  // 행 병합이 필요한 경우 (NH농협 등)
+  let processRows = rawData.slice(startRow);
+  
+  if (columnMapping.rowMergePattern === "pair") {
+    console.log("[Data Extractor] 행 병합 모드: 2행을 1개 거래로 병합");
+    processRows = mergePairedRows(processRows as string[][]);
+    console.log(`[Data Extractor] 병합 후: ${processRows.length}개 거래`);
+  }
 
-  for (let i = startRow; i < rawData.length; i++) {
-    const row = rawData[i];
+  for (let i = 0; i < processRows.length; i++) {
+    const row = processRows[i];
 
     if (!row || row.length === 0) {
       skipped++;
