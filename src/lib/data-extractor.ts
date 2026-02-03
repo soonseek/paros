@@ -50,6 +50,61 @@ export interface ExtractionResult {
 }
 
 /**
+ * 2행을 1개 거래로 병합 (NH농협 등 특수 형식)
+ * 
+ * 패턴: 홀수 행(순번 O) + 짝수 행(순번 X) = 1개 거래
+ * 
+ * @param rows - 원본 데이터 행
+ * @returns 병합된 행 배열
+ */
+function mergePairedRows(rows: string[][]): string[][] {
+  const merged: string[][] = [];
+  
+  console.log(`[Row Merge] 2행 병합 시작: ${rows.length}행 → ${Math.ceil(rows.length / 2)}개 거래 예상`);
+  
+  for (let i = 0; i < rows.length; i += 2) {
+    const row1 = rows[i];
+    const row2 = rows[i + 1];
+    
+    if (!row1) continue;
+    
+    // 마지막 행 (짝이 없는 경우)
+    if (!row2) {
+      merged.push(row1);
+      console.log(`[Row Merge] 마지막 행 (짝 없음): row ${i + 1}`);
+      break;
+    }
+    
+    // 검증: row1은 순번이 있고, row2는 순번이 비어있어야 함
+    const hasSequenceNumber = row1[0] && row1[0].toString().trim().length > 0;
+    const noSequenceNumber = !row2[0] || row2[0].toString().trim().length === 0;
+    
+    if (hasSequenceNumber && noSequenceNumber) {
+      // 각 컬럼을 병합 (띄어쓰기로 연결)
+      const mergedRow = row1.map((cell, colIdx) => {
+        const val1 = cell?.toString().trim() || "";
+        const val2 = row2[colIdx]?.toString().trim() || "";
+        return val1 && val2 ? `${val1} ${val2}` : val1 || val2;
+      });
+      
+      merged.push(mergedRow);
+      
+      if (i < 5) {
+        console.log(`[Row Merge] 병합 완료 ${i / 2 + 1}: [${row1[1]}, ${row1[2]}] + [${row2[1]}, ${row2[2]}] → [${mergedRow[1]}, ${mergedRow[2]}]`);
+      }
+    } else {
+      // 패턴이 맞지 않으면 그냥 추가
+      merged.push(row1);
+      merged.push(row2);
+      console.log(`[Row Merge] ⚠️ 패턴 불일치 (row ${i + 1}-${i + 2}): 병합 스킵`);
+    }
+  }
+  
+  console.log(`[Row Merge] 완료: ${rows.length}행 → ${merged.length}행`);
+  return merged;
+}
+
+/**
  * Parse date from multiple formats
  *
  * Supports:
