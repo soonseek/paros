@@ -1182,6 +1182,319 @@ export const fileRouter = createTRPCRouter({
     }),
 
   /**
+   * Pre-analyze file for template selection
+   * 
+   * Layer 1 매칭 전에 파일을 파싱하고 헤더/샘플 데이터 반환
+   * 템플릿 선택 모달에서 사용
+   */
+  preAnalyzeFile: protectedProcedure
+    .input(
+      z.object({
+        documentId: z.string().min(1, "문서 ID는 필수 항목입니다"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { documentId } = input;
+      const userId = ctx.userId;
+
+      // Get Document with Case information
+      const document = await ctx.db.document.findUnique({
+        where: { id: documentId },
+        include: {
+          case: {
+            select: {
+              id: true,
+              lawyerId: true,
+            },
+          },
+        },
+      });
+
+      if (!document) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "문서를 찾을 수 없습니다",
+        });
+      }
+
+      // RBAC check
+      const user = await ctx.db.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
+
+      if (document.case.lawyerId !== userId && user?.role !== "ADMIN") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "이 문서를 분석할 권한이 없습니다",
+        });
+      }
+
+      // Download and parse file
+      const fileBuffer = await downloadFile(document.s3Key);
+      
+      if (document.mimeType.includes("pdf")) {
+        // PDF: Upstage OCR
+        const { parsePdfWithUpstage } = await import("~/lib/pdf-ocr");
+        const { SettingsService } = await import("~/server/services/settings-service");
+        const settingsService = new SettingsService(ctx.db);
+        const upstageApiKey = await settingsService.getSetting('UPSTAGE_API_KEY');
+        
+        const tableData = await parsePdfWithUpstage(fileBuffer, upstageApiKey || undefined);
+        
+        // Template matching 시도 (Layer 1만)
+        const { matchByIdentifiers, normalizeText } = await import("~/lib/template-classifier");
+        
+        const templates = await ctx.db.transactionTemplate.findMany({
+          where: { isActive: true },
+          orderBy: { priority: "desc" },
+        });
+        
+        const parsedTemplates = templates.map(t => ({
+          ...t,
+          columnSchema: t.columnSchema as {
+            columns: Record<string, { index: number; header: string }>;
+            parseRules?: { rowMergePattern?: "pair" | "none" };
+          },
+        }));
+        
+        const matchedTemplate = matchByIdentifiers(
+          tableData.headers, 
+          parsedTemplates,
+          tableData.pageTexts
+        );
+        
+        return {
+          success: true,
+          headers: tableData.headers,
+          sampleRows: tableData.rows.slice(0, 10),
+          pageTexts: tableData.pageTexts,
+          totalRows: tableData.totalRows,
+          // Layer 1 매칭 결과
+          layer1Match: matchedTemplate ? {
+            templateId: matchedTemplate.id,
+            templateName: matchedTemplate.name,
+            bankName: matchedTemplate.bankName,
+          } : null,
+          needsTemplateSelection: !matchedTemplate, // Layer 1 실패 시 true
+        };
+      } else {
+        // Excel/CSV
+        const workbook = XLSX.read(fileBuffer, { type: "buffer" });
+        const sheetName = workbook.SheetNames[0];
+        if (!sheetName) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "엑셀 파일에 시트가 없습니다",
+          });
+        }
+        
+        const worksheet = workbook.Sheets[sheetName];
+        if (!worksheet) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "워크시트를 찾을 수 없습니다",
+          });
+        }
+        
+        const rawData = XLSX.utils.sheet_to_json(worksheet, {
+          header: 1,
+          defval: "",
+        }) as string[][];
+        
+        if (rawData.length === 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "파일에 데이터가 없습니다",
+          });
+        }
+        
+        const headers = (rawData[0] || []).map(h => String(h));
+        const sampleRows = rawData.slice(1, 11);
+        
+        return {
+          success: true,
+          headers,
+          sampleRows,
+          pageTexts: [],
+          totalRows: rawData.length - 1,
+          layer1Match: null,
+          needsTemplateSelection: true, // Excel은 항상 템플릿 선택 필요
+        };
+      }
+    }),
+
+  /**
+   * Analyze file with manually selected template
+   * 
+   * 사용자가 수동으로 선택한 템플릿으로 분석 진행
+   */
+  analyzeWithTemplate: protectedProcedure
+    .input(
+      z.object({
+        documentId: z.string().min(1, "문서 ID는 필수 항목입니다"),
+        templateId: z.string().min(1, "템플릿 ID는 필수 항목입니다"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { documentId, templateId } = input;
+      const userId = ctx.userId;
+
+      // Get Document with Case information
+      const document = await ctx.db.document.findUnique({
+        where: { id: documentId },
+        include: {
+          case: {
+            select: {
+              id: true,
+              lawyerId: true,
+            },
+          },
+        },
+      });
+
+      if (!document) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "문서를 찾을 수 없습니다",
+        });
+      }
+
+      // RBAC check
+      const user = await ctx.db.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
+
+      if (document.case.lawyerId !== userId && user?.role !== "ADMIN") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "이 문서를 분석할 권한이 없습니다",
+        });
+      }
+
+      // Get template
+      const template = await ctx.db.transactionTemplate.findUnique({
+        where: { id: templateId },
+      });
+
+      if (!template) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "템플릿을 찾을 수 없습니다",
+        });
+      }
+
+      // Download and parse file
+      const fileBuffer = await downloadFile(document.s3Key);
+      
+      let headers: string[] = [];
+      let rows: string[][] = [];
+      
+      if (document.mimeType.includes("pdf")) {
+        const { parsePdfWithUpstage } = await import("~/lib/pdf-ocr");
+        const { SettingsService } = await import("~/server/services/settings-service");
+        const settingsService = new SettingsService(ctx.db);
+        const upstageApiKey = await settingsService.getSetting('UPSTAGE_API_KEY');
+        
+        const tableData = await parsePdfWithUpstage(fileBuffer, upstageApiKey || undefined);
+        headers = tableData.headers;
+        rows = tableData.rows;
+      } else {
+        const workbook = XLSX.read(fileBuffer, { type: "buffer" });
+        const sheetName = workbook.SheetNames[0];
+        if (!sheetName) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "엑셀 파일에 시트가 없습니다" });
+        }
+        
+        const worksheet = workbook.Sheets[sheetName];
+        if (!worksheet) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "워크시트를 찾을 수 없습니다" });
+        }
+        
+        const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" }) as string[][];
+        headers = (rawData[0] || []).map(h => String(h));
+        rows = rawData.slice(1);
+      }
+
+      // Convert template columnSchema to columnMapping
+      const { convertSchemaToMapping } = await import("~/lib/template-classifier");
+      const templateSchema = template.columnSchema as {
+        columns: Record<string, { index: number; header: string }>;
+        parseRules?: { rowMergePattern?: "pair" | "none" };
+      };
+      
+      const { columnMapping: numericMapping, memoInAmountColumn } = convertSchemaToMapping(
+        templateSchema,
+        headers
+      );
+      
+      // Convert numeric mapping to string-based mapping
+      const columnMapping: Record<string, string> = {};
+      for (const [key, idx] of Object.entries(numericMapping)) {
+        if (typeof idx === "number" && idx >= 0 && idx < headers.length) {
+          columnMapping[key] = headers[idx] || "";
+        }
+      }
+      
+      if (memoInAmountColumn) {
+        (columnMapping as Record<string, unknown>).memoInAmountColumn = true;
+      }
+      
+      if (templateSchema.parseRules?.rowMergePattern) {
+        (columnMapping as Record<string, unknown>).rowMergePattern = templateSchema.parseRules.rowMergePattern;
+      }
+
+      // Create/update FileAnalysisResult
+      const analysisResult = await ctx.db.fileAnalysisResult.upsert({
+        where: { documentId },
+        create: {
+          documentId,
+          caseId: document.caseId,
+          status: "analyzing",
+          columnMapping,
+          headerRowIndex: 0,
+          totalRows: rows.length,
+          detectedFormat: document.mimeType.includes("pdf") ? "pdf" : "excel",
+          hasHeaders: true,
+          confidence: 1.0, // 수동 선택이므로 100%
+          extractedData: { headers, rows } as Prisma.InputJsonValue,
+          llmAnalysis: {
+            transactionTypeMethod: "manual_template",
+            memoInAmountColumn,
+            reasoning: `수동 템플릿 선택: ${template.name}${template.bankName ? ` [${template.bankName}]` : ""}`,
+          } as Prisma.InputJsonValue,
+        },
+        update: {
+          status: "analyzing",
+          columnMapping,
+          totalRows: rows.length,
+          confidence: 1.0,
+          extractedData: { headers, rows } as Prisma.InputJsonValue,
+          llmAnalysis: {
+            transactionTypeMethod: "manual_template",
+            memoInAmountColumn,
+            reasoning: `수동 템플릿 선택: ${template.name}${template.bankName ? ` [${template.bankName}]` : ""}`,
+          } as Prisma.InputJsonValue,
+        },
+      });
+
+      // Update template match count
+      await ctx.db.transactionTemplate.update({
+        where: { id: templateId },
+        data: { matchCount: { increment: 1 } },
+      });
+
+      return {
+        success: true,
+        analysisResult,
+        templateName: template.name,
+        bankName: template.bankName,
+        message: `템플릿 "${template.name}" 적용 완료`,
+      };
+    }),
+
+  /**
    * Get all documents for a case
    *
    * @param caseId - Case ID
