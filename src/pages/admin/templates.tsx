@@ -212,7 +212,8 @@ const TemplatesPage: NextPage = () => {
         },
       }));
       setIdentifiersInput((data.suggestedIdentifiers || []).join(", "));
-      setDetectedHeaders(data.detectedHeaders || []); // 분석된 헤더 저장
+      // 분석된 헤더 저장 (빈 문자열 필터링)
+      setDetectedHeaders((data.detectedHeaders || []).filter(h => h && h.trim().length > 0));
       toast.success(`AI 분석 완료! (신뢰도: ${Math.round((data.confidence || 0) * 100)}%)`);
     },
     onError: (error) => toast.error(error.message),
@@ -846,11 +847,13 @@ const TemplatesPage: NextPage = () => {
                                     <SelectValue placeholder="헤더 선택" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {detectedHeaders.map((header, idx) => (
-                                      <SelectItem key={idx} value={header}>
-                                        [{idx}] {header}
-                                      </SelectItem>
-                                    ))}
+                                    {detectedHeaders
+                                      .filter(h => h && h.trim().length > 0)  // 빈 문자열 필터링
+                                      .map((header, idx) => (
+                                        <SelectItem key={idx} value={header}>
+                                          [{idx}] {header}
+                                        </SelectItem>
+                                      ))}
                                   </SelectContent>
                                 </Select>
                               ) : (
