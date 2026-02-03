@@ -287,34 +287,48 @@ function extractFromTableElementsHTML(tableElements: Array<{
     const allTables: string[] = [];
     let searchPos = 0;
     
-    while (true) {
+    console.log(`[HTML Table] 중첩 테이블 검색 시작...`);
+    
+    while (searchPos < tableHTML.length) {
       const startIdx = tableHTML.indexOf('<table', searchPos);
-      if (startIdx === -1) break;
+      if (startIdx === -1) {
+        console.log(`[HTML Table] 더 이상 <table 태그 없음 (searchPos: ${searchPos})`);
+        break;
+      }
+      
+      console.log(`[HTML Table] <table 발견 at position ${startIdx}`);
       
       // 매칭되는 </table> 찾기 (중첩 레벨 고려)
       let depth = 0;
-      let endIdx = startIdx;
+      let endIdx = -1;
       
       for (let k = startIdx; k < tableHTML.length; k++) {
         if (tableHTML.substring(k, k + 6) === '<table') {
           depth++;
+          console.log(`[HTML Table]   pos ${k}: <table found, depth=${depth}`);
         } else if (tableHTML.substring(k, k + 8) === '</table>') {
           depth--;
+          console.log(`[HTML Table]   pos ${k}: </table> found, depth=${depth}`);
           if (depth === 0) {
             endIdx = k + 8;
+            console.log(`[HTML Table]   ✓ Table matched: ${startIdx} ~ ${endIdx}`);
             break;
           }
         }
       }
       
       if (endIdx > startIdx) {
-        allTables.push(tableHTML.substring(startIdx, endIdx));
+        const extractedTable = tableHTML.substring(startIdx, endIdx);
+        allTables.push(extractedTable);
+        console.log(`[HTML Table] ✓ Extracted table ${allTables.length}: length=${extractedTable.length}`);
+        searchPos = endIdx;
+      } else {
+        console.log(`[HTML Table] ⚠️ No matching </table> found for <table at ${startIdx}`);
+        break;
       }
-      
-      searchPos = endIdx;
     }
     
-    console.log(`[HTML Table] Found ${allTables.length} table tag(s) in element ${i + 1}`);
+    console.log(`[HTML Table] 총 ${allTables.length}개 테이블 추출 완료`);
     
     // 각 테이블을 개별 파싱
     for (let j = 0; j < allTables.length; j++) {
