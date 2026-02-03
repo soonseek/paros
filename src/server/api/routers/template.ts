@@ -159,16 +159,23 @@ export const templateRouter = createTRPCRouter({
         });
       }
 
-      // 이름 중복 체크 (다른 템플릿과)
-      if (updateData.name && updateData.name !== existing.name) {
-        const duplicate = await ctx.db.transactionTemplate.findUnique({
-          where: { name: updateData.name },
+      // 중복 체크: 은행명 + 이름이 모두 동일한 다른 템플릿이 있는지
+      if (updateData.name || updateData.bankName !== undefined) {
+        const checkName = updateData.name || existing.name;
+        const checkBankName = updateData.bankName !== undefined ? updateData.bankName : existing.bankName;
+        
+        const duplicate = await ctx.db.transactionTemplate.findFirst({
+          where: {
+            id: { not: id }, // 자기 자신 제외
+            name: checkName,
+            bankName: checkBankName,
+          },
         });
 
         if (duplicate) {
           throw new TRPCError({
             code: "CONFLICT",
-            message: "이미 동일한 이름의 템플릿이 존재합니다",
+            message: `이미 동일한 템플릿이 존재합니다 (은행: ${checkBankName || "미지정"}, 이름: ${checkName})`,
           });
         }
       }
