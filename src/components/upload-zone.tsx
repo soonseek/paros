@@ -344,7 +344,10 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
 
       // Story 3.5: Start file analysis for each uploaded document
       // Story 3.6: Extract data after analysis completes
-      for (const documentId of uploadedDocumentIds) {
+      for (let idx = 0; idx < uploadedDocumentIds.length; idx++) {
+        const documentId = uploadedDocumentIds[idx];
+        const fileName = successfullyUploadedFiles[idx]?.name ?? "unknown";
+        
         try {
           setAnalyzingDocumentId(documentId);
 
@@ -357,6 +360,28 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
             )
           );
 
+          // Pre-analyze file to check template matching
+          const preAnalysisResult = await preAnalyzeFileMutation.mutateAsync({ documentId });
+          
+          // Layer 1 매칭 실패 시 템플릿 선택 모달 표시
+          if (preAnalysisResult.needsTemplateSelection) {
+            // 템플릿 선택 모달용 데이터 저장
+            setPendingDocumentId(documentId);
+            setPendingFileName(fileName);
+            setPreAnalysisData({
+              headers: preAnalysisResult.headers,
+              sampleRows: preAnalysisResult.sampleRows,
+              pageTexts: preAnalysisResult.pageTexts ?? [],
+            });
+            setIsTemplateModalOpen(true);
+            
+            // 모달이 열리면 여기서 중단하고 사용자 선택 대기
+            // 모달에서 선택/LLM 분석 후 processDocumentAnalysis가 호출됨
+            setIsProcessing(false);
+            return; // 나머지 파일은 템플릿 선택 후 처리
+          }
+          
+          // Layer 1 자동 매칭 성공 시 기존 로직 사용
           await analyzeFileMutation.mutateAsync({ documentId });
 
           // Story 3.6: After analysis completes, extract data and save to DB
