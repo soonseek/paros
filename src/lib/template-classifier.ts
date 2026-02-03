@@ -395,6 +395,7 @@ export async function classifyTransaction(
       layerName: "similarity_match",
       templateId: similarityMatch.template.id,
       templateName: similarityMatch.template.name,
+      bankName: similarityMatch.template.bankName || undefined,
       confidence: similarityMatch.confidence,
       columnMapping,
       memoInAmountColumn,
