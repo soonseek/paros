@@ -245,20 +245,14 @@ const TemplatesPage: NextPage = () => {
     const headers = Object.values(formData.columnSchema.columns).map(col => col.header);
     const rowMergePattern = formData.columnSchema.parseRules?.rowMergePattern;
     
-    console.log("[getDuplicateHeaders] rowMergePattern:", rowMergePattern);
-    console.log("[getDuplicateHeaders] headers:", headers);
-    
     // 행 병합 모드에서는 같은 헤더 사용 허용 (거래금액/잔액, 구분/비고 등)
     if (rowMergePattern === "pair") {
-      console.log("[getDuplicateHeaders] 2행 병합 모드: 중복 허용");
       return []; // 중복 검사 스킵
     }
     
     const duplicates = headers.filter((header, index) => 
       header && headers.indexOf(header) !== index
     );
-    
-    console.log("[getDuplicateHeaders] 중복 목록:", duplicates);
     return [...new Set(duplicates)]; // 중복 제거
   };
 
@@ -309,16 +303,11 @@ const TemplatesPage: NextPage = () => {
       },
     });
     
-    console.log("[openCreateEditor] 컬럼 5개 생성 완료");
     setIsEditorOpen(true);
   };
 
   const openEditEditor = (template: any) => {
     setEditingId(template.id);
-    
-    console.log("[openEditEditor] 템플릿 로드:", template.name);
-    console.log("[openEditEditor] parseRules:", template.columnSchema?.parseRules);
-    console.log("[openEditEditor] rowMergePattern:", template.columnSchema?.parseRules?.rowMergePattern);
     
     setFormData({
       name: template.name,
@@ -809,9 +798,6 @@ const TemplatesPage: NextPage = () => {
                 <div className="border rounded-lg">
                   {(() => {
                     const columnCount = Object.keys(formData.columnSchema.columns).length;
-                    const columnKeys = Object.keys(formData.columnSchema.columns);
-                    console.log("[Render] 컬럼 매핑 개수:", columnCount);
-                    console.log("[Render] 컬럼 목록:", columnKeys);
                     
                     if (columnCount === 0) {
                       return (
@@ -835,7 +821,6 @@ const TemplatesPage: NextPage = () => {
                         </TableHeader>
                         <TableBody>
                           {Object.entries(formData.columnSchema.columns).map(([type, col]) => {
-                            console.log(`[Render] 컬럼 렌더링: ${type} (header: ${col.header})`);
                             return (
                           <TableRow key={type}>
                             <TableCell className="font-medium">
