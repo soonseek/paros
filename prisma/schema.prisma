@@ -569,26 +569,27 @@ model SystemSetting {
 // Transaction Template Model - 거래내역서 템플릿 정의
 model TransactionTemplate {
     id          String   @id @default(uuid())
-    name        String   @unique                 // 템플릿 이름 (예: "부산은행_일반계좌")
-    bankName    String?                          // 은행명
-    description String   @db.Text                // 템플릿 설명 (장문형 특징)
+    name        String                              // 템플릿 이름 (예: "일반계좌")
+    bankName    String?                             // 은행명
+    description String   @db.Text                   // 템플릿 설명 (장문형 특징)
     
-    // 식별자 - 이 키워드가 헤더에 있으면 템플릿 매칭
-    identifiers String[] @default([])            // ["부산은행", "맡기신금액", "찾으신금액"]
+    // 식별자 - 이 키워드가 페이지 텍스트에 있으면 템플릿 매칭
+    identifiers String[] @default([])               // ["부산은행", "맡기신금액", "찾으신금액"]
     
     // 컬럼 매핑 스키마 (JSON)
-    columnSchema Json                            // { columns: {...}, parseRules: {...} }
+    columnSchema Json                               // { columns: {...}, parseRules: {...} }
     
     // 메타데이터
-    isActive    Boolean  @default(true)          // 활성화 여부
-    priority    Int      @default(0)             // 매칭 우선순위 (높을수록 먼저)
-    matchCount  Int      @default(0)             // 매칭 횟수 (통계)
-    successRate Float    @default(0.0)           // 성공률 (통계)
+    isActive    Boolean  @default(true)             // 활성화 여부
+    priority    Int      @default(0)                // 매칭 우선순위 (높을수록 먼저)
+    matchCount  Int      @default(0)                // 매칭 횟수 (통계)
+    successRate Float    @default(0.0)              // 성공률 (통계)
     
-    createdBy   String?                          // 생성자
+    createdBy   String?                             // 생성자
     createdAt   DateTime @default(now())
     updatedAt   DateTime @updatedAt
 
+    @@unique([name, bankName])                      // 은행명 + 이름 조합이 unique
     @@index([bankName])
     @@index([isActive])
     @@index([priority])
