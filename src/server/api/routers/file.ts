@@ -1406,11 +1406,18 @@ async function performExtraction(
   }
 
   // 디버그: columnMapping 변환 결과
-  console.log(`[performExtraction] Column mapping conversion:`, {
-    original: columnMapping,
-    numeric: numericColumnMapping,
-    headerRow: headerRow.slice(0, 10),
+  console.log(`[performExtraction] ========== COLUMN MAPPING ==========`);
+  console.log(`[performExtraction] Original columnMapping:`, columnMapping);
+  console.log(`[performExtraction] Numeric columnMapping:`, numericColumnMapping);
+  console.log(`[performExtraction] Header row:`, headerRow);
+  console.log(`[performExtraction] Memo column:`, {
+    name: columnMapping.memo,
+    index: numericColumnMapping.memo,
+    found: numericColumnMapping.memo !== undefined,
   });
+  console.log(`[performExtraction] rowMergePattern:`, numericColumnMapping.rowMergePattern);
+  console.log(`[performExtraction] memoInAmountColumn:`, numericColumnMapping.memoInAmountColumn);
+  console.log(`[performExtraction] =========================================`);
 
   // Extract and save transactions
   const extractionResult = await extractAndSaveTransactions(
