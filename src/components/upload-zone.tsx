@@ -449,6 +449,12 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
               role="button"
               tabIndex={0}
               onKeyDown={handleKeyDown}
+              onClick={(e) => {
+                // 명시적 클릭 처리 (모달 내에서 이벤트 전파 보장)
+                if (!isProcessing && fileInputRef.current) {
+                  fileInputRef.current.click();
+                }
+              }}
               className={`
                 relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer
                 transition-all duration-200 ease-in-out
