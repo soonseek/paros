@@ -84,6 +84,7 @@ interface ColumnSchema {
   parseRules?: {
     isDeposit?: string;
     memoExtraction?: string;
+    rowMergePattern?: "pair" | "none";
   };
 }
 
