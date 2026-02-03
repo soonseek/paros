@@ -312,52 +312,52 @@ function extractFromTableElementsHTML(tableElements: Array<{
         continue;
       }
 
-    // 헤더가 실제 헤더인지 검사 (날짜 컬럼명 포함 여부)
-    let headerScore = 0;
-    let hasDateColumn = false;
-    let hasAmountColumn = false;
+      // 헤더가 실제 헤더인지 검사 (날짜 컬럼명 포함 여부)
+      let headerScore = 0;
+      let hasDateColumn = false;
+      let hasAmountColumn = false;
 
-    for (const header of tableData.headers) {
-      const columnType = inferColumnType(header);
+      for (const header of tableData.headers) {
+        const columnType = inferColumnType(header);
+        
+        if (columnType === ColumnType.DATE) {
+          hasDateColumn = true;
+          headerScore += 10;
+        }
+        if (columnType === ColumnType.DEPOSIT || columnType === ColumnType.WITHDRAWAL || columnType === ColumnType.AMOUNT) {
+          hasAmountColumn = true;
+          headerScore += 10;
+        }
+        if (columnType === ColumnType.BALANCE) {
+          headerScore += 10;
+        }
+        if (columnType === ColumnType.TRANSACTION_TYPE) {
+          headerScore += 5;
+        }
+        if (columnType === ColumnType.MEMO) {
+          headerScore += 3;
+        }
+      }
+
+      // 데이터 품질 점수: 첫 번째 행이 날짜 패턴을 포함하는지 확인
+      let dataScore = 0;
+      const datePatterns = [
+        /^\d{4}[-./]\d{2}[-./]\d{2}/, // YYYY-MM-DD, YYYY.MM.DD, YYYY/MM/DD
+        /^\d{2}[-./]\d{2}[-./]\d{4}/, // DD-MM-YYYY, DD.MM.YYYY
+        /^\d{2}[-./]\d{2}[-./]\d{2}/, // YY-MM-DD, YY.MM.DD
+      ];
       
-      if (columnType === ColumnType.DATE) {
-        hasDateColumn = true;
-        headerScore += 10;
+      // 첫 번째 헤더가 날짜 패턴이면 -> 이건 데이터 행임 (헤더 아님)
+      const firstCellLooksLikeDate = datePatterns.some(p => p.test(tableData.headers[0] || ""));
+      if (firstCellLooksLikeDate) {
+        dataScore += 20; // 데이터 행일 가능성 높음
+        headerScore = 0; // 헤더 점수 리셋
       }
-      if (columnType === ColumnType.DEPOSIT || columnType === ColumnType.WITHDRAWAL || columnType === ColumnType.AMOUNT) {
-        hasAmountColumn = true;
-        headerScore += 10;
-      }
-      if (columnType === ColumnType.BALANCE) {
-        headerScore += 10;
-      }
-      if (columnType === ColumnType.TRANSACTION_TYPE) {
-        headerScore += 5;
-      }
-      if (columnType === ColumnType.MEMO) {
-        headerScore += 3;
-      }
-    }
 
-    // 데이터 품질 점수: 첫 번째 행이 날짜 패턴을 포함하는지 확인
-    let dataScore = 0;
-    const datePatterns = [
-      /^\d{4}[-./]\d{2}[-./]\d{2}/, // YYYY-MM-DD, YYYY.MM.DD, YYYY/MM/DD
-      /^\d{2}[-./]\d{2}[-./]\d{4}/, // DD-MM-YYYY, DD.MM.YYYY
-      /^\d{2}[-./]\d{2}[-./]\d{2}/, // YY-MM-DD, YY.MM.DD
-    ];
-    
-    // 첫 번째 헤더가 날짜 패턴이면 -> 이건 데이터 행임 (헤더 아님)
-    const firstCellLooksLikeDate = datePatterns.some(p => p.test(tableData.headers[0] || ""));
-    if (firstCellLooksLikeDate) {
-      dataScore += 20; // 데이터 행일 가능성 높음
-      headerScore = 0; // 헤더 점수 리셋
-    }
-
-    // 데이터 행 수에 따른 점수
-    dataScore += Math.min(tableData.rows.length * 2, 20);
-    
-    const score = headerScore + dataScore + tableData.headers.length;
+      // 데이터 행 수에 따른 점수
+      dataScore += Math.min(tableData.rows.length * 2, 20);
+      
+      const score = headerScore + dataScore + tableData.headers.length;
     const hasValidHeaders = hasDateColumn && !firstCellLooksLikeDate;
 
     console.log(`[HTML Table] Table ${i + 1}: cols=${tableData.headers.length}, rows=${tableData.rows.length}, validHeader=${hasValidHeaders}, headerScore=${headerScore}, dataScore=${dataScore}, totalScore=${score}`);
