@@ -198,6 +198,42 @@ export function parseAmount(amountValue: unknown): number | null {
 }
 
 /**
+ * Parse balance from a string (extracts last number for merged rows)
+ * 
+ * NH농협 등 2행 병합 시: "380,000원 503원" → 503
+ * 일반 케이스: "503원" → 503
+ *
+ * @param balanceValue - Balance value (may contain multiple numbers)
+ * @returns Parsed last number or null if invalid
+ */
+export function parseBalance(balanceValue: unknown): number | null {
+  if (!balanceValue) return null;
+
+  if (typeof balanceValue === "number") {
+    return balanceValue;
+  }
+
+  if (typeof balanceValue === "string") {
+    // 모든 숫자 패턴 찾기 (쉼표 포함)
+    const numberPattern = /[\d,]+/g;
+    const matches = balanceValue.match(numberPattern);
+    
+    if (!matches || matches.length === 0) {
+      return null;
+    }
+    
+    // 마지막 숫자 추출 (병합된 경우 잔액이 마지막)
+    const lastNumber = matches[matches.length - 1];
+    const cleaned = lastNumber.replace(/,/g, "");
+    const parsed = parseFloat(cleaned);
+    
+    return isNaN(parsed) ? null : parsed;
+  }
+
+  return null;
+}
+
+/**
  * Extract and save transactions to database
  *
  * This is the main extraction function that:
