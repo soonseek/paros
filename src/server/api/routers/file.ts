@@ -720,6 +720,11 @@ export const fileRouter = createTRPCRouter({
         });
       }
 
+      // 실제 저장된 거래 건수 조회 (DB에서 직접 카운트)
+      const savedTransactionCount = await ctx.db.transaction.count({
+        where: { documentId },
+      });
+
       return {
         success: true,
         document: {
@@ -727,6 +732,7 @@ export const fileRouter = createTRPCRouter({
           fileName: document.originalFileName,
         },
         analysisResult,
+        savedTransactionCount, // 실제 저장된 거래 건수
       };
     }),
 
