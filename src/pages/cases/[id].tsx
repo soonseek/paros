@@ -1125,6 +1125,22 @@ const CaseDetailPage: NextPage = () => {
           )}
         </DialogContent>
       </Dialog>
+      
+      {/* 대출금 사용 소명자료 생성 모달 */}
+      <LoanTrackingModal
+        isOpen={isLoanTrackingOpen}
+        onClose={() => setIsLoanTrackingOpen(false)}
+        caseId={id as string}
+        transactions={memoizedTransactions}
+      />
+      
+      {/* 금액 이상 입출금건 필터 모달 */}
+      <AmountFilterModal
+        isOpen={isAmountFilterOpen}
+        onClose={() => setIsAmountFilterOpen(false)}
+        caseId={id as string}
+        transactions={memoizedTransactions}
+      />
     </div>
   );
 };
