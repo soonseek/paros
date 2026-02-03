@@ -671,7 +671,7 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
                         <>파일을 드래그하거나 <span className="text-primary underline">클릭</span></>
                       )}
                     </p>
-                    <p className="text-xs text-muted-foreground">Excel, CSV, PDF • 최대 50MB</p>
+                    <p className="text-xs text-muted-foreground">Excel, CSV, PDF • 최대 1GB</p>
                   </div>
                 </div>
               )}
