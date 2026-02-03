@@ -390,9 +390,12 @@ export async function extractAndSaveTransactions(
       // Case 2: 단일 금액 + 거래구분 ([+]/[-])
       else if (columnMapping.amount !== undefined) {
         const amount = parseAmount(row[columnMapping.amount]);
-        const transactionType = columnMapping.transaction_type !== undefined
+        const transactionTypeRaw = columnMapping.transaction_type !== undefined
           ? String(row[columnMapping.transaction_type] ?? "")
           : "";
+        
+        // 병합된 행 대응: 첫 단어만 추출 ("출금 NH올원뱅크" → "출금")
+        const transactionType = extractFirstWord(transactionTypeRaw);
 
         // [+] 또는 입금 관련 키워드면 입금, [-] 또는 출금 관련 키워드면 출금
         const isDeposit = transactionType.includes("+") ||
