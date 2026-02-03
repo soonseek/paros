@@ -243,6 +243,12 @@ const TemplatesPage: NextPage = () => {
   // 중복 헤더 검사
   const getDuplicateHeaders = (): string[] => {
     const headers = Object.values(formData.columnSchema.columns).map(col => col.header);
+    
+    // 행 병합 모드에서는 같은 헤더 사용 허용 (거래금액/잔액, 구분/비고 등)
+    if (formData.columnSchema.parseRules?.rowMergePattern === "pair") {
+      return []; // 중복 검사 스킵
+    }
+    
     const duplicates = headers.filter((header, index) => 
       header && headers.indexOf(header) !== index
     );
