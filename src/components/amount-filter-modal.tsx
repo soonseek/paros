@@ -55,10 +55,17 @@ export function AmountFilterModal({ isOpen, onClose, caseId }: AmountFilterModal
     }));
 
     // 요약 정보 추가
-    excelData.push({} as typeof excelData[0]);
+    excelData.push({
+      "날짜": "",
+      "구분": "-" as "입금" | "출금",
+      "금액": 0,
+      "잔액": 0,
+      "비고": "",
+      "문서명": "",
+    });
     excelData.push({
       "날짜": "=== 요약 ===",
-      "구분": "",
+      "구분": "-" as "입금" | "출금",
       "금액": 0,
       "잔액": 0,
       "비고": "",
@@ -66,7 +73,7 @@ export function AmountFilterModal({ isOpen, onClose, caseId }: AmountFilterModal
     });
     excelData.push({
       "날짜": "필터 기준",
-      "구분": "",
+      "구분": "-" as "입금" | "출금",
       "금액": threshold,
       "잔액": 0,
       "비고": "원 이상",
@@ -74,7 +81,7 @@ export function AmountFilterModal({ isOpen, onClose, caseId }: AmountFilterModal
     });
     excelData.push({
       "날짜": "입금 건수",
-      "구분": "",
+      "구분": "-" as "입금" | "출금",
       "금액": data.summary.depositCount,
       "잔액": 0,
       "비고": "",
@@ -82,7 +89,7 @@ export function AmountFilterModal({ isOpen, onClose, caseId }: AmountFilterModal
     });
     excelData.push({
       "날짜": "출금 건수",
-      "구분": "",
+      "구분": "-" as "입금" | "출금",
       "금액": data.summary.withdrawalCount,
       "잔액": 0,
       "비고": "",
