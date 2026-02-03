@@ -119,26 +119,38 @@ export async function analyzeFileStructure(
         const templateResult = await classifyTransaction(prisma, headers, extractedData.rows, pageTexts);
 
         if (templateResult) {
-          console.log(`[File Analysis] Template match! Layer ${templateResult.layer}: ${templateResult.templateName}`);
+          console.log(`[File Analysis] ========== TEMPLATE MATCH ==========`);
+          console.log(`[File Analysis] Template: Layer ${templateResult.layer}: ${templateResult.templateName}`);
+          console.log(`[File Analysis] Template columnMapping (index):`, templateResult.columnMapping);
+          console.log(`[File Analysis] Headers:`, headers);
           
           // 템플릿 컬럼 매핑을 헤더명 기반으로 변환
           const templateColumnMapping: Record<string, string> = {};
           
           for (const [key, index] of Object.entries(templateResult.columnMapping)) {
             if (typeof index === "number" && index >= 0 && index < headers.length) {
-              templateColumnMapping[key] = headers[index] || "";
+              const headerName = headers[index] || "";
+              templateColumnMapping[key] = headerName;
+              console.log(`[File Analysis]   ${key}: [${index}] "${headerName}"`);
+            } else {
+              console.warn(`[File Analysis]   ${key}: [${index}] ⚠️ Out of range or invalid`);
             }
           }
 
           // memoInAmountColumn 플래그
           if (templateResult.memoInAmountColumn) {
             (templateColumnMapping as Record<string, unknown>).memoInAmountColumn = true;
+            console.log(`[File Analysis]   memoInAmountColumn: true`);
           }
           
           // rowMergePattern 플래그
           if (templateResult.parseRules?.rowMergePattern) {
             (templateColumnMapping as Record<string, unknown>).rowMergePattern = templateResult.parseRules.rowMergePattern;
+            console.log(`[File Analysis]   rowMergePattern: ${templateResult.parseRules.rowMergePattern}`);
           }
+          
+          console.log(`[File Analysis] Final templateColumnMapping:`, templateColumnMapping);
+          console.log(`[File Analysis] =========================================`);
 
           return {
             status: "completed",
