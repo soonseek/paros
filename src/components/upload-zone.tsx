@@ -497,6 +497,112 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
     }
   }, [failedDocumentId, analyzeFileMutation]);
 
+  // 템플릿 수동 선택 핸들러
+  const handleSelectTemplate = useCallback(async (templateId: string, templateName: string) => {
+    if (!pendingDocumentId) return;
+    
+    setIsTemplateModalOpen(false);
+    setIsProcessing(true);
+    
+    try {
+      toast.info(`템플릿 "${templateName}" 적용 중...`);
+      
+      // 선택된 템플릿으로 분석 진행
+      await analyzeWithTemplateMutation.mutateAsync({
+        documentId: pendingDocumentId,
+        templateId,
+      });
+      
+      // 데이터 추출
+      await extractDataMutation.mutateAsync({ documentId: pendingDocumentId });
+      
+      // 완료 처리
+      setUploadedDocuments((prev) =>
+        prev.map((doc) =>
+          doc.id === pendingDocumentId
+            ? { ...doc, analysisStatus: "completed" }
+            : doc
+        )
+      );
+      
+      toast.success(`템플릿 "${templateName}" 적용 완료`);
+      
+      // Invalidate queries
+      await utils.transaction.getByCase.invalidate({ caseId });
+      await utils.document.list.invalidate({ caseId });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "템플릿 적용 실패";
+      toast.error(errorMsg);
+      
+      setUploadedDocuments((prev) =>
+        prev.map((doc) =>
+          doc.id === pendingDocumentId
+            ? { ...doc, analysisStatus: "failed" }
+            : doc
+        )
+      );
+    } finally {
+      setPendingDocumentId(null);
+      setPendingFileName("");
+      setPreAnalysisData(null);
+      setAnalyzingDocumentId(null);
+      setIsProcessing(false);
+    }
+  }, [pendingDocumentId, analyzeWithTemplateMutation, extractDataMutation, utils, caseId]);
+
+  // LLM 자동 분석 (Layer 2) 핸들러
+  const handleUseLLMAnalysis = useCallback(async () => {
+    if (!pendingDocumentId) return;
+    
+    setIsTemplateModalOpen(false);
+    setIsProcessing(true);
+    
+    try {
+      toast.info("LLM 자동 분석 중...");
+      
+      // 기존 LLM 분석 로직 사용
+      await analyzeFileMutation.mutateAsync({ 
+        documentId: pendingDocumentId,
+        useLlmAnalysis: true,
+      });
+      
+      // 데이터 추출
+      await extractDataMutation.mutateAsync({ documentId: pendingDocumentId });
+      
+      // 완료 처리
+      setUploadedDocuments((prev) =>
+        prev.map((doc) =>
+          doc.id === pendingDocumentId
+            ? { ...doc, analysisStatus: "completed" }
+            : doc
+        )
+      );
+      
+      toast.success("LLM 분석 완료");
+      
+      // Invalidate queries
+      await utils.transaction.getByCase.invalidate({ caseId });
+      await utils.document.list.invalidate({ caseId });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "LLM 분석 실패";
+      toast.error(errorMsg);
+      
+      setUploadedDocuments((prev) =>
+        prev.map((doc) =>
+          doc.id === pendingDocumentId
+            ? { ...doc, analysisStatus: "failed" }
+            : doc
+        )
+      );
+    } finally {
+      setPendingDocumentId(null);
+      setPendingFileName("");
+      setPreAnalysisData(null);
+      setAnalyzingDocumentId(null);
+      setIsProcessing(false);
+    }
+  }, [pendingDocumentId, analyzeFileMutation, extractDataMutation, utils, caseId]);
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     // LOW-2 fix: Keyboard navigation
     if (e.key === "Enter" || e.key === " ") {
