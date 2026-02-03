@@ -387,7 +387,12 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
 
           // Story 3.6: After analysis completes, extract data and save to DB
           // Note: Progress tracking is handled by useRealtimeProgress hook
-          await extractDataMutation.mutateAsync({ documentId });
+          const extractResult = await extractDataMutation.mutateAsync({ documentId });
+
+          // 실제 저장된 건수를 토스트 메시지로 표시
+          if (extractResult.extractedCount !== undefined) {
+            toast.success(`${extractResult.extractedCount}건의 거래가 저장되었습니다`);
+          }
 
           // Story 3.7: Update document status to completed
           setUploadedDocuments((prev) =>
@@ -397,6 +402,10 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
                 : doc
             )
           );
+
+          // Query invalidation을 여기서도 실행 (onComplete 외에 추가)
+          await utils.transaction.search.invalidate({ caseId });
+          await utils.document.list.invalidate({ caseId });
         } catch (error) {
           const errorMsg =
             error instanceof Error ? error.message : "파일 처리 실패";
