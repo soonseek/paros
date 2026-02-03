@@ -445,6 +445,10 @@ const TemplatesPage: NextPage = () => {
           [columnType]: {
             ...prev.columnSchema.columns[columnType],
             [field]: value,
+            // 헤더 변경 시 인덱스 자동 설정
+            ...(field === "header" && detectedHeaders.length > 0 && {
+              index: detectedHeaders.findIndex(h => h === value)
+            }),
           },
         },
       },
