@@ -283,7 +283,7 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
         rejectedFiles.forEach((rejection) => {
           const errors = rejection.errors.map((err) => {
             if (err.code === "file-too-large") {
-              return `파일 "${rejection.file.name}"이(가) 50MB 제한을 초과했습니다 (${(rejection.file.size / 1024 / 1024).toFixed(2)}MB)`;
+              return `파일 "${rejection.file.name}"이(가) 1GB 제한을 초과했습니다 (${(rejection.file.size / 1024 / 1024).toFixed(2)}MB)`;
             }
             if (err.code === "file-invalid-type") {
               return `파일 "${rejection.file.name}"은(는) 지원하지 않는 형식입니다`;
