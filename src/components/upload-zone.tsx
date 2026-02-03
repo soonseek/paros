@@ -799,6 +799,17 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
           onOpenChange={(open) => !open && setPreviewDocument(null)}
         />
       )}
+
+      {/* Template Selection Modal */}
+      <TemplateSelectionModal
+        open={isTemplateModalOpen}
+        onOpenChange={setIsTemplateModalOpen}
+        onSelectTemplate={handleSelectTemplate}
+        onUseLLMAnalysis={handleUseLLMAnalysis}
+        pdfHeaders={preAnalysisData?.headers}
+        pdfSampleRows={preAnalysisData?.sampleRows}
+        fileName={pendingFileName}
+      />
     </>
   );
 }
