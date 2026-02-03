@@ -234,6 +234,23 @@ export function parseBalance(balanceValue: unknown): number | null {
 }
 
 /**
+ * Extract first word from a string (for merged row columns)
+ * 
+ * 병합된 행: "출금 NH올원뱅크" → "출금"
+ * 일반: "출금" → "출금"
+ *
+ * @param value - String value
+ * @returns First word or original string
+ */
+export function extractFirstWord(value: unknown): string {
+  if (!value) return "";
+  
+  const str = String(value).trim();
+  const firstWord = str.split(/\s+/)[0];
+  return firstWord || str;
+}
+
+/**
  * Extract and save transactions to database
  *
  * This is the main extraction function that:
