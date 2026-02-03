@@ -7,10 +7,16 @@
  * - Endpoint: https://api.upstage.ai/v1/document-ai/document-parse
  * - Method: POST (multipart/form-data)
  * - Authentication: Bearer token
+ * 
+ * 대용량 PDF 처리:
+ * - Upstage API는 파일 크기 제한이 있음 (~50MB 정도)
+ * - 대용량 PDF는 페이지 단위로 분할하여 처리
+ * - 각 청크 결과를 병합하여 반환
  */
 
 import { env } from "~/env";
 import { inferColumnType, ColumnType } from "~/lib/column-mapping";
+import { PDFDocument } from "pdf-lib";
 
 interface UpstageDocumentParseResponse {
   elements?: Array<{
