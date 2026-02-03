@@ -1,10 +1,7 @@
 /**
- * 금액 이상 입출금건 필터 모달
+ * 금액 이상 입출금건 필터 모달 (서버 사이드 처리)
  * 
- * 기능:
- * 1. 지정 금액 이상의 입출금 거래 필터링
- * 2. 날짜, 금액, 비고 표시
- * 3. 엑셀 다운로드
+ * 대용량 데이터 처리를 위해 DB에서 직접 필터링
  */
 
 import { useState } from "react";
@@ -17,49 +14,38 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Badge } from "~/components/ui/badge";
 import * as XLSX from "xlsx";
-import type { SimplifiedTransaction } from "./simplified-transaction-table";
+import { api } from "~/utils/api";
 
 interface AmountFilterModalProps {
   isOpen: boolean;
   onClose: () => void;
   caseId: string;
-  transactions: SimplifiedTransaction[];
 }
 
-export function AmountFilterModal({ isOpen, onClose, transactions }: AmountFilterModalProps) {
+export function AmountFilterModal({ isOpen, onClose, caseId }: AmountFilterModalProps) {
   const [minAmount, setMinAmount] = useState<string>("1000000");
-  const [filteredData, setFilteredData] = useState<SimplifiedTransaction[]>([]);
-  const [isFiltering, setIsFiltering] = useState(false);
-  const [depositCount, setDepositCount] = useState(0);
-  const [withdrawalCount, setWithdrawalCount] = useState(0);
+  const [searchTriggered, setSearchTriggered] = useState(false);
 
-  const handleFilter = () => {
-    setIsFiltering(true);
-    
-    const threshold = parseFloat(minAmount.replace(/,/g, "")) || 0;
-    
-    const filtered = transactions.filter(tx => tx.amount >= threshold);
-    
-    // 정렬: 날짜순 (오름차순)
-    const sorted = [...filtered].sort((a, b) => 
-      new Date(a.transactionDate).getTime() - new Date(b.transactionDate).getTime()
-    );
-    
-    // 입금/출금 건수 계산
-    setDepositCount(sorted.filter(tx => tx.type === "입금").length);
-    setWithdrawalCount(sorted.filter(tx => tx.type === "출금").length);
-    
-    setFilteredData(sorted);
-    setIsFiltering(false);
+  // 서버 사이드 쿼리
+  const threshold = parseFloat(minAmount.replace(/,/g, "")) || 0;
+  const { data, isLoading, refetch } = api.transaction.filterByAmount.useQuery(
+    { caseId, minAmount: threshold },
+    { 
+      enabled: searchTriggered && threshold > 0,
+      refetchOnWindowFocus: false,
+    }
+  );
+
+  const handleFilter = async () => {
+    setSearchTriggered(true);
+    await refetch();
   };
 
   const handleDownload = () => {
-    if (filteredData.length === 0) return;
-
-    const threshold = parseFloat(minAmount.replace(/,/g, "")) || 0;
+    if (!data || data.transactions.length === 0) return;
 
     // 엑셀 데이터 준비
-    const excelData = filteredData.map(tx => ({
+    const excelData = data.transactions.map(tx => ({
       "날짜": formatDate(tx.transactionDate),
       "구분": tx.type,
       "금액": tx.amount,
@@ -89,7 +75,7 @@ export function AmountFilterModal({ isOpen, onClose, transactions }: AmountFilte
     excelData.push({
       "날짜": "입금 건수",
       "구분": "",
-      "금액": depositCount,
+      "금액": data.summary.depositCount,
       "잔액": 0,
       "비고": "",
       "문서명": "",
@@ -97,7 +83,7 @@ export function AmountFilterModal({ isOpen, onClose, transactions }: AmountFilte
     excelData.push({
       "날짜": "출금 건수",
       "구분": "",
-      "금액": withdrawalCount,
+      "금액": data.summary.withdrawalCount,
       "잔액": 0,
       "비고": "",
       "문서명": "",
@@ -142,8 +128,14 @@ export function AmountFilterModal({ isOpen, onClose, transactions }: AmountFilte
     return num.toLocaleString();
   };
 
+  // 모달 닫을 때 상태 초기화
+  const handleClose = () => {
+    setSearchTriggered(false);
+    onClose();
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-6xl w-[90vw] max-h-[90vh] flex flex-col" data-testid="amount-filter-modal">
         <DialogHeader>
           <DialogTitle className="text-lg">금액 이상 입출금건 뽑기</DialogTitle>
@@ -157,19 +149,22 @@ export function AmountFilterModal({ isOpen, onClose, transactions }: AmountFilte
               <Input
                 type="text"
                 value={formatNumber(minAmount)}
-                onChange={(e) => setMinAmount(e.target.value.replace(/[^0-9]/g, ""))}
+                onChange={(e) => {
+                  setMinAmount(e.target.value.replace(/[^0-9]/g, ""));
+                  setSearchTriggered(false); // 입력 변경 시 검색 리셋
+                }}
                 placeholder="1,000,000"
                 onKeyDown={(e) => e.key === "Enter" && handleFilter()}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                입력한 금액 이상의 모든 입금/출금 거래를 검색합니다
+                입력한 금액 이상의 모든 입금/출금 거래를 검색합니다 (서버에서 처리)
               </p>
             </div>
-            <Button onClick={handleFilter} disabled={isFiltering}>
-              {isFiltering ? (
+            <Button onClick={handleFilter} disabled={isLoading || threshold <= 0}>
+              {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  필터링 중...
+                  검색 중...
                 </>
               ) : (
                 <>
@@ -181,33 +176,30 @@ export function AmountFilterModal({ isOpen, onClose, transactions }: AmountFilte
           </div>
 
           {/* 결과 요약 */}
-          {filteredData.length > 0 && (
+          {data && data.transactions.length > 0 && (
             <div className="bg-muted/50 p-4 rounded-lg flex-shrink-0">
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <p className="text-sm text-muted-foreground">전체 건수</p>
-                  <p className="text-xl font-bold">{filteredData.length}건</p>
-                  <p className="text-xs text-muted-foreground">/ 총 {transactions.length}건 중</p>
+                  <p className="text-sm text-muted-foreground">검색 결과</p>
+                  <p className="text-xl font-bold">{data.summary.total.toLocaleString()}건</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">입금</p>
-                  <p className="text-xl font-bold text-green-600">{depositCount}건</p>
+                  <p className="text-xl font-bold text-green-600">{data.summary.depositCount.toLocaleString()}건</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">출금</p>
-                  <p className="text-xl font-bold text-red-600">{withdrawalCount}건</p>
+                  <p className="text-xl font-bold text-red-600">{data.summary.withdrawalCount.toLocaleString()}건</p>
                 </div>
               </div>
             </div>
           )}
 
           {/* 결과 테이블 */}
-          {filteredData.length > 0 && (
+          {data && data.transactions.length > 0 && (
             <div className="border rounded-lg flex-1 flex flex-col overflow-hidden">
               <div className="p-3 bg-muted flex justify-between items-center flex-shrink-0">
-                <span className="font-medium">
-                  필터링 결과
-                </span>
+                <span className="font-medium">필터링 결과</span>
                 <Button size="sm" onClick={handleDownload}>
                   <Download className="h-4 w-4 mr-2" />
                   엑셀 다운로드
@@ -227,8 +219,8 @@ export function AmountFilterModal({ isOpen, onClose, transactions }: AmountFilte
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredData.map((tx, idx) => (
-                      <TableRow key={idx}>
+                    {data.transactions.map((tx) => (
+                      <TableRow key={tx.id}>
                         <TableCell className="font-mono text-sm">
                           {formatDate(tx.transactionDate)}
                         </TableCell>
@@ -260,8 +252,19 @@ export function AmountFilterModal({ isOpen, onClose, transactions }: AmountFilte
             </div>
           )}
 
+          {/* 결과 없음 */}
+          {searchTriggered && !isLoading && data && data.transactions.length === 0 && (
+            <div className="flex-1 flex items-center justify-center text-muted-foreground">
+              <div className="text-center">
+                <Filter className="h-12 w-12 mx-auto mb-4 opacity-30" />
+                <p>조건에 맞는 거래가 없습니다</p>
+                <p className="text-sm">다른 금액으로 검색해보세요</p>
+              </div>
+            </div>
+          )}
+
           {/* 빈 상태 */}
-          {filteredData.length === 0 && !isFiltering && (
+          {!searchTriggered && !isLoading && (
             <div className="flex-1 flex items-center justify-center text-muted-foreground">
               <div className="text-center">
                 <Filter className="h-12 w-12 mx-auto mb-4 opacity-30" />
@@ -273,7 +276,7 @@ export function AmountFilterModal({ isOpen, onClose, transactions }: AmountFilte
         </div>
 
         <DialogFooter className="flex-shrink-0">
-          <Button variant="outline" onClick={onClose}>닫기</Button>
+          <Button variant="outline" onClick={handleClose}>닫기</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
