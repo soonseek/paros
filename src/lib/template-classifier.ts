@@ -66,6 +66,7 @@ export interface ClassificationResult {
   layerName: "exact_match" | "similarity_match" | "llm_fallback";
   templateId?: string;
   templateName?: string;
+  bankName?: string;  // 은행/카드사명 추가
   confidence: number;
   columnMapping: Record<string, number>;
   memoInAmountColumn?: boolean;
@@ -365,6 +366,7 @@ export async function classifyTransaction(
       layerName: "exact_match",
       templateId: exactMatch.id,
       templateName: exactMatch.name,
+      bankName: exactMatch.bankName || undefined,
       confidence: 1.0,
       columnMapping,
       memoInAmountColumn,
