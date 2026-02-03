@@ -1133,7 +1133,6 @@ const CaseDetailPage: NextPage = () => {
         isOpen={isLoanTrackingOpen}
         onClose={() => setIsLoanTrackingOpen(false)}
         caseId={id as string}
-        transactions={memoizedTransactions}
       />
       
       {/* 금액 이상 입출금건 필터 모달 */}
@@ -1141,7 +1140,6 @@ const CaseDetailPage: NextPage = () => {
         isOpen={isAmountFilterOpen}
         onClose={() => setIsAmountFilterOpen(false)}
         caseId={id as string}
-        transactions={memoizedTransactions}
       />
     </div>
   );
