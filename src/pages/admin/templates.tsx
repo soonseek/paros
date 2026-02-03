@@ -242,18 +242,10 @@ const TemplatesPage: NextPage = () => {
 
   // 중복 헤더 검사
   const getDuplicateHeaders = (): string[] => {
-    const headers = Object.values(formData.columnSchema.columns).map(col => col.header);
-    const rowMergePattern = formData.columnSchema.parseRules?.rowMergePattern;
-    
-    // 행 병합 모드에서는 같은 헤더 사용 허용 (거래금액/잔액, 구분/비고 등)
-    if (rowMergePattern === "pair") {
-      return []; // 중복 검사 스킵
-    }
-    
-    const duplicates = headers.filter((header, index) => 
-      header && headers.indexOf(header) !== index
-    );
-    return [...new Set(duplicates)]; // 중복 제거
+    // 같은 인덱스를 여러 컬럼에 사용하는 것은 허용 (삼성카드 등)
+    // 예: [4]를 거래일자와 비고에 모두 사용
+    // 중복 검증 제거 (불필요)
+    return [];
   };
 
   const hasDuplicateHeaders = getDuplicateHeaders().length > 0;
