@@ -6,24 +6,24 @@
  *
  * Base64 Encoding Overhead:
  * - Base64 encoding increases size by ~33%
- * - 50MB file → ~66MB when Base64 encoded
- * - To stay under 50MB limit, actual file must be ≤37.5MB
+ * - 1GB file → ~1.33GB when Base64 encoded
+ * - To stay under 1GB limit, actual file must be ≤750MB
  */
 
 export const FILE_VALIDATION = {
   /** Maximum file size in megabytes (user-facing limit) */
-  MAX_FILE_SIZE_MB: 50,
+  MAX_FILE_SIZE_MB: 1024, // 1GB
 
   /** Maximum file size in bytes (frontend validation) */
-  MAX_FILE_SIZE_BYTES: 50 * 1024 * 1024,
+  MAX_FILE_SIZE_BYTES: 1024 * 1024 * 1024, // 1GB
 
   /**
    * Maximum Base64-encoded file size in bytes
    *
-   * Formula: floor((50MB / 4) * 3) ≈ 37.5MB
-   * This ensures the Base64-encoded version stays under 50MB
+   * Formula: floor((1GB / 4) * 3) ≈ 750MB
+   * This ensures the Base64-encoded version stays under 1GB
    */
-  MAX_FILE_SIZE_ENCODED_BYTES: Math.floor((50 * 1024 * 1024) / 4) * 3,
+  MAX_FILE_SIZE_ENCODED_BYTES: Math.floor((1024 * 1024 * 1024) / 4) * 3,
 
   /** Allowed MIME types for file upload */
   ALLOWED_MIME_TYPES: [
