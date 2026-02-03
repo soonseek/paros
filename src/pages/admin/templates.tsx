@@ -958,8 +958,13 @@ const TemplatesPage: NextPage = () => {
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    NH농협처럼 1개 거래가 2개 행으로 분리된 경우 "2행 병합" 선택<br/>
-                    예: 1행(거래일, 구분, 금액) + 2행(시간, 적요, 잔액) = 1개 거래
+                    <strong>NH농협처럼 1개 거래가 2개 행으로 분리된 경우</strong> "2행 병합" 선택<br/>
+                    예: 1행(거래일, 구분, 금액) + 2행(시간, 적요, 잔액) = 1개 거래<br/>
+                    <br/>
+                    <strong className="text-amber-700">⚠️ 주의</strong>: 2행 병합 모드에서는<br/>
+                    • 같은 헤더를 여러 컬럼에 사용 가능 (예: [3]을 거래금액과 잔액에 모두 사용)<br/>
+                    • <strong>거래구분</strong>, <strong>거래금액(단일)</strong> 컬럼은 <strong>제거</strong>하세요<br/>
+                    • 입금액, 출금액 컬럼을 사용하세요 (유형 A)
                   </p>
                 </div>
 
