@@ -168,7 +168,7 @@ export async function analyzeFileStructure(
                   ? "separate_columns"
                   : "type_column",
               memoInAmountColumn: templateResult.memoInAmountColumn,
-              reasoning: `템플릿 매칭 (Layer ${templateResult.layer}): ${templateResult.templateName}`,
+              reasoning: `템플릿 매칭 (Layer ${templateResult.layer}): ${templateResult.templateName}${templateResult.bankName ? ` [${templateResult.bankName}]` : ""}`,
             },
           };
         }
