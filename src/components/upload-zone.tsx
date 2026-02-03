@@ -201,11 +201,13 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
                   fileName: document.fileName,
                   hasTemplateMatch: !!templateMatch,
                   templateMatch,
+                  savedTransactionCount,
                 });
 
                 const newCompletionData = {
                   fileName: document.fileName,
-                  totalTransactions: analysisResult.totalRows,
+                  // 실제 저장된 거래 건수 사용 (totalRows 대신)
+                  totalTransactions: savedTransactionCount ?? analysisResult.totalRows,
                   columns,
                   templateMatch,
                   // Include LLM analysis result for UI display
