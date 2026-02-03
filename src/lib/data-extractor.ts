@@ -37,6 +37,7 @@ export interface ColumnMapping {
   amount?: number;          // Single amount column (with transaction_type)
   transaction_type?: number; // Transaction type column ([+]/[-])
   memoInAmountColumn?: boolean; // 비고가 입금/출금 컬럼에 섞여있는 특수 케이스
+  rowMergePattern?: "pair" | "none"; // 행 병합 패턴 (NH농협 등: 2행 → 1거래)
 }
 
 /**
