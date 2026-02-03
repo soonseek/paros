@@ -593,7 +593,7 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
       toast.success("LLM 분석 완료");
       
       // Invalidate queries
-      await utils.transaction.getByCase.invalidate({ caseId });
+      await utils.transaction.search.invalidate({ caseId });
       await utils.document.list.invalidate({ caseId });
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "LLM 분석 실패";
