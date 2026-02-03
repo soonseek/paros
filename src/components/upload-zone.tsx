@@ -540,7 +540,7 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
       toast.success(`템플릿 "${templateName}" 적용 완료`);
       
       // Invalidate queries
-      await utils.transaction.getByCase.invalidate({ caseId });
+      await utils.transaction.search.invalidate({ caseId });
       await utils.document.list.invalidate({ caseId });
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "템플릿 적용 실패";
