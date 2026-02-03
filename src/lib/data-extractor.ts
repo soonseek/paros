@@ -80,17 +80,31 @@ function mergePairedRows(rows: string[][]): string[][] {
     const noSequenceNumber = !row2[0] || row2[0].toString().trim().length === 0;
     
     if (hasSequenceNumber && noSequenceNumber) {
-      // 각 컬럼을 병합 (띄어쓰기로 연결)
+      // 각 컬럼을 병합
       const mergedRow = row1.map((cell, colIdx) => {
         const val1 = cell?.toString().trim() || "";
         const val2 = row2[colIdx]?.toString().trim() || "";
-        return val1 && val2 ? `${val1} ${val2}` : val1 || val2;
+        
+        // Row 2에 값이 있으면 Row 2 우선 (가맹점명 등)
+        // 단, 숫자 필드는 Row 1 우선 (금액, 날짜 등)
+        const isNumericField = val1 && /^[\d,.\-]+$/.test(val1);
+        
+        if (val2 && !isNumericField) {
+          // Row 2에 값이 있고, Row 1이 숫자 아니면 → Row 2 우선
+          return val1 && val2 ? `${val1} ${val2}` : val2;
+        } else {
+          // Row 1이 숫자이거나 Row 2가 없으면 → 기존 로직
+          return val1 && val2 ? `${val1} ${val2}` : val1 || val2;
+        }
       });
       
       merged.push(mergedRow);
       
       if (i < 5) {
-        console.log(`[Row Merge] 병합 완료 ${i / 2 + 1}: [${row1[1]}, ${row1[2]}] + [${row2[1]}, ${row2[2]}] → [${mergedRow[1]}, ${mergedRow[2]}]`);
+        console.log(`[Row Merge] 병합 ${i / 2 + 1}:`);
+        console.log(`  Row1[1,2]: ${row1[1]}, ${row1[2]}`);
+        console.log(`  Row2[1,2]: ${row2[1]}, ${row2[2]}`);
+        console.log(`  Merged[1,2]: ${mergedRow[1]}, ${mergedRow[2]}`);
       }
     } else {
       // 패턴이 맞지 않으면 그냥 추가
