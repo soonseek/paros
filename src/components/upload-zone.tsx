@@ -163,6 +163,7 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
                 // Extract template match info from reasoning
                 let templateMatch: { templateName: string; bankName?: string; layer: number; confidence: number } | undefined;
                 if (llmAnalysisData?.reasoning) {
+                  console.log("[Upload Zone] Parsing templateMatch from reasoning:", llmAnalysisData.reasoning);
                   // "템플릿 매칭 (Layer 2): 입출금거래내역 [기업은행]" 파싱
                   const templateRegex = /템플릿 매칭 \(Layer (\d+)\): ([^\[]+)(?:\[([^\]]+)\])?/;
                   const match = llmAnalysisData.reasoning.match(templateRegex);
@@ -173,8 +174,17 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
                       layer: parseInt(match[1]),
                       confidence: analysisResult.confidence,
                     };
+                    console.log("[Upload Zone] Extracted templateMatch:", templateMatch);
+                  } else {
+                    console.log("[Upload Zone] No template match found in reasoning");
                   }
                 }
+                
+                console.log("[Upload Zone] Final completionData:", {
+                  fileName: document.fileName,
+                  hasTemplateMatch: !!templateMatch,
+                  templateMatch,
+                });
 
                 const newCompletionData = {
                   fileName: document.fileName,
