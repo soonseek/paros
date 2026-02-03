@@ -283,32 +283,56 @@ function extractFromTableElementsHTML(tableElements: Array<{
     console.log(`[HTML Table] Processing table ${i + 1}/${tableElements.length}...`);
     console.log(`[HTML Table] Table ${i + 1} HTML length: ${tableHTML.length}, preview: ${tableHTML.substring(0, 100)}...`);
 
-    // 중첩 테이블 감지: HTML 내부에 또 다른 <table> 태그가 있는지 확인
-    const allTablesInHTML = tableHTML.match(/<table[^>]*>[\s\S]*?<\/table>/gi) || [];
+    // 중첩 테이블 추출: 모든 <table> 시작 위치 찾기
+    const allTables: string[] = [];
+    let searchPos = 0;
     
-    console.log(`[HTML Table] Found ${allTablesInHTML.length} nested table(s) in element ${i + 1}`);
-    
-    // 각 중첩 테이블을 개별적으로 파싱
-    const tablesToParse = allTablesInHTML.length > 1 
-      ? allTablesInHTML  // 중첩 테이블이 있으면 모두 파싱
-      : [tableHTML];      // 없으면 원본 파싱
-    
-    for (let j = 0; j < tablesToParse.length; j++) {
-      const singleTableHTML = tablesToParse[j];
+    while (true) {
+      const startIdx = tableHTML.indexOf('<table', searchPos);
+      if (startIdx === -1) break;
       
-      console.log(`[HTML Table] Parsing nested table ${j + 1}/${tablesToParse.length}...`);
+      // 매칭되는 </table> 찾기 (중첩 레벨 고려)
+      let depth = 0;
+      let endIdx = startIdx;
+      
+      for (let k = startIdx; k < tableHTML.length; k++) {
+        if (tableHTML.substring(k, k + 6) === '<table') {
+          depth++;
+        } else if (tableHTML.substring(k, k + 8) === '</table>') {
+          depth--;
+          if (depth === 0) {
+            endIdx = k + 8;
+            break;
+          }
+        }
+      }
+      
+      if (endIdx > startIdx) {
+        allTables.push(tableHTML.substring(startIdx, endIdx));
+      }
+      
+      searchPos = endIdx;
+    }
+    
+    console.log(`[HTML Table] Found ${allTables.length} table tag(s) in element ${i + 1}`);
+    
+    // 각 테이블을 개별 파싱
+    for (let j = 0; j < allTables.length; j++) {
+      const singleTableHTML = allTables[j];
+      
+      console.log(`[HTML Table] Parsing table ${j + 1}/${allTables.length} (length: ${singleTableHTML.length})...`);
       
       let tableData;
       try {
         tableData = parseHTMLTable(singleTableHTML);
       } catch (error) {
-        console.log(`[HTML Table] ⚠️ Nested table ${j + 1} skipped - Parse error: ${error instanceof Error ? error.message : String(error)}`);
+        console.log(`[HTML Table] ⚠️ Table ${j + 1} skipped - Parse error: ${error instanceof Error ? error.message : String(error)}`);
         continue;
       }
       
       // 최소 컬럼 수를 3으로 완화 (일부 PDF는 날짜, 금액, 잔액만 있음)
       if (tableData.headers.length < 3) {
-        console.log(`[HTML Table] ⚠️ Nested table ${j + 1} skipped - Too few columns (${tableData.headers.length})`);
+        console.log(`[HTML Table] ⚠️ Table ${j + 1} skipped - Too few columns (${tableData.headers.length})`);
         continue;
       }
 
