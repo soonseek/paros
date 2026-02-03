@@ -159,11 +159,26 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
                   memoInAmountColumn?: boolean;
                   reasoning?: string;
                 } | null;
+                
+                // Extract template match info from reasoning
+                let templateMatch: { templateName: string; bankName?: string; layer: number; confidence: number } | undefined;
+                if (llmAnalysisData?.reasoning) {
+                  const templateRegex = /템플릿 매칭 \(Layer (\d+)\): (.+)/;
+                  const match = llmAnalysisData.reasoning.match(templateRegex);
+                  if (match) {
+                    templateMatch = {
+                      templateName: match[2],
+                      layer: parseInt(match[1]),
+                      confidence: analysisResult.confidence,
+                    };
+                  }
+                }
 
                 const newCompletionData = {
                   fileName: document.fileName,
                   totalTransactions: analysisResult.totalRows,
                   columns,
+                  templateMatch,
                   // Include LLM analysis result for UI display
                   llmAnalysis: llmAnalysisData ? {
                     transactionTypeMethod: llmAnalysisData.transactionTypeMethod ?? "unknown",
