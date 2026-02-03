@@ -60,7 +60,7 @@ export function LoanTrackingModal({ isOpen, onClose, transactions }: LoanTrackin
         return;
       }
 
-      const loanAmountValue = tx.amount;
+      const loanAmountValue = loanDeposit.amount;
       setLoanAmount(loanAmountValue);
       
       const tracked: TrackedItem[] = [];
