@@ -8,8 +8,9 @@ import { createTRPCContext } from "~/server/api/trpc";
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '50mb', // Allow up to 50MB files for S3 upload
+      sizeLimit: '1gb', // Allow up to 1GB files for S3 upload
     },
+    responseLimit: false, // 응답 크기 제한 해제
   },
 };
 
