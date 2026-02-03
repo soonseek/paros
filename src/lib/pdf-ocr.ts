@@ -81,6 +81,106 @@ export async function parsePdfWithUpstage(
     throw new Error("UPSTAGE_API_KEY가 설정되지 않았습니다. 관리자 설정 페이지에서 API 키를 입력해주세요.");
   }
 
+  // Upstage API 파일 크기 제한 (~30MB 안전선)
+  const UPSTAGE_SIZE_LIMIT = 30 * 1024 * 1024; // 30MB
+  const PAGES_PER_CHUNK = 50; // 청크당 최대 페이지 수
+
+  // 파일 크기가 제한을 초과하면 청크 분할 처리
+  if (pdfBuffer.length > UPSTAGE_SIZE_LIMIT) {
+    console.log(`[PDF Chunking] 파일 크기 ${(pdfBuffer.length / 1024 / 1024).toFixed(2)}MB가 제한(${UPSTAGE_SIZE_LIMIT / 1024 / 1024}MB)을 초과합니다. 청크 분할 처리 시작...`);
+    return await parsePdfInChunks(pdfBuffer, finalApiKey, PAGES_PER_CHUNK);
+  }
+
+  // 일반 처리 (파일 크기가 제한 이하)
+  return await parseSinglePdf(pdfBuffer, finalApiKey);
+}
+
+/**
+ * PDF를 청크로 분할하여 처리
+ */
+async function parsePdfInChunks(
+  pdfBuffer: Buffer,
+  apiKey: string,
+  pagesPerChunk: number
+): Promise<TableData> {
+  // PDF 로드
+  const pdfDoc = await PDFDocument.load(pdfBuffer);
+  const totalPages = pdfDoc.getPageCount();
+  
+  console.log(`[PDF Chunking] 총 ${totalPages}페이지, ${pagesPerChunk}페이지씩 분할 처리`);
+
+  const allHeaders: string[] = [];
+  const allRows: string[][] = [];
+  const allPageTexts: string[] = [];
+  let headersSet = false;
+
+  // 페이지를 청크로 분할
+  for (let startPage = 0; startPage < totalPages; startPage += pagesPerChunk) {
+    const endPage = Math.min(startPage + pagesPerChunk, totalPages);
+    const chunkNum = Math.floor(startPage / pagesPerChunk) + 1;
+    const totalChunks = Math.ceil(totalPages / pagesPerChunk);
+    
+    console.log(`[PDF Chunking] 청크 ${chunkNum}/${totalChunks} 처리 중 (페이지 ${startPage + 1}-${endPage})...`);
+
+    try {
+      // 해당 페이지만 추출하여 새 PDF 생성
+      const chunkPdf = await PDFDocument.create();
+      const pageIndices = Array.from({ length: endPage - startPage }, (_, i) => startPage + i);
+      const copiedPages = await chunkPdf.copyPages(pdfDoc, pageIndices);
+      copiedPages.forEach(page => chunkPdf.addPage(page));
+      
+      const chunkBuffer = Buffer.from(await chunkPdf.save());
+      console.log(`[PDF Chunking] 청크 ${chunkNum} 크기: ${(chunkBuffer.length / 1024 / 1024).toFixed(2)}MB`);
+
+      // Upstage API 호출
+      const chunkResult = await parseSinglePdf(chunkBuffer, apiKey);
+
+      // 첫 번째 청크에서 헤더 설정
+      if (!headersSet && chunkResult.headers.length > 0) {
+        allHeaders.push(...chunkResult.headers);
+        headersSet = true;
+        console.log(`[PDF Chunking] 헤더 설정 완료: ${allHeaders.join(", ")}`);
+      }
+
+      // 행 데이터 추가
+      allRows.push(...chunkResult.rows);
+      
+      // 페이지 텍스트 추가
+      if (chunkResult.pageTexts) {
+        allPageTexts.push(...chunkResult.pageTexts);
+      }
+
+      console.log(`[PDF Chunking] 청크 ${chunkNum} 완료: ${chunkResult.rows.length}행 추출`);
+
+      // API 레이트 리밋 방지를 위한 딜레이
+      if (endPage < totalPages) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    } catch (error) {
+      console.error(`[PDF Chunking] 청크 ${chunkNum} 처리 실패:`, error);
+      // 한 청크가 실패해도 계속 진행
+      continue;
+    }
+  }
+
+  console.log(`[PDF Chunking] 전체 처리 완료: 헤더 ${allHeaders.length}개, 행 ${allRows.length}개`);
+
+  return {
+    headers: allHeaders,
+    rows: allRows,
+    totalRows: allRows.length,
+    pageTexts: allPageTexts,
+  };
+}
+
+/**
+ * 단일 PDF 처리 (청크 또는 작은 파일)
+ */
+async function parseSinglePdf(
+  pdfBuffer: Buffer,
+  apiKey: string
+): Promise<TableData> {
+
   // Create FormData for multipart upload
   const formData = new FormData();
   const blob = new Blob([pdfBuffer], { type: "application/pdf" });
