@@ -926,6 +926,37 @@ const TemplatesPage: NextPage = () => {
                   })()}
                 </div>
 
+                {/* 행 병합 설정 */}
+                <div className="space-y-2 bg-amber-50 p-4 rounded-lg border border-amber-200">
+                  <Label className="text-base font-semibold">행 병합 설정</Label>
+                  <Select
+                    value={formData.columnSchema.parseRules?.rowMergePattern || "none"}
+                    onValueChange={(v) => setFormData(prev => ({
+                      ...prev,
+                      columnSchema: {
+                        ...prev.columnSchema,
+                        parseRules: {
+                          ...prev.columnSchema.parseRules,
+                          rowMergePattern: v as "pair" | "none",
+                        },
+                      },
+                    }))}
+                    disabled={analyzeFileMutation.isPending}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">없음 (일반)</SelectItem>
+                      <SelectItem value="pair">2행 병합 (NH농협 등 특수 형식)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    NH농협처럼 1개 거래가 2개 행으로 분리된 경우 "2행 병합" 선택<br/>
+                    예: 1행(거래일, 구분, 금액) + 2행(시간, 적요, 잔액) = 1개 거래
+                  </p>
+                </div>
+
                 {/* 컬럼 매핑 유형 안내 */}
                 <div className="bg-muted/50 p-4 rounded-lg">
                   <div className="flex items-start gap-2">
