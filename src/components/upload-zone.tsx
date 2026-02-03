@@ -163,11 +163,13 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
                 // Extract template match info from reasoning
                 let templateMatch: { templateName: string; bankName?: string; layer: number; confidence: number } | undefined;
                 if (llmAnalysisData?.reasoning) {
-                  const templateRegex = /템플릿 매칭 \(Layer (\d+)\): (.+)/;
+                  // "템플릿 매칭 (Layer 2): 입출금거래내역 [기업은행]" 파싱
+                  const templateRegex = /템플릿 매칭 \(Layer (\d+)\): ([^\[]+)(?:\[([^\]]+)\])?/;
                   const match = llmAnalysisData.reasoning.match(templateRegex);
                   if (match) {
                     templateMatch = {
-                      templateName: match[2],
+                      templateName: match[2].trim(),
+                      bankName: match[3] || undefined,
                       layer: parseInt(match[1]),
                       confidence: analysisResult.confidence,
                     };
