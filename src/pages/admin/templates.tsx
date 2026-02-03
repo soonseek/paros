@@ -315,6 +315,11 @@ const TemplatesPage: NextPage = () => {
 
   const openEditEditor = (template: any) => {
     setEditingId(template.id);
+    
+    console.log("[openEditEditor] 템플릿 로드:", template.name);
+    console.log("[openEditEditor] parseRules:", template.columnSchema?.parseRules);
+    console.log("[openEditEditor] rowMergePattern:", template.columnSchema?.parseRules?.rowMergePattern);
+    
     setFormData({
       name: template.name,
       bankName: template.bankName || "",
@@ -325,6 +330,7 @@ const TemplatesPage: NextPage = () => {
       isActive: template.isActive,
     });
     setIdentifiersInput((template.identifiers || []).join(", "));
+    setDetectedHeaders([]); // 수정 모드에서는 detectedHeaders 초기화
     setIsEditorOpen(true);
   };
 
