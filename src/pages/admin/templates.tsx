@@ -58,7 +58,7 @@ import {
 const COLUMN_TYPES = [
   { value: "date", label: "거래일자" },
   { value: "deposit", label: "입금액" },
-  { value: "withdrawal", label: "출금액" },
+  { value: "withdrawal", label: "출금액 / 이용금액" },
   { value: "balance", label: "잔액" },
   { value: "memo", label: "비고" },
   { value: "transactionType", label: "거래구분" },
