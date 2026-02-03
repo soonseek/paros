@@ -682,6 +682,26 @@ const CaseDetailPage: NextPage = () => {
 
           {/* 오른쪽 40%: AI 어시스턴트 */}
           <div className="xl:col-span-2">
+            {/* 퀵 버튼 */}
+            <div className="flex gap-2 mb-4">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={() => setIsLoanTrackingOpen(true)}
+              >
+                대출금 사용 소명자료 생성
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={() => setIsAmountFilterOpen(true)}
+              >
+                금액 이상 입출금건 뽑기
+              </Button>
+            </div>
+            
             <AIChatAssistant
               caseId={id as string}
               transactions={memoizedTransactions}
