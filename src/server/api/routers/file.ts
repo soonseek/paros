@@ -1430,6 +1430,9 @@ export const fileRouter = createTRPCRouter({
               columns: Record<string, { index: number; header: string }>;
             } | null,
             description: matchedTemplate.description,
+            sampleFileKey: matchedTemplate.sampleFileKey,
+            sampleFileName: matchedTemplate.sampleFileName,
+            sampleFileMimeType: matchedTemplate.sampleFileMimeType,
           } : {
             matched: false,
             templateId: null,
@@ -1439,6 +1442,9 @@ export const fileRouter = createTRPCRouter({
             identifiers: [],
             columnSchema: null,
             description: undefined,
+            sampleFileKey: null,
+            sampleFileName: null,
+            sampleFileMimeType: null,
           },
           // 전체 템플릿 목록 (선택용) - columnSchema 및 샘플 파일 포함
           availableTemplates: templates.map(t => ({
