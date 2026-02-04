@@ -866,16 +866,24 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
         />
       )}
 
-      {/* Template Selection Modal */}
-      <TemplateSelectionModal
-        open={isTemplateModalOpen}
-        onOpenChange={setIsTemplateModalOpen}
-        onSelectTemplate={handleSelectTemplate}
-        onUseLLMAnalysis={handleUseLLMAnalysis}
-        pdfHeaders={preAnalysisData?.headers}
-        pdfSampleRows={preAnalysisData?.sampleRows}
-        fileName={pendingFileName}
-      />
+      {/* 템플릿 매칭 확인 모달 */}
+      {preAnalysisData && (
+        <TemplateMatchConfirmModal
+          open={isMatchConfirmModalOpen}
+          onOpenChange={setIsMatchConfirmModalOpen}
+          fileName={preAnalysisData.fileName}
+          totalPages={preAnalysisData.totalPages}
+          previewPages={preAnalysisData.previewPages}
+          headers={preAnalysisData.headers}
+          sampleRows={preAnalysisData.sampleRows}
+          matchResult={preAnalysisData.matchResult}
+          availableTemplates={preAnalysisData.availableTemplates}
+          onConfirm={handleConfirmMatch}
+          onSelectTemplate={handleSelectTemplate}
+          onUseLLM={handleUseLLMAnalysis}
+          isProcessing={isModalProcessing}
+        />
+      )}
     </>
   );
 }
