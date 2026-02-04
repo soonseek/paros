@@ -652,18 +652,6 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "LLM 분석 실패";
       toast.error(errorMsg);
-            : doc
-        )
-      );
-      
-      toast.success("LLM 분석 완료");
-      
-      // Invalidate queries
-      await utils.transaction.search.invalidate({ caseId });
-      await utils.document.list.invalidate({ caseId });
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : "LLM 분석 실패";
-      toast.error(errorMsg);
       
       setUploadedDocuments((prev) =>
         prev.map((doc) =>
@@ -674,10 +662,11 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
       );
     } finally {
       setPendingDocumentId(null);
-      setPendingFileName("");
       setPreAnalysisData(null);
       setAnalyzingDocumentId(null);
-      setIsProcessing(false);
+      setIsModalProcessing(false);
+    }
+  }, [pendingDocumentId, analyzeFileMutation, extractDataMutation, utils, caseId]);
     }
   }, [pendingDocumentId, analyzeFileMutation, extractDataMutation, utils, caseId]);
 
