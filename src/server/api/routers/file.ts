@@ -1723,7 +1723,7 @@ async function performExtraction(
   mimeType: string,
   analysisResult: { 
     extractedData?: { headers: string[]; rows: string[][] };
-    llmAnalysis?: { memoInAmountColumn?: boolean };
+    errorDetails?: { memoInAmountColumn?: boolean };
   }
 ): Promise<{
   extractedCount: number;
