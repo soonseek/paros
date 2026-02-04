@@ -124,21 +124,38 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
   // Story 3.6: Backend extractData mutation
   const extractDataMutation = api.file.extractData.useMutation();
 
-  // Pre-analyze file for template selection
+  // Pre-analyze file for template matching (앞 3페이지만)
   const preAnalyzeFileMutation = api.file.preAnalyzeFile.useMutation();
 
   // Analyze with manually selected template
   const analyzeWithTemplateMutation = api.file.analyzeWithTemplate.useMutation();
 
-  // Template selection modal state
-  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  // 템플릿 매칭 확인 모달 상태
+  const [isMatchConfirmModalOpen, setIsMatchConfirmModalOpen] = useState(false);
   const [pendingDocumentId, setPendingDocumentId] = useState<string | null>(null);
-  const [pendingFileName, setPendingFileName] = useState<string>("");
   const [preAnalysisData, setPreAnalysisData] = useState<{
+    fileName: string;
+    totalPages: number;
+    previewPages: number;
     headers: string[];
     sampleRows: string[][];
-    pageTexts: string[];
+    matchResult: {
+      matched: boolean;
+      templateId: string | null;
+      templateName: string | null;
+      bankName: string | null;
+      confidence: number;
+      identifiers: string[];
+    };
+    availableTemplates: {
+      id: string;
+      name: string;
+      bankName: string | null;
+      description: string;
+      identifiers: string[];
+    }[];
   } | null>(null);
+  const [isModalProcessing, setIsModalProcessing] = useState(false);
 
   // Story 3.5: Get analysis result query for completion summary
   const getAnalysisResultQuery = api.file.getAnalysisResult.useQuery(
