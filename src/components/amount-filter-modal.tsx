@@ -225,7 +225,7 @@ export function AmountFilterModal({ isOpen, onClose, caseId }: AmountFilterModal
                           <p className="text-sm text-muted-foreground mb-2">
                             +{data.transactions.length - 10}건 더 있음
                           </p>
-                          <Button size="sm" variant="outline" onClick={handleDownload}>
+                          <Button size="sm" variant="outline" onClick={handleDownload} data-testid="amount-filter-download-btn-bottom">
                             <Download className="h-4 w-4 mr-2" />
                             전체 {data.transactions.length}건 엑셀 다운로드
                           </Button>
