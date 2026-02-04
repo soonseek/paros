@@ -2198,6 +2198,18 @@ export const transactionRouter = createTRPCRouter({
           const totalUsed = loanAmount - Math.max(0, remainingLoan);
           const transferCount = trackedItems.filter(t => t.type === "이동").length;
 
+          // 정렬: 날짜순, 동일 날짜 내에서는 대출실행 > 이동 > 출금 순서
+          const typeOrder = { "대출실행": 0, "이동": 1, "출금": 2 };
+          trackedItems.sort((a, b) => {
+            const dateA = a.date.split('T')[0];
+            const dateB = b.date.split('T')[0];
+            if (dateA !== dateB) {
+              return dateA.localeCompare(dateB); // 날짜 오름차순
+            }
+            // 동일 날짜: 대출실행 > 이동 > 출금
+            return typeOrder[a.type] - typeOrder[b.type];
+          });
+
           return {
             loanId: loan.id,
             loanDate: loan.transactionDate.toISOString(),
