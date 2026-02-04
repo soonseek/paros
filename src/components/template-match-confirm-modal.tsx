@@ -114,7 +114,7 @@ export function TemplateMatchConfirmModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl w-[90vw] max-h-[90vh] flex flex-col" data-testid="template-match-confirm-modal">
+      <DialogContent className="max-w-[95vw] w-[1400px] max-h-[90vh] flex flex-col" data-testid="template-match-confirm-modal">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="text-xl flex items-center gap-2">
             <FileText className="h-5 w-5" />
