@@ -539,6 +539,11 @@ export function TemplateMatchConfirmModal({
                       </CardContent>
                     </Card>
                   )}
+
+                  {/* 샘플 파일 미리보기 */}
+                  {previewTemplate.sampleFileKey && (
+                    <SampleFilePreview templateId={previewTemplate.id} />
+                  )}
                 </div>
               </div>
             ) : (
