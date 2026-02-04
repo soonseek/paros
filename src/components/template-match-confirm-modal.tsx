@@ -94,6 +94,12 @@ const COLUMN_ROLE_LABELS: Record<string, string> = {
   balance: "잔액",
   memo: "비고",
   ignore: "무시",
+  transactionType: "구분",
+  amount: "금액",
+  description: "적요",
+  counterparty: "거래상대",
+  accountNumber: "계좌번호",
+  transactionTime: "거래시간",
 };
 
 export function TemplateMatchConfirmModal({
