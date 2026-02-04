@@ -1472,6 +1472,9 @@ export const fileRouter = createTRPCRouter({
             bankName: t.bankName,
             description: t.description,
             identifiers: t.identifiers,
+            columnSchema: t.columnSchema as {
+              columns: Record<string, { index: number; header: string }>;
+            } | null,
           })),
         };
       }
