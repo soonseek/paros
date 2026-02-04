@@ -5,7 +5,7 @@
  * 사용자가 매칭 결과를 확인/선택할 수 있게 함
  * 
  * - 왼쪽: 매칭 결과 또는 템플릿 선택 목록
- * - 오른쪽: 업로드된 PDF 샘플 데이터 미리보기
+ * - 오른쪽: 파싱된 샘플 데이터 (일자, 입금, 출금, 잔액, 비고)
  */
 
 import { useState } from "react";
@@ -51,6 +51,14 @@ interface AvailableTemplate {
   identifiers: string[];
 }
 
+interface ParsedSampleRow {
+  transactionDate: string;
+  deposit: number;
+  withdrawal: number;
+  balance: number;
+  memo: string;
+}
+
 interface TemplateMatchConfirmModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -59,6 +67,7 @@ interface TemplateMatchConfirmModalProps {
   previewPages: number;
   headers: string[];
   sampleRows: string[][];
+  parsedSampleData: ParsedSampleRow[];
   matchResult: MatchResult;
   availableTemplates: AvailableTemplate[];
   onConfirm: (templateId: string | null) => void;
@@ -75,6 +84,7 @@ export function TemplateMatchConfirmModal({
   previewPages,
   headers,
   sampleRows,
+  parsedSampleData,
   matchResult,
   availableTemplates,
   onConfirm,
@@ -90,6 +100,12 @@ export function TemplateMatchConfirmModal({
     if (confidence >= 80) return "text-green-600 bg-green-100";
     if (confidence >= 50) return "text-yellow-600 bg-yellow-100";
     return "text-red-600 bg-red-100";
+  };
+
+  // 금액 포맷
+  const formatAmount = (amount: number) => {
+    if (!amount || amount === 0) return '';
+    return amount.toLocaleString('ko-KR');
   };
 
   // 매칭 결과가 맞다고 확인
@@ -115,6 +131,9 @@ export function TemplateMatchConfirmModal({
     setSelectedTemplateId(null);
   };
 
+  // 파싱된 데이터가 있으면 사용, 없으면 OCR 원본 표시
+  const hasParsedData = parsedSampleData && parsedSampleData.length > 0;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
@@ -138,7 +157,7 @@ export function TemplateMatchConfirmModal({
         {/* 메인 컨텐츠 */}
         <div className="flex-1 flex overflow-hidden">
           {/* 왼쪽 패널: 매칭 결과 또는 템플릿 선택 */}
-          <div className="w-[45%] flex flex-col border-r overflow-hidden">
+          <div className="w-[40%] flex flex-col border-r overflow-hidden">
             <div className="flex-1 overflow-y-auto p-4">
               {!showTemplateList ? (
                 /* 매칭 결과 화면 */
@@ -305,22 +324,67 @@ export function TemplateMatchConfirmModal({
             </div>
           </div>
 
-          {/* 오른쪽 패널: PDF 데이터 미리보기 */}
-          <div className="w-[55%] flex flex-col overflow-hidden bg-muted/30">
+          {/* 오른쪽 패널: 파싱된 샘플 데이터 (5개 컬럼) */}
+          <div className="w-[60%] flex flex-col overflow-hidden bg-muted/30">
             <div className="flex-shrink-0 px-4 py-3 border-b bg-background">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <FileSpreadsheet className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">업로드된 파일 데이터 미리보기</span>
+                  <span className="text-sm font-medium">
+                    {hasParsedData ? "파싱된 거래 데이터 미리보기" : "원본 데이터 미리보기"}
+                  </span>
                 </div>
                 <Badge variant="outline" className="text-xs">
-                  {sampleRows.length}행 샘플
+                  {hasParsedData ? `${parsedSampleData.length}건` : `${sampleRows.length}행`}
                 </Badge>
               </div>
             </div>
             
             <div className="flex-1 overflow-auto p-4">
-              {headers.length > 0 ? (
+              {hasParsedData ? (
+                /* 파싱된 데이터: 일자, 입금, 출금, 잔액, 비고 */
+                <div className="bg-background rounded-lg border overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/50">
+                          <TableHead className="w-[50px] text-center font-bold">#</TableHead>
+                          <TableHead className="w-[120px] font-bold">거래일자</TableHead>
+                          <TableHead className="w-[130px] text-right font-bold text-blue-600">입금</TableHead>
+                          <TableHead className="w-[130px] text-right font-bold text-red-600">출금</TableHead>
+                          <TableHead className="w-[140px] text-right font-bold">잔액</TableHead>
+                          <TableHead className="font-bold">비고</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {parsedSampleData.map((row, idx) => (
+                          <TableRow key={idx} className={idx % 2 === 0 ? "bg-background" : "bg-muted/20"}>
+                            <TableCell className="text-center text-xs text-muted-foreground font-mono">
+                              {idx + 1}
+                            </TableCell>
+                            <TableCell className="font-mono text-sm">
+                              {row.transactionDate || '-'}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-blue-600">
+                              {formatAmount(row.deposit)}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-red-600">
+                              {formatAmount(row.withdrawal)}
+                            </TableCell>
+                            <TableCell className="text-right font-mono">
+                              {formatAmount(row.balance)}
+                            </TableCell>
+                            <TableCell className="text-sm max-w-[300px] truncate" title={row.memo}>
+                              {row.memo || '-'}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              ) : (
+                /* 원본 OCR 데이터 */
                 <div className="bg-background rounded-lg border overflow-hidden">
                   <div className="overflow-x-auto">
                     <Table>
@@ -328,7 +392,7 @@ export function TemplateMatchConfirmModal({
                         <TableRow className="bg-muted/50">
                           <TableHead className="w-[50px] text-center font-bold">#</TableHead>
                           {headers.map((header, idx) => (
-                            <TableHead key={idx} className="min-w-[120px] text-xs font-medium whitespace-nowrap">
+                            <TableHead key={idx} className="min-w-[100px] text-xs font-medium whitespace-nowrap">
                               <div className="flex flex-col">
                                 <span className="text-muted-foreground">[{idx}]</span>
                                 <span>{header}</span>
@@ -348,25 +412,11 @@ export function TemplateMatchConfirmModal({
                                 {cell || <span className="text-muted-foreground italic">-</span>}
                               </TableCell>
                             ))}
-                            {/* 헤더보다 데이터가 적을 경우 빈 셀 추가 */}
-                            {row.length < headers.length && 
-                              Array.from({ length: headers.length - row.length }).map((_, i) => (
-                                <TableCell key={`empty-${i}`} className="text-xs">
-                                  <span className="text-muted-foreground italic">-</span>
-                                </TableCell>
-                              ))
-                            }
                           </TableRow>
                         ))}
                       </TableBody>
                     </Table>
                   </div>
-                </div>
-              ) : (
-                <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground h-full">
-                  <FileText className="h-16 w-16 mb-4 opacity-30" />
-                  <p className="text-lg font-medium">데이터 미리보기 없음</p>
-                  <p className="text-sm">파일에서 데이터를 추출하지 못했습니다</p>
                 </div>
               )}
             </div>
