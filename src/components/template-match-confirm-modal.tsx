@@ -50,6 +50,9 @@ interface MatchResult {
   identifiers: string[];
   columnSchema?: ColumnSchema | null;
   description?: string;
+  sampleFileKey?: string | null;
+  sampleFileName?: string | null;
+  sampleFileMimeType?: string | null;
 }
 
 interface AvailableTemplate {
@@ -59,6 +62,9 @@ interface AvailableTemplate {
   description: string;
   identifiers: string[];
   columnSchema: ColumnSchema | null;
+  sampleFileKey?: string | null;
+  sampleFileName?: string | null;
+  sampleFileMimeType?: string | null;
 }
 
 interface ParsedSampleRow {
