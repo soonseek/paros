@@ -715,7 +715,6 @@ const CaseDetailPage: NextPage = () => {
             
             <AIChatAssistant
               caseId={id as string}
-              transactions={memoizedTransactions}
             />
           </div>
         </div>
