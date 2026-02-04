@@ -22,6 +22,7 @@ import { Badge } from "~/components/ui/badge";
 import { Input } from "~/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table";
+import { api } from "~/utils/api";
 import { 
   FileText, 
   Building2, 
@@ -35,6 +36,7 @@ import {
   FileSpreadsheet,
   Eye,
   Columns,
+  Image as ImageIcon,
 } from "lucide-react";
 
 interface ColumnSchema {
