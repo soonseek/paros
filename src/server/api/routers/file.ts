@@ -1556,6 +1556,135 @@ export const fileRouter = createTRPCRouter({
     }),
 
   /**
+   * 다른 템플릿으로 샘플 데이터 재파싱
+   * 
+   * 이미 추출된 sampleRows를 다른 템플릿의 columnSchema로 재파싱하여 미리보기
+   */
+  reParseWithTemplate: protectedProcedure
+    .input(
+      z.object({
+        templateId: z.string().min(1, "템플릿 ID는 필수 항목입니다"),
+        headers: z.array(z.string()),
+        sampleRows: z.array(z.array(z.string())),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { templateId, headers, sampleRows } = input;
+
+      // Get template
+      const template = await ctx.db.transactionTemplate.findUnique({
+        where: { id: templateId },
+      });
+
+      if (!template) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "템플릿을 찾을 수 없습니다",
+        });
+      }
+
+      // 템플릿 스키마로 파싱
+      const { convertSchemaToMapping } = await import("~/lib/template-classifier");
+      const templateSchema = template.columnSchema as {
+        columns: Record<string, { index: number; header: string }>;
+        parseRules?: { rowMergePattern?: "pair" | "none" };
+      };
+
+      const { columnMapping } = convertSchemaToMapping(templateSchema, headers);
+
+      console.log(`[ReParse] Template: ${template.name}, columnMapping:`, JSON.stringify(columnMapping));
+
+      // 샘플 데이터 파싱
+      const parsedSampleData: {
+        transactionDate: string;
+        deposit: number;
+        withdrawal: number;
+        balance: number;
+        memo: string;
+      }[] = [];
+
+      for (const row of sampleRows) {
+        const dateIdx = columnMapping.date;
+        const depositIdx = columnMapping.deposit;
+        const withdrawalIdx = columnMapping.withdrawal;
+        const balanceIdx = columnMapping.balance;
+        const memoIdx = columnMapping.memo;
+        const amountIdx = columnMapping.amount;
+        const transactionTypeIdx = columnMapping.transaction_type;
+
+        const dateValue = dateIdx !== undefined && dateIdx >= 0 ? String(row[dateIdx] || '') : '';
+        const balanceValue = balanceIdx !== undefined && balanceIdx >= 0 ? row[balanceIdx] : '';
+        const memoValue = memoIdx !== undefined && memoIdx >= 0 ? String(row[memoIdx] || '') : '';
+
+        // 금액 파싱
+        const parseAmount = (val: unknown): number => {
+          if (!val) return 0;
+          const str = String(val).replace(/[,\s원₩]/g, '');
+          const num = parseFloat(str);
+          return isNaN(num) ? 0 : Math.abs(num);
+        };
+
+        let deposit = 0;
+        let withdrawal = 0;
+
+        // amount + transactionType 방식인 경우
+        if (amountIdx !== undefined && amountIdx >= 0 && transactionTypeIdx !== undefined && transactionTypeIdx >= 0) {
+          const amount = parseAmount(row[amountIdx]);
+          const typeValue = String(row[transactionTypeIdx] || '').toLowerCase();
+
+          // 입금 키워드 확인
+          const isDeposit = ['입금', '입', 'in', 'credit', 'deposit', '수입', '이체입금', '입금이체'].some(
+            keyword => typeValue.includes(keyword)
+          );
+          // 출금 키워드 확인
+          const isWithdrawal = ['출금', '출', 'out', 'debit', 'withdrawal', '지출', '이체출금', '출금이체', '지급'].some(
+            keyword => typeValue.includes(keyword)
+          );
+
+          if (isDeposit) {
+            deposit = amount;
+          } else if (isWithdrawal) {
+            withdrawal = amount;
+          } else {
+            const rawAmount = String(row[amountIdx] || '');
+            if (rawAmount.includes('-')) {
+              withdrawal = amount;
+            } else {
+              deposit = amount;
+            }
+          }
+        } else {
+          // 기존 deposit/withdrawal 방식
+          const depositValue = depositIdx !== undefined && depositIdx >= 0 ? row[depositIdx] : '';
+          const withdrawalValue = withdrawalIdx !== undefined && withdrawalIdx >= 0 ? row[withdrawalIdx] : '';
+          deposit = parseAmount(depositValue);
+          withdrawal = parseAmount(withdrawalValue);
+        }
+
+        const balance = parseAmount(balanceValue);
+
+        // 유효한 거래만 추가
+        if (dateValue || deposit > 0 || withdrawal > 0) {
+          parsedSampleData.push({
+            transactionDate: dateValue,
+            deposit,
+            withdrawal,
+            balance,
+            memo: memoValue,
+          });
+        }
+      }
+
+      return {
+        success: true,
+        templateId: template.id,
+        templateName: template.name,
+        parsedSampleData,
+        columnMapping,
+      };
+    }),
+
+  /**
    * Analyze file with manually selected template
    * 
    * 사용자가 수동으로 선택한 템플릿으로 분석 진행
