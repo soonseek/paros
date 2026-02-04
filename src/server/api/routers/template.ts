@@ -426,13 +426,13 @@ export const templateRouter = createTRPCRouter({
       console.log(`[Template Analyze] Processing ${isPdf ? "PDF" : "Image"}: ${input.fileName}`);
       
       // S3에 샘플 파일 업로드 (템플릿 저장 시 사용)
-      const s3Key = `templates/${uuidv4()}/${input.fileName}`;
+      // uploadFile(fileBuffer, caseId, fileName, mimeType) 시그니처 사용
+      // 템플릿용 가상 caseId로 "templates" 사용
       let uploadedFileKey: string | null = null;
       
       try {
-        await uploadFile(s3Key, fileBuffer, input.mimeType);
-        uploadedFileKey = s3Key;
-        console.log(`[Template Analyze] File uploaded to S3: ${s3Key}`);
+        uploadedFileKey = await uploadFile(fileBuffer, "templates", input.fileName, input.mimeType);
+        console.log(`[Template Analyze] File uploaded: ${uploadedFileKey}`);
       } catch (uploadError) {
         console.error("[Template Analyze] S3 upload error:", uploadError);
         // S3 업로드 실패해도 분석은 계속 진행
