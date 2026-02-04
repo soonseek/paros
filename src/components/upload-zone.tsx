@@ -667,8 +667,6 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
       setIsModalProcessing(false);
     }
   }, [pendingDocumentId, analyzeFileMutation, extractDataMutation, utils, caseId]);
-    }
-  }, [pendingDocumentId, analyzeFileMutation, extractDataMutation, utils, caseId]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     // LOW-2 fix: Keyboard navigation
