@@ -1749,4 +1749,374 @@ export const transactionRouter = createTRPCRouter({
         },
       };
     }),
+
+  /**
+   * 대출 의심 입금건 자동 추출
+   * 큰 금액, round number (100만원 단위), "대출/론/융자" 키워드 등
+   */
+  getSuspectedLoanDeposits: protectedProcedure
+    .input(
+      z.object({
+        caseId: z.string().min(1, "사건 ID는 필수 항목입니다"),
+        minAmount: z.number().optional().default(1000000), // 기본 100만원 이상
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { caseId, minAmount } = input;
+      const userId = ctx.userId;
+
+      // RBAC 검증
+      const user = await ctx.db.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
+
+      if (!user) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "사용자를 찾을 수 없습니다.",
+        });
+      }
+
+      const caseRecord = await ctx.db.case.findUnique({
+        where: { id: caseId },
+      });
+
+      if (!caseRecord) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "사건을 찾을 수 없습니다.",
+        });
+      }
+
+      assertTransactionAccess({
+        userId,
+        userRole: user.role,
+        caseLawyerId: caseRecord.lawyerId,
+      });
+
+      // 대출 의심 입금건 조회
+      // 1. 금액이 minAmount 이상인 입금건
+      // 2. 비고에 대출 관련 키워드가 있는 입금건
+      const deposits = await ctx.db.transaction.findMany({
+        where: {
+          caseId,
+          depositAmount: { gt: 0 },
+          OR: [
+            { depositAmount: { gte: minAmount } },
+            { memo: { contains: "대출", mode: "insensitive" } },
+            { memo: { contains: "론", mode: "insensitive" } },
+            { memo: { contains: "융자", mode: "insensitive" } },
+            { memo: { contains: "담보", mode: "insensitive" } },
+            { memo: { contains: "신용", mode: "insensitive" } },
+            { memo: { contains: "마이너스", mode: "insensitive" } },
+            { memo: { contains: "카드론", mode: "insensitive" } },
+            { memo: { contains: "현금서비스", mode: "insensitive" } },
+          ],
+        },
+        orderBy: [
+          { depositAmount: "desc" },
+          { transactionDate: "asc" },
+        ],
+        take: 100,
+        select: {
+          id: true,
+          transactionDate: true,
+          depositAmount: true,
+          balance: true,
+          memo: true,
+          document: {
+            select: {
+              id: true,
+              originalFileName: true,
+            },
+          },
+        },
+      });
+
+      // Round number 여부 및 대출 키워드 여부 표시
+      const loanKeywords = ["대출", "론", "융자", "담보", "신용", "마이너스", "카드론", "현금서비스"];
+
+      return {
+        deposits: deposits.map(d => {
+          const amount = Number(d.depositAmount);
+          const memo = d.memo || "";
+          const isRoundNumber = amount >= 1000000 && amount % 1000000 === 0;
+          const hasLoanKeyword = loanKeywords.some(k => memo.includes(k));
+
+          return {
+            id: d.id,
+            date: d.transactionDate.toISOString(),
+            amount,
+            balance: Number(d.balance) || 0,
+            memo,
+            documentId: d.document?.id || null,
+            documentName: d.document?.originalFileName || null,
+            isRoundNumber,
+            hasLoanKeyword,
+            confidence: (isRoundNumber ? 30 : 0) + (hasLoanKeyword ? 50 : 0) + (amount >= 10000000 ? 20 : 0),
+          };
+        }),
+        totalCount: deposits.length,
+      };
+    }),
+
+  /**
+   * 키워드로 대출 입금건 검색
+   */
+  searchLoanDeposits: protectedProcedure
+    .input(
+      z.object({
+        caseId: z.string().min(1, "사건 ID는 필수 항목입니다"),
+        keyword: z.string().min(1, "검색 키워드는 필수 항목입니다"),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { caseId, keyword } = input;
+      const userId = ctx.userId;
+
+      // RBAC 검증
+      const user = await ctx.db.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
+
+      if (!user) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "사용자를 찾을 수 없습니다.",
+        });
+      }
+
+      const caseRecord = await ctx.db.case.findUnique({
+        where: { id: caseId },
+      });
+
+      if (!caseRecord) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "사건을 찾을 수 없습니다.",
+        });
+      }
+
+      assertTransactionAccess({
+        userId,
+        userRole: user.role,
+        caseLawyerId: caseRecord.lawyerId,
+      });
+
+      const deposits = await ctx.db.transaction.findMany({
+        where: {
+          caseId,
+          depositAmount: { gt: 0 },
+          memo: { contains: keyword, mode: "insensitive" },
+        },
+        orderBy: { transactionDate: "asc" },
+        take: 50,
+        select: {
+          id: true,
+          transactionDate: true,
+          depositAmount: true,
+          balance: true,
+          memo: true,
+          document: {
+            select: {
+              id: true,
+              originalFileName: true,
+            },
+          },
+        },
+      });
+
+      return {
+        deposits: deposits.map(d => ({
+          id: d.id,
+          date: d.transactionDate.toISOString(),
+          amount: Number(d.depositAmount),
+          balance: Number(d.balance) || 0,
+          memo: d.memo || "",
+          documentId: d.document?.id || null,
+          documentName: d.document?.originalFileName || null,
+        })),
+        totalCount: deposits.length,
+      };
+    }),
+
+  /**
+   * 여러 대출건 동시 추적
+   */
+  trackMultipleLoans: protectedProcedure
+    .input(
+      z.object({
+        caseId: z.string().min(1, "사건 ID는 필수 항목입니다"),
+        loanIds: z.array(z.string()).min(1, "추적할 대출건을 선택해주세요"),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { caseId, loanIds } = input;
+      const userId = ctx.userId;
+
+      // RBAC 검증
+      const user = await ctx.db.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
+
+      if (!user) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "사용자를 찾을 수 없습니다.",
+        });
+      }
+
+      const caseRecord = await ctx.db.case.findUnique({
+        where: { id: caseId },
+      });
+
+      if (!caseRecord) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "사건을 찾을 수 없습니다.",
+        });
+      }
+
+      assertTransactionAccess({
+        userId,
+        userRole: user.role,
+        caseLawyerId: caseRecord.lawyerId,
+      });
+
+      // 선택된 대출건들 조회
+      const loanDeposits = await ctx.db.transaction.findMany({
+        where: {
+          id: { in: loanIds },
+          caseId,
+          depositAmount: { gt: 0 },
+        },
+        orderBy: { transactionDate: "asc" },
+        select: {
+          id: true,
+          transactionDate: true,
+          depositAmount: true,
+          balance: true,
+          memo: true,
+          document: {
+            select: {
+              id: true,
+              originalFileName: true,
+            },
+          },
+        },
+      });
+
+      if (loanDeposits.length === 0) {
+        return {
+          success: false,
+          message: "선택된 대출건을 찾을 수 없습니다.",
+          results: [],
+        };
+      }
+
+      // 각 대출건별 추적 결과
+      const results = await Promise.all(
+        loanDeposits.map(async (loan) => {
+          const loanAmount = Number(loan.depositAmount);
+
+          // 대출 실행 이후의 출금 내역 조회
+          const withdrawals = await ctx.db.transaction.findMany({
+            where: {
+              caseId,
+              transactionDate: { gte: loan.transactionDate },
+              withdrawalAmount: { gt: 0 },
+              id: { not: loan.id },
+            },
+            orderBy: { transactionDate: "asc" },
+            take: 500, // 최대 500건
+            select: {
+              id: true,
+              transactionDate: true,
+              withdrawalAmount: true,
+              balance: true,
+              memo: true,
+              document: {
+                select: {
+                  id: true,
+                  originalFileName: true,
+                },
+              },
+            },
+          });
+
+          // 추적 결과 생성
+          interface TrackedItem {
+            date: string;
+            type: "대출실행" | "출금" | "이체";
+            amount: number;
+            balance: number;
+            memo: string;
+            remainingLoan: number;
+            documentName: string;
+          }
+
+          const trackedItems: TrackedItem[] = [];
+          let remainingLoan = loanAmount;
+
+          // 대출 실행건 추가
+          trackedItems.push({
+            date: loan.transactionDate.toISOString(),
+            type: "대출실행",
+            amount: loanAmount,
+            balance: Number(loan.balance) || 0,
+            memo: loan.memo || "",
+            remainingLoan: remainingLoan,
+            documentName: loan.document?.originalFileName || "",
+          });
+
+          // 출금 내역 추적
+          for (const tx of withdrawals) {
+            const withdrawal = Number(tx.withdrawalAmount);
+            const memo = tx.memo || "";
+            const isTransfer = memo.includes("이체") || memo.includes("송금") || memo.includes("振込");
+
+            remainingLoan -= withdrawal;
+
+            trackedItems.push({
+              date: tx.transactionDate.toISOString(),
+              type: isTransfer ? "이체" : "출금",
+              amount: withdrawal,
+              balance: Number(tx.balance) || 0,
+              memo,
+              remainingLoan: Math.max(0, remainingLoan),
+              documentName: tx.document?.originalFileName || "",
+            });
+
+            if (remainingLoan <= 0) break;
+          }
+
+          const totalUsed = loanAmount - Math.max(0, remainingLoan);
+
+          return {
+            loanId: loan.id,
+            loanDate: loan.transactionDate.toISOString(),
+            loanAmount,
+            loanMemo: loan.memo || "",
+            loanDocumentName: loan.document?.originalFileName || "",
+            trackedItems,
+            summary: {
+              loanAmount,
+              totalUsed,
+              usageCount: trackedItems.length - 1,
+              remainingLoan: Math.max(0, remainingLoan),
+              exhausted: remainingLoan <= 0,
+            },
+          };
+        })
+      );
+
+      return {
+        success: true,
+        message: `${results.length}건의 대출금 추적 완료`,
+        results,
+      };
+    }),
 });
