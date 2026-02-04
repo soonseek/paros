@@ -518,8 +518,48 @@ export function TemplateMatchConfirmModal({
                 </div>
               </div>
             ) : (
-              /* 샘플 데이터 미리보기 */
-              <>
+              /* 매칭 결과 화면: 상단에 템플릿 컬럼 매핑, 하단에 샘플 데이터 */
+              <div className="flex flex-col h-full overflow-hidden">
+                {/* 매칭된 템플릿의 컬럼 매핑 정보 (매칭 성공 시만 표시) */}
+                {matchResult.matched && matchResult.columnSchema && (
+                  <div className="flex-shrink-0 border-b">
+                    <div className="px-4 py-3 bg-background border-b">
+                      <div className="flex items-center gap-2">
+                        <Columns className="h-4 w-4 text-green-600" />
+                        <span className="text-sm font-medium">매칭된 템플릿 컬럼 매핑</span>
+                        <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                          {matchResult.templateName}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="p-4 bg-green-50/30 max-h-[200px] overflow-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[80px]">인덱스</TableHead>
+                            <TableHead>헤더명</TableHead>
+                            <TableHead className="w-[100px]">역할</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {getColumnMappings(matchResult.columnSchema).map((col, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell className="font-mono text-sm">[{col.index}]</TableCell>
+                              <TableCell className="text-sm">{col.header}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="text-xs">
+                                  {col.roleLabel}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
+
+                {/* 샘플 데이터 미리보기 */}
                 <div className="flex-shrink-0 px-4 py-3 border-b bg-background">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -614,7 +654,7 @@ export function TemplateMatchConfirmModal({
                     </div>
                   )}
                 </div>
-              </>
+              </div>
             )}
           </div>
         </div>
