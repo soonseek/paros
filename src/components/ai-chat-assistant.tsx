@@ -108,7 +108,7 @@ export const AIChatAssistant = memo<AIChatAssistantProps>(({ caseId, transaction
 
   // useCallback으로 함수 메모이제이션
   const handleSendMessage = useCallback(async () => {
-    if (!chatInput.trim() || transactions.length === 0) return;
+    if (!chatInput.trim()) return;
 
     const userMessage = chatInput.trim();
     setChatInput("");
@@ -125,7 +125,6 @@ export const AIChatAssistant = memo<AIChatAssistantProps>(({ caseId, transaction
         caseId,
         message: userMessage,
         model: selectedModel,
-        transactions,
       });
 
       // 응답에서 테이블 데이터 파싱
@@ -150,7 +149,7 @@ export const AIChatAssistant = memo<AIChatAssistantProps>(({ caseId, transaction
       setIsLoading(false);
       inputRef.current?.focus();
     }
-  }, [chatInput, caseId, selectedModel, transactions, chatMutation]);
+  }, [chatInput, caseId, selectedModel, chatMutation]);
 
   const handleKeyPress = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
