@@ -153,6 +153,10 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
       bankName: string | null;
       confidence: number;
       identifiers: string[];
+      columnSchema: {
+        columns: Record<string, { index: number; header: string }>;
+      } | null;
+      description?: string;
     };
     availableTemplates: {
       id: string;
