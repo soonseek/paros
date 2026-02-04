@@ -157,6 +157,9 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
         columns: Record<string, { index: number; header: string }>;
       } | null;
       description?: string;
+      sampleFileKey?: string | null;
+      sampleFileName?: string | null;
+      sampleFileMimeType?: string | null;
     };
     availableTemplates: {
       id: string;
@@ -167,6 +170,9 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
       columnSchema: {
         columns: Record<string, { index: number; header: string }>;
       } | null;
+      sampleFileKey?: string | null;
+      sampleFileName?: string | null;
+      sampleFileMimeType?: string | null;
     }[];
   } | null>(null);
   const [isModalProcessing, setIsModalProcessing] = useState(false);
