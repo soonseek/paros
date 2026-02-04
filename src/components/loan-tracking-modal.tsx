@@ -305,7 +305,7 @@ export function LoanTrackingModal({ isOpen, onClose, caseId }: LoanTrackingModal
 
           {/* Step 2: 검색 결과 & 선택 */}
           {step === "search-results" && (
-            <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+            <div className="flex-1 flex flex-col gap-4 min-h-0">
               {/* 키워드 검색인 경우 입력창 */}
               {searchMethod === "keyword" && (
                 <div className="flex gap-4 items-end flex-shrink-0 px-1">
@@ -346,18 +346,17 @@ export function LoanTrackingModal({ isOpen, onClose, caseId }: LoanTrackingModal
                       </span>
                     </div>
                     <Badge variant="secondary">
-                      {searchResults.length}건 발견
+                      {searchResults.length}건 발견 (신뢰도순 정렬)
                     </Badge>
                   </div>
 
-                  <div className="flex-1 border rounded-lg overflow-hidden min-h-0">
-                    <div className="h-full overflow-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="w-[50px] sticky top-0 bg-background">선택</TableHead>
-                            <TableHead className="w-[100px] sticky top-0 bg-background">날짜</TableHead>
-                            <TableHead className="w-[130px] text-right sticky top-0 bg-background">금액</TableHead>
+                  <div className="flex-1 border rounded-lg min-h-0 overflow-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[50px] sticky top-0 bg-background z-10">선택</TableHead>
+                          <TableHead className="w-[100px] sticky top-0 bg-background z-10">날짜</TableHead>
+                          <TableHead className="w-[130px] text-right sticky top-0 bg-background z-10">금액</TableHead>
                             <TableHead className="sticky top-0 bg-background">비고</TableHead>
                             <TableHead className="w-[150px] sticky top-0 bg-background">파일명</TableHead>
                             {searchMethod === "auto" && (
