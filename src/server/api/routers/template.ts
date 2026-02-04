@@ -8,7 +8,6 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, protectedProcedure, adminProcedure } from "../trpc";
 import { uploadFile } from "~/lib/storage";
-import { v4 as uuidv4 } from "uuid";
 
 // 컬럼 정의 스키마
 const columnDefinitionSchema = z.object({
