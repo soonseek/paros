@@ -44,6 +44,8 @@ interface MatchResult {
   bankName: string | null;
   confidence: number;
   identifiers: string[];
+  columnSchema?: ColumnSchema | null;
+  description?: string;
 }
 
 interface ColumnSchema {
