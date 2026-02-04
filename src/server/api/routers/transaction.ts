@@ -1411,26 +1411,24 @@ export const transactionRouter = createTRPCRouter({
         });
       }
 
-      // 3. Check if transactions exist for this document
-      const existingCount = await ctx.db.transaction.count({
+      // 3. Delete all transactions for this document
+      const deletedTransactionCount = await ctx.db.transaction.deleteMany({
         where: { documentId },
       });
 
-      if (existingCount === 0) {
-        // No transactions to delete - delete the document itself
-        const docToDelete = await ctx.db.document.findUnique({
-          where: { id: documentId },
-          select: { id: true, originalFileName: true, s3Key: true },
-        });
+      // 4. Delete FileAnalysisResult if exists
+      await ctx.db.fileAnalysisResult.deleteMany({
+        where: { documentId },
+      });
 
-        if (!docToDelete) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "문서를 찾을 수 없습니다",
-          });
-        }
+      // 5. Get document info for deletion
+      const docToDelete = await ctx.db.document.findUnique({
+        where: { id: documentId },
+        select: { id: true, originalFileName: true, s3Key: true },
+      });
 
-        // Delete from S3
+      if (docToDelete) {
+        // 6. Delete from S3
         try {
           const { deleteFileFromS3 } = await import("~/lib/s3");
           await deleteFileFromS3(docToDelete.s3Key);
@@ -1439,25 +1437,17 @@ export const transactionRouter = createTRPCRouter({
           // Continue with DB deletion even if S3 deletion fails
         }
 
-        // Delete document from database
+        // 7. Delete document from database
         await ctx.db.document.delete({
           where: { id: documentId },
         });
-
-        return {
-          deletedCount: 0,
-          message: `'${docToDelete.originalFileName}' 파일이 삭제되었습니다. 거래 데이터가 없어 파일만 삭제되었습니다.`,
-        };
       }
 
-      // 4. Delete all transactions for this document
-      const result = await ctx.db.transaction.deleteMany({
-        where: { documentId },
-      });
-
       return {
-        deletedCount: result.count,
-        message: `${result.count}건의 거래내역이 삭제되었습니다`,
+        deletedCount: deletedTransactionCount.count,
+        message: deletedTransactionCount.count > 0 
+          ? `${deletedTransactionCount.count}건의 거래내역과 파일이 삭제되었습니다`
+          : `파일이 삭제되었습니다`,
       };
     }),
 
