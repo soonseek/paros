@@ -650,10 +650,11 @@ const CaseDetailPage: NextPage = () => {
                         variant="destructive"
                         size="sm"
                         onClick={async () => {
-                          if (confirm("선택한 파일의 거래내역을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.")) {
+                          if (confirm("선택한 파일과 거래내역을 모두 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.")) {
                             await deleteTransactionsMutation.mutateAsync({
                               documentId: selectedDocumentId,
                             });
+                            setSelectedDocumentId(null); // 삭제 후 선택 초기화
                           }
                         }}
                       >
