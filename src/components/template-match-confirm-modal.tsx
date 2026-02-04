@@ -118,7 +118,7 @@ export function TemplateMatchConfirmModal({
   previewPages,
   headers,
   sampleRows,
-  parsedSampleData,
+  parsedSampleData: initialParsedData,
   matchResult,
   availableTemplates,
   onConfirm,
@@ -130,6 +130,36 @@ export function TemplateMatchConfirmModal({
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [previewTemplateId, setPreviewTemplateId] = useState<string | null>(null);
+  
+  // 재파싱된 샘플 데이터 상태
+  const [reparsedData, setReparsedData] = useState<ParsedSampleRow[] | null>(null);
+  const [isReparsing, setIsReparsing] = useState(false);
+
+  // 현재 표시할 파싱된 데이터 (재파싱 결과 또는 초기 데이터)
+  const parsedSampleData = reparsedData || initialParsedData;
+
+  // 재파싱 API
+  const reparseMutation = api.file.reParseWithTemplate.useMutation({
+    onSuccess: (data) => {
+      setReparsedData(data.parsedSampleData);
+      setIsReparsing(false);
+    },
+    onError: (error) => {
+      console.error("ReParse error:", error);
+      setIsReparsing(false);
+    },
+  });
+
+  // 결과 파싱 재시도 핸들러
+  const handleReParse = () => {
+    if (!selectedTemplateId) return;
+    setIsReparsing(true);
+    reparseMutation.mutate({
+      templateId: selectedTemplateId,
+      headers,
+      sampleRows,
+    });
+  };
 
   // 검색 필터링된 템플릿 목록
   const filteredTemplates = useMemo(() => {
@@ -155,6 +185,14 @@ export function TemplateMatchConfirmModal({
     if (!previewTemplateId) return null;
     return availableTemplates.find(t => t.id === previewTemplateId);
   }, [previewTemplateId, availableTemplates]);
+
+  // 모달 열릴 때 재파싱 데이터 초기화
+  React.useEffect(() => {
+    if (!open) {
+      setReparsedData(null);
+      setSelectedTemplateId(null);
+    }
+  }, [open]);
 
   // 신뢰도에 따른 색상
   const getConfidenceColor = (confidence: number) => {
