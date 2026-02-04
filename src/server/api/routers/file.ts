@@ -1440,7 +1440,7 @@ export const fileRouter = createTRPCRouter({
             columnSchema: null,
             description: undefined,
           },
-          // 전체 템플릿 목록 (선택용) - columnSchema 포함
+          // 전체 템플릿 목록 (선택용) - columnSchema 및 샘플 파일 포함
           availableTemplates: templates.map(t => ({
             id: t.id,
             name: t.name,
@@ -1450,6 +1450,9 @@ export const fileRouter = createTRPCRouter({
             columnSchema: t.columnSchema as {
               columns: Record<string, { index: number; header: string }>;
             } | null,
+            sampleFileKey: t.sampleFileKey,
+            sampleFileName: t.sampleFileName,
+            sampleFileMimeType: t.sampleFileMimeType,
           })),
         };
       } else {
