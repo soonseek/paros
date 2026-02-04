@@ -270,8 +270,7 @@ export const AIChatAssistant = memo<AIChatAssistantProps>(({ caseId }) => {
                     </div>
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
           ) : (
             <>
               {chatMessages.map((msg, idx) => (
