@@ -1712,7 +1712,7 @@ export const fileRouter = createTRPCRouter({
  * @param columnMapping - Column mapping from file analysis (string→string format)
  * @param headerRowIndex - Header row index
  * @param mimeType - MIME type to detect file format (Excel/CSV vs PDF)
- * @param analysisResult - FileAnalysisResult containing extractedData and llmAnalysis
+ * @param analysisResult - FileAnalysisResult containing extractedData and errorDetails
  * @returns Extraction result
  */
 async function performExtraction(
