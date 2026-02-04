@@ -476,7 +476,7 @@ export function LoanTrackingModal({ isOpen, onClose, caseId }: LoanTrackingModal
                       className="flex-1 flex flex-col overflow-hidden mt-4"
                     >
                       {/* 요약 카드 */}
-                      <div className="flex-shrink-0 grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+                      <div className="flex-shrink-0 grid grid-cols-3 md:grid-cols-6 gap-3 mb-4">
                         <Card className="p-3">
                           <p className="text-xs text-muted-foreground">대출 실행일</p>
                           <p className="font-mono font-medium">{formatDate(result.loanDate)}</p>
