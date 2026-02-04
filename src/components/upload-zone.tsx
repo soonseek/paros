@@ -160,6 +160,9 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
       bankName: string | null;
       description: string;
       identifiers: string[];
+      columnSchema: {
+        columns: Record<string, { index: number; header: string }>;
+      } | null;
     }[];
   } | null>(null);
   const [isModalProcessing, setIsModalProcessing] = useState(false);
