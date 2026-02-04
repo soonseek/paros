@@ -502,60 +502,62 @@ export function LoanTrackingModal({ isOpen, onClose, caseId }: LoanTrackingModal
                       </div>
 
                       {/* 테이블 (샘플 10개 + 나머지 다운로드) */}
-                      <ScrollArea className="flex-1 border rounded-lg">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead className="w-[50px]">순번</TableHead>
-                              <TableHead className="w-[100px]">날짜</TableHead>
-                              <TableHead className="w-[80px]">구분</TableHead>
-                              <TableHead className="w-[120px] text-right">금액</TableHead>
-                              <TableHead className="w-[120px] text-right">잔액</TableHead>
-                              <TableHead className="w-[120px] text-right">남은 대출금</TableHead>
-                              <TableHead>비고</TableHead>
-                              <TableHead className="w-[150px]">거래내역 파일</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {result.trackedItems.slice(0, 10).map((item, idx) => (
-                              <TableRow key={idx} className={item.type === "대출실행" ? "bg-blue-50 dark:bg-blue-950" : ""}>
-                                <TableCell className="font-mono text-sm">{idx + 1}</TableCell>
-                                <TableCell className="font-mono text-sm">{formatDate(item.date)}</TableCell>
-                                <TableCell>
-                                  <Badge variant={item.type === "대출실행" ? "default" : "outline"}>
-                                    {item.type}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className={`text-right font-mono ${item.type === "대출실행" ? "text-blue-600" : "text-red-600"}`}>
-                                  {item.type === "대출실행" ? "+" : "-"}{formatAmount(item.amount)}
-                                </TableCell>
-                                <TableCell className="text-right font-mono">{formatAmount(item.balance)}</TableCell>
-                                <TableCell className="text-right font-mono">{formatAmount(item.remainingLoan)}</TableCell>
-                                <TableCell className="max-w-[200px] truncate" title={item.memo}>
-                                  {item.memo || "-"}
-                                </TableCell>
-                                <TableCell className="text-xs text-muted-foreground">
-                                  <div className="flex items-center gap-1">
-                                    <FileText className="h-3 w-3" />
-                                    <span className="truncate" title={item.documentName}>
-                                      {item.documentName || "-"}
-                                    </span>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                            {result.trackedItems.length > 10 && (
+                      <div className="flex-1 border rounded-lg overflow-hidden min-h-0">
+                        <div className="h-full overflow-auto">
+                          <Table>
+                            <TableHeader>
                               <TableRow>
-                                <TableCell colSpan={8} className="text-center py-4 bg-muted/50">
-                                  <p className="text-sm text-muted-foreground">
-                                    +{result.trackedItems.length - 10}건 더 있음 (엑셀 다운로드로 전체 확인)
-                                  </p>
-                                </TableCell>
+                                <TableHead className="w-[50px] sticky top-0 bg-background">순번</TableHead>
+                                <TableHead className="w-[100px] sticky top-0 bg-background">날짜</TableHead>
+                                <TableHead className="w-[80px] sticky top-0 bg-background">구분</TableHead>
+                                <TableHead className="w-[120px] text-right sticky top-0 bg-background">금액</TableHead>
+                                <TableHead className="w-[120px] text-right sticky top-0 bg-background">잔액</TableHead>
+                                <TableHead className="w-[120px] text-right sticky top-0 bg-background">남은 대출금</TableHead>
+                                <TableHead className="sticky top-0 bg-background">비고</TableHead>
+                                <TableHead className="w-[150px] sticky top-0 bg-background">거래내역 파일</TableHead>
                               </TableRow>
-                            )}
-                          </TableBody>
-                        </Table>
-                      </ScrollArea>
+                            </TableHeader>
+                            <TableBody>
+                              {result.trackedItems.slice(0, 10).map((item, idx) => (
+                                <TableRow key={idx} className={item.type === "대출실행" ? "bg-blue-50 dark:bg-blue-950" : ""}>
+                                  <TableCell className="font-mono text-sm">{idx + 1}</TableCell>
+                                  <TableCell className="font-mono text-sm">{formatDate(item.date)}</TableCell>
+                                  <TableCell>
+                                    <Badge variant={item.type === "대출실행" ? "default" : "outline"}>
+                                      {item.type}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className={`text-right font-mono ${item.type === "대출실행" ? "text-blue-600" : "text-red-600"}`}>
+                                    {item.type === "대출실행" ? "+" : "-"}{formatAmount(item.amount)}
+                                  </TableCell>
+                                  <TableCell className="text-right font-mono">{formatAmount(item.balance)}</TableCell>
+                                  <TableCell className="text-right font-mono">{formatAmount(item.remainingLoan)}</TableCell>
+                                  <TableCell className="max-w-[200px] truncate" title={item.memo}>
+                                    {item.memo || "-"}
+                                  </TableCell>
+                                  <TableCell className="text-xs text-muted-foreground">
+                                    <div className="flex items-center gap-1">
+                                      <FileText className="h-3 w-3" />
+                                      <span className="truncate" title={item.documentName}>
+                                        {item.documentName || "-"}
+                                      </span>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                              {result.trackedItems.length > 10 && (
+                                <TableRow>
+                                  <TableCell colSpan={8} className="text-center py-4 bg-muted/50">
+                                    <p className="text-sm text-muted-foreground">
+                                      +{result.trackedItems.length - 10}건 더 있음 (엑셀 다운로드로 전체 확인)
+                                    </p>
+                                  </TableCell>
+                                </TableRow>
+                              )}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </div>
                     </TabsContent>
                   ))}
                 </Tabs>
