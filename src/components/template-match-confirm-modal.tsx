@@ -8,7 +8,7 @@
  * - 오른쪽: 파싱된 샘플 데이터 또는 템플릿 미리보기
  */
 
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -37,6 +37,7 @@ import {
   Eye,
   Columns,
   Image as ImageIcon,
+  RefreshCw,
 } from "lucide-react";
 
 interface ColumnSchema {
