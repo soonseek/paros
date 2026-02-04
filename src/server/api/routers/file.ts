@@ -1329,7 +1329,12 @@ export const fileRouter = createTRPCRouter({
             parseRules?: { rowMergePattern?: "pair" | "none" };
           };
           
+          console.log(`[PreAnalyze] Template schema columns:`, JSON.stringify(templateSchema.columns));
+          
           const { columnMapping } = convertSchemaToMapping(templateSchema, tableData.headers);
+          
+          console.log(`[PreAnalyze] Column mapping result:`, JSON.stringify(columnMapping));
+          console.log(`[PreAnalyze] Headers:`, JSON.stringify(tableData.headers));
           
           // 샘플 데이터 파싱 (최대 10행)
           const sampleRows = tableData.rows.slice(0, 10);
