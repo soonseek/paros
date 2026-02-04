@@ -220,6 +220,12 @@ const TemplatesPage: NextPage = () => {
       setIdentifiersInput((data.suggestedIdentifiers || []).join(", "));
       // 분석된 헤더 저장 (빈 문자열 필터링)
       setDetectedHeaders((data.detectedHeaders || []).filter(h => h && h.trim().length > 0));
+      // 샘플 파일 정보 저장 (필수)
+      setSampleFileInfo({
+        sampleFileKey: data.sampleFileKey || null,
+        sampleFileName: data.sampleFileName || null,
+        sampleFileMimeType: data.sampleFileMimeType || null,
+      });
       toast.success(`AI 분석 완료! (신뢰도: ${Math.round((data.confidence || 0) * 100)}%)`);
     },
     onError: (error) => toast.error(error.message),
