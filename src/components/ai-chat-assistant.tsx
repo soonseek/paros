@@ -31,7 +31,7 @@ interface Transaction {
 
 interface AIChatAssistantProps {
   caseId: string;
-  transactions: Transaction[];
+  // transactions 더 이상 필요 없음 - DB에서 직접 조회
 }
 
 // 테이블 데이터 인터페이스
