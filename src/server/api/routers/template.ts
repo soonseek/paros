@@ -150,6 +150,10 @@ export const templateRouter = createTRPCRouter({
       columnSchema: columnSchemaSchema.optional(),
       priority: z.number().optional(),
       isActive: z.boolean().optional(),
+      // 샘플 파일 정보 (수정 시 선택)
+      sampleFileKey: z.string().optional(),
+      sampleFileName: z.string().optional(),
+      sampleFileMimeType: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const { id, ...updateData } = input;
