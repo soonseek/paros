@@ -395,7 +395,7 @@ export const AIChatAssistant = memo<AIChatAssistantProps>(({ caseId }) => {
               ref={inputRef}
               placeholder="거래내역에 대해 질문하세요..."
               className="flex-1 h-12 text-base"
-              disabled={transactions.length === 0 || isLoading}
+              disabled={isLoading}
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               onKeyPress={handleKeyPress}
