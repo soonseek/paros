@@ -399,6 +399,7 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
             previewPages: preAnalysisResult.previewPages,
             headers: preAnalysisResult.headers,
             sampleRows: preAnalysisResult.sampleRows,
+            parsedSampleData: preAnalysisResult.parsedSampleData,
             matchResult: preAnalysisResult.matchResult,
             availableTemplates: preAnalysisResult.availableTemplates,
           });
