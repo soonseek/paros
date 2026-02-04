@@ -347,21 +347,22 @@ export function LoanTrackingModal({ isOpen, onClose, caseId }: LoanTrackingModal
                     </Badge>
                   </div>
 
-                  <ScrollArea className="flex-1 border rounded-lg">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[50px]">선택</TableHead>
-                          <TableHead className="w-[100px]">날짜</TableHead>
-                          <TableHead className="w-[130px] text-right">금액</TableHead>
-                          <TableHead>비고</TableHead>
-                          <TableHead className="w-[150px]">파일명</TableHead>
-                          {searchMethod === "auto" && (
-                            <TableHead className="w-[100px]">신뢰도</TableHead>
-                          )}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
+                  <div className="flex-1 border rounded-lg overflow-hidden min-h-0">
+                    <div className="h-full overflow-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[50px] sticky top-0 bg-background">선택</TableHead>
+                            <TableHead className="w-[100px] sticky top-0 bg-background">날짜</TableHead>
+                            <TableHead className="w-[130px] text-right sticky top-0 bg-background">금액</TableHead>
+                            <TableHead className="sticky top-0 bg-background">비고</TableHead>
+                            <TableHead className="w-[150px] sticky top-0 bg-background">파일명</TableHead>
+                            {searchMethod === "auto" && (
+                              <TableHead className="w-[100px] sticky top-0 bg-background">신뢰도</TableHead>
+                            )}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
                         {searchResults.map((deposit) => (
                           <TableRow 
                             key={deposit.id}
