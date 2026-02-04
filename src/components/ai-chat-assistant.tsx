@@ -393,10 +393,7 @@ export const AIChatAssistant = memo<AIChatAssistantProps>(({ caseId }) => {
           <div className="flex gap-3">
             <Input
               ref={inputRef}
-              placeholder={transactions.length === 0 
-                ? "거래내역 로드 후 사용 가능합니다..." 
-                : "거래내역에 대해 질문하세요..."
-              }
+              placeholder="거래내역에 대해 질문하세요..."
               className="flex-1 h-12 text-base"
               disabled={transactions.length === 0 || isLoading}
               value={chatInput}
