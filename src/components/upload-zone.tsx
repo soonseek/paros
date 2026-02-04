@@ -10,7 +10,7 @@ import { ProgressBar } from "~/components/atoms/ProgressBar";
 import { useRealtimeProgress } from "~/hooks/use-realtime-progress";
 import { FilePreviewModal } from "~/components/file-preview-modal";
 import { FileDeleteButton } from "~/components/file-delete-button";
-import { TemplateSelectionModal } from "~/components/template-selection-modal";
+import { TemplateMatchConfirmModal } from "~/components/template-match-confirm-modal";
 
 interface FileUploadProps {
   caseId: string;
