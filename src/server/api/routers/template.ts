@@ -96,10 +96,10 @@ export const templateRouter = createTRPCRouter({
       columnSchema: columnSchemaSchema,
       priority: z.number().default(0),
       isActive: z.boolean().default(true),
-      // 샘플 파일 정보 (필수)
-      sampleFileKey: z.string().min(1, "샘플 파일은 필수입니다"),
-      sampleFileName: z.string().min(1, "샘플 파일명은 필수입니다"),
-      sampleFileMimeType: z.string().min(1, "샘플 파일 타입은 필수입니다"),
+      // 샘플 파일 정보 (선택 - S3 환경에서만)
+      sampleFileKey: z.string().optional(),
+      sampleFileName: z.string().optional(),
+      sampleFileMimeType: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       // 중복 체크: 은행명 + 이름이 모두 동일한 경우만
@@ -126,9 +126,9 @@ export const templateRouter = createTRPCRouter({
           columnSchema: input.columnSchema,
           priority: input.priority,
           isActive: input.isActive,
-          sampleFileKey: input.sampleFileKey,
-          sampleFileName: input.sampleFileName,
-          sampleFileMimeType: input.sampleFileMimeType,
+          sampleFileKey: input.sampleFileKey || null,
+          sampleFileName: input.sampleFileName || null,
+          sampleFileMimeType: input.sampleFileMimeType || null,
           createdBy: ctx.userId,
         },
       });
