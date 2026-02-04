@@ -179,8 +179,9 @@ export function LoanTrackingModal({ isOpen, onClose, caseId }: LoanTrackingModal
     return amount.toLocaleString() + "원";
   };
 
-  // 개별 탭 엑셀 다운로드
+  // 개별 탭 엑셀 다운로드 (요약 없이 전체 내역만)
   const handleDownloadTab = (result: NonNullable<typeof trackingQuery.data>["results"][0]) => {
+    // 전체 내역만 포함 (요약 없음)
     const excelData = result.trackedItems.map((item, idx) => ({
       "순번": idx + 1,
       "날짜": formatDate(item.date),
@@ -188,34 +189,10 @@ export function LoanTrackingModal({ isOpen, onClose, caseId }: LoanTrackingModal
       "금액": item.amount,
       "잔액": item.balance,
       "남은 대출금": item.remainingLoan,
-      "비고": item.memo,
-      "거래내역 파일": item.documentName || "-",
-      "이동 대상 계좌": item.transferTo || "-",
+      "비고": item.memo || "",
+      "거래내역 파일": item.documentName || "",
+      "이동 대상 계좌": item.transferTo || "",
     }));
-
-    // 요약 추가
-    excelData.push({
-      "순번": 0,
-      "날짜": "",
-      "구분": "" as "대출실행" | "출금" | "이동",
-      "금액": 0,
-      "잔액": 0,
-      "남은 대출금": 0,
-      "비고": "",
-      "거래내역 파일": "",
-      "이동 대상 계좌": "",
-    });
-    excelData.push({
-      "순번": 0,
-      "날짜": "=== 요약 ===",
-      "구분": "" as "대출실행" | "출금" | "이동",
-      "금액": result.summary.loanAmount,
-      "잔액": 0,
-      "남은 대출금": result.summary.remainingLoan,
-      "비고": `사용: ${result.summary.usageCount}건, 이동: ${result.summary.transferCount || 0}건`,
-      "거래내역 파일": result.summary.exhausted ? "전액 소진" : "일부 잔여",
-      "이동 대상 계좌": "",
-    });
 
     const ws = XLSX.utils.json_to_sheet(excelData);
     const wb = XLSX.utils.book_new();
