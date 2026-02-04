@@ -222,10 +222,7 @@ export const AIChatAssistant = memo<AIChatAssistantProps>(({ caseId }) => {
                   <Bot className="size-8 text-muted-foreground" />
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  {transactions.length === 0 
-                    ? "거래내역이 로드되면 AI 어시스턴트를 사용할 수 있습니다"
-                    : "아래 추천 질문을 클릭하거나 직접 질문해보세요"
-                  }
+                  아래 추천 질문을 클릭하거나 직접 질문해보세요
                 </p>
               </div>
 
