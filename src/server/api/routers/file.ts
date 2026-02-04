@@ -1358,10 +1358,16 @@ export const fileRouter = createTRPCRouter({
             let deposit = 0;
             let withdrawal = 0;
             
+            // 디버그 로그
+            console.log(`[PreAnalyze Parse] Row: ${JSON.stringify(row.slice(0, 8))}`);
+            console.log(`[PreAnalyze Parse] Indices - amount: ${amountIdx}, transactionType: ${transactionTypeIdx}, deposit: ${depositIdx}, withdrawal: ${withdrawalIdx}`);
+            
             // amount + transactionType 방식인 경우
             if (amountIdx !== undefined && amountIdx >= 0 && transactionTypeIdx !== undefined && transactionTypeIdx >= 0) {
               const amount = parseAmount(row[amountIdx]);
               const typeValue = String(row[transactionTypeIdx] || '').toLowerCase();
+              
+              console.log(`[PreAnalyze Parse] amount=${amount}, typeValue="${typeValue}" (from index ${transactionTypeIdx})`);
               
               // 입금 키워드 확인
               const isDeposit = ['입금', '입', 'in', 'credit', 'deposit', '수입', '이체입금', '입금이체'].some(
@@ -1372,12 +1378,15 @@ export const fileRouter = createTRPCRouter({
                 keyword => typeValue.includes(keyword)
               );
               
+              console.log(`[PreAnalyze Parse] isDeposit=${isDeposit}, isWithdrawal=${isWithdrawal}`);
+              
               if (isDeposit) {
                 deposit = amount;
               } else if (isWithdrawal) {
                 withdrawal = amount;
               } else {
                 // 구분을 알 수 없으면 금액을 그대로 표시 (양수면 입금, 음수면 출금으로 추정)
+                console.log(`[PreAnalyze Parse] Unknown type, using fallback logic`);
                 const rawAmount = String(row[amountIdx] || '');
                 if (rawAmount.includes('-')) {
                   withdrawal = amount;
@@ -1386,12 +1395,16 @@ export const fileRouter = createTRPCRouter({
                 }
               }
             } else {
+              console.log(`[PreAnalyze Parse] Using deposit/withdrawal columns directly`);
               // 기존 deposit/withdrawal 방식
               const depositValue = depositIdx !== undefined && depositIdx >= 0 ? row[depositIdx] : '';
               const withdrawalValue = withdrawalIdx !== undefined && withdrawalIdx >= 0 ? row[withdrawalIdx] : '';
               deposit = parseAmount(depositValue);
               withdrawal = parseAmount(withdrawalValue);
+              console.log(`[PreAnalyze Parse] depositValue="${depositValue}", withdrawalValue="${withdrawalValue}"`);
             }
+            
+            console.log(`[PreAnalyze Parse] Result - deposit=${deposit}, withdrawal=${withdrawal}`);
             
             const balance = parseAmount(balanceValue);
             
