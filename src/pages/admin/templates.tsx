@@ -251,6 +251,7 @@ const TemplatesPage: NextPage = () => {
     setIdentifiersInput("");
     setEditingId(null);
     setDetectedHeaders([]); // 분석된 헤더 초기화
+    setSampleFileInfo({ sampleFileKey: null, sampleFileName: null, sampleFileMimeType: null }); // 샘플 파일 초기화
   };
 
   // 중복 헤더 검사
