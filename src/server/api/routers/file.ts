@@ -1609,7 +1609,7 @@ export const fileRouter = createTRPCRouter({
           hasHeaders: true,
           confidence: 1.0, // 수동 선택이므로 100%
           extractedData: { headers, rows } as Prisma.InputJsonValue,
-          llmAnalysis: {
+          errorDetails: {
             transactionTypeMethod: "manual_template",
             memoInAmountColumn,
             reasoning: `수동 템플릿 선택: ${template.name}${template.bankName ? ` [${template.bankName}]` : ""}`,
@@ -1621,7 +1621,7 @@ export const fileRouter = createTRPCRouter({
           totalRows: rows.length,
           confidence: 1.0,
           extractedData: { headers, rows } as Prisma.InputJsonValue,
-          llmAnalysis: {
+          errorDetails: {
             transactionTypeMethod: "manual_template",
             memoInAmountColumn,
             reasoning: `수동 템플릿 선택: ${template.name}${template.bankName ? ` [${template.bankName}]` : ""}`,
