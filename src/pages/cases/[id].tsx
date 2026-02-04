@@ -232,8 +232,8 @@ const CaseDetailPage: NextPage = () => {
       void utils.transaction.search.invalidate({
         caseId: id as string,
       });
-      // 문서 목록 갱신
-      void utils.document.list.invalidate({
+      // 문서 목록 갱신 (드롭다운 갱신)
+      void utils.file.getDocumentsForCase.invalidate({
         caseId: id as string,
       });
     },
