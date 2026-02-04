@@ -517,18 +517,18 @@ export function LoanTrackingModal({ isOpen, onClose, caseId }: LoanTrackingModal
                           <Table>
                             <TableHeader>
                               <TableRow>
-                                <TableHead className="w-[50px] sticky top-0 bg-background">순번</TableHead>
-                                <TableHead className="w-[90px] sticky top-0 bg-background">날짜</TableHead>
-                                <TableHead className="w-[70px] sticky top-0 bg-background">구분</TableHead>
-                                <TableHead className="w-[110px] text-right sticky top-0 bg-background">금액</TableHead>
-                                <TableHead className="w-[110px] text-right sticky top-0 bg-background">남은 대출금</TableHead>
-                                <TableHead className="w-[150px] sticky top-0 bg-background">비고</TableHead>
-                                <TableHead className="w-[120px] sticky top-0 bg-background">거래 파일</TableHead>
-                                <TableHead className="w-[120px] sticky top-0 bg-background">이동 대상</TableHead>
+                                <TableHead className="w-[50px] sticky top-0 bg-background z-10">순번</TableHead>
+                                <TableHead className="w-[90px] sticky top-0 bg-background z-10">날짜</TableHead>
+                                <TableHead className="w-[70px] sticky top-0 bg-background z-10">구분</TableHead>
+                                <TableHead className="w-[110px] text-right sticky top-0 bg-background z-10">금액</TableHead>
+                                <TableHead className="w-[110px] text-right sticky top-0 bg-background z-10">남은 대출금</TableHead>
+                                <TableHead className="w-[150px] sticky top-0 bg-background z-10">비고</TableHead>
+                                <TableHead className="w-[120px] sticky top-0 bg-background z-10">거래 파일</TableHead>
+                                <TableHead className="w-[120px] sticky top-0 bg-background z-10">이동 대상</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {result.trackedItems.slice(0, 10).map((item, idx) => (
+                              {result.trackedItems.map((item, idx) => (
                                 <TableRow 
                                   key={idx} 
                                   className={
@@ -584,15 +584,6 @@ export function LoanTrackingModal({ isOpen, onClose, caseId }: LoanTrackingModal
                                   </TableCell>
                                 </TableRow>
                               ))}
-                              {result.trackedItems.length > 10 && (
-                                <TableRow>
-                                  <TableCell colSpan={8} className="text-center py-4 bg-muted/50">
-                                    <p className="text-sm text-muted-foreground">
-                                      +{result.trackedItems.length - 10}건 더 있음 (엑셀 다운로드로 전체 확인)
-                                    </p>
-                                  </TableCell>
-                                </TableRow>
-                              )}
                             </TableBody>
                           </Table>
                         </div>
