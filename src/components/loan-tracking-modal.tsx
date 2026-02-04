@@ -400,7 +400,8 @@ export function LoanTrackingModal({ isOpen, onClose, caseId }: LoanTrackingModal
                         ))}
                       </TableBody>
                     </Table>
-                  </ScrollArea>
+                    </div>
+                  </div>
                 </>
               )}
 
