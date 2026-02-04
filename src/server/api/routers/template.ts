@@ -591,6 +591,10 @@ ${sampleDataStr}
             suggestedColumnSchema: { columns: result.columnMapping || {} },
             confidence: result.confidence || 0.7,
             reasoning: result.reasoning || "",
+            // 샘플 파일 정보
+            sampleFileKey: uploadedFileKey,
+            sampleFileName: input.fileName,
+            sampleFileMimeType: input.mimeType,
           };
         } catch (error) {
           console.error("[Template Analyze] LLM error:", error);
@@ -611,6 +615,10 @@ ${sampleDataStr}
             suggestedColumnSchema: { columns: {} },
             confidence: 0.5,
             reasoning: `LLM 분석 실패 - 기본 정보만 추출됨 (오류: ${error instanceof Error ? error.message : String(error)})`,
+            // 샘플 파일 정보
+            sampleFileKey: uploadedFileKey,
+            sampleFileName: input.fileName,
+            sampleFileMimeType: input.mimeType,
           };
         }
       } else {
