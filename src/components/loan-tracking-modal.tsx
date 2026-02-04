@@ -490,6 +490,10 @@ export function LoanTrackingModal({ isOpen, onClose, caseId }: LoanTrackingModal
                           <p className="font-mono font-medium text-red-600">{formatAmount(result.summary.totalUsed)}</p>
                         </Card>
                         <Card className="p-3">
+                          <p className="text-xs text-muted-foreground">이동 건수</p>
+                          <p className="font-mono font-medium text-purple-600">{result.summary.transferCount || 0}건</p>
+                        </Card>
+                        <Card className="p-3">
                           <p className="text-xs text-muted-foreground">잔여 금액</p>
                           <p className="font-mono font-medium">{formatAmount(result.summary.remainingLoan)}</p>
                         </Card>
@@ -516,40 +520,69 @@ export function LoanTrackingModal({ isOpen, onClose, caseId }: LoanTrackingModal
                             <TableHeader>
                               <TableRow>
                                 <TableHead className="w-[50px] sticky top-0 bg-background">순번</TableHead>
-                                <TableHead className="w-[100px] sticky top-0 bg-background">날짜</TableHead>
-                                <TableHead className="w-[80px] sticky top-0 bg-background">구분</TableHead>
-                                <TableHead className="w-[120px] text-right sticky top-0 bg-background">금액</TableHead>
-                                <TableHead className="w-[120px] text-right sticky top-0 bg-background">잔액</TableHead>
-                                <TableHead className="w-[120px] text-right sticky top-0 bg-background">남은 대출금</TableHead>
-                                <TableHead className="sticky top-0 bg-background">비고</TableHead>
-                                <TableHead className="w-[150px] sticky top-0 bg-background">거래내역 파일</TableHead>
+                                <TableHead className="w-[90px] sticky top-0 bg-background">날짜</TableHead>
+                                <TableHead className="w-[70px] sticky top-0 bg-background">구분</TableHead>
+                                <TableHead className="w-[110px] text-right sticky top-0 bg-background">금액</TableHead>
+                                <TableHead className="w-[110px] text-right sticky top-0 bg-background">남은 대출금</TableHead>
+                                <TableHead className="w-[150px] sticky top-0 bg-background">비고</TableHead>
+                                <TableHead className="w-[120px] sticky top-0 bg-background">거래 파일</TableHead>
+                                <TableHead className="w-[120px] sticky top-0 bg-background">이동 대상</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
                               {result.trackedItems.slice(0, 10).map((item, idx) => (
-                                <TableRow key={idx} className={item.type === "대출실행" ? "bg-blue-50 dark:bg-blue-950" : ""}>
+                                <TableRow 
+                                  key={idx} 
+                                  className={
+                                    item.type === "대출실행" 
+                                      ? "bg-blue-50 dark:bg-blue-950" 
+                                      : item.type === "이동" 
+                                        ? "bg-purple-50 dark:bg-purple-950" 
+                                        : ""
+                                  }
+                                >
                                   <TableCell className="font-mono text-sm">{idx + 1}</TableCell>
                                   <TableCell className="font-mono text-sm">{formatDate(item.date)}</TableCell>
                                   <TableCell>
-                                    <Badge variant={item.type === "대출실행" ? "default" : "outline"}>
+                                    <Badge 
+                                      variant={item.type === "대출실행" ? "default" : "outline"}
+                                      className={item.type === "이동" ? "border-purple-500 text-purple-600" : ""}
+                                    >
                                       {item.type}
                                     </Badge>
                                   </TableCell>
-                                  <TableCell className={`text-right font-mono ${item.type === "대출실행" ? "text-blue-600" : "text-red-600"}`}>
+                                  <TableCell className={`text-right font-mono ${
+                                    item.type === "대출실행" 
+                                      ? "text-blue-600" 
+                                      : item.type === "이동" 
+                                        ? "text-purple-600" 
+                                        : "text-red-600"
+                                  }`}>
                                     {item.type === "대출실행" ? "+" : "-"}{formatAmount(item.amount)}
                                   </TableCell>
-                                  <TableCell className="text-right font-mono">{formatAmount(item.balance)}</TableCell>
                                   <TableCell className="text-right font-mono">{formatAmount(item.remainingLoan)}</TableCell>
-                                  <TableCell className="max-w-[200px] truncate" title={item.memo}>
+                                  <TableCell className="max-w-[150px] truncate text-sm" title={item.memo}>
                                     {item.memo || "-"}
                                   </TableCell>
                                   <TableCell className="text-xs text-muted-foreground">
                                     <div className="flex items-center gap-1">
-                                      <FileText className="h-3 w-3" />
+                                      <FileText className="h-3 w-3 flex-shrink-0" />
                                       <span className="truncate" title={item.documentName}>
                                         {item.documentName || "-"}
                                       </span>
                                     </div>
+                                  </TableCell>
+                                  <TableCell className="text-xs">
+                                    {item.type === "이동" && item.transferTo ? (
+                                      <div className="flex items-center gap-1 text-purple-600">
+                                        <span>→</span>
+                                        <span className="truncate" title={item.transferTo}>
+                                          {item.transferTo}
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <span className="text-muted-foreground">-</span>
+                                    )}
                                   </TableCell>
                                 </TableRow>
                               ))}
