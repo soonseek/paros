@@ -90,7 +90,7 @@ function downloadAsExcel(tableData: TableData, filename: string = '대출금_추
 }
 
 // React.memo로 불필요한 리렌더링 방지
-export const AIChatAssistant = memo<AIChatAssistantProps>(({ caseId, transactions }) => {
+export const AIChatAssistant = memo<AIChatAssistantProps>(({ caseId }) => {
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
