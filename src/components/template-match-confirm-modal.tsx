@@ -770,3 +770,81 @@ export function TemplateMatchConfirmModal({
     </Dialog>
   );
 }
+
+// 샘플 파일 미리보기 컴포넌트
+function SampleFilePreview({ templateId }: { templateId: string }) {
+  const { data, isLoading, error } = api.template.getSampleFile.useQuery(
+    { templateId },
+    { enabled: !!templateId }
+  );
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader className="py-3">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <ImageIcon className="h-4 w-4" />
+            양식 샘플 파일
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="py-4">
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error || !data?.success) {
+    return (
+      <Card>
+        <CardHeader className="py-3">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <ImageIcon className="h-4 w-4" />
+            양식 샘플 파일
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="py-4">
+          <p className="text-sm text-muted-foreground text-center">
+            샘플 파일을 불러올 수 없습니다
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const isPdf = data.mimeType === "application/pdf";
+  const dataUrl = `data:${data.mimeType};base64,${data.base64}`;
+
+  return (
+    <Card>
+      <CardHeader className="py-3">
+        <CardTitle className="text-sm font-medium flex items-center gap-2">
+          <ImageIcon className="h-4 w-4" />
+          양식 샘플 파일
+          <Badge variant="outline" className="text-xs">
+            {data.fileName}
+          </Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="py-2">
+        <div className="border rounded-lg overflow-hidden bg-white">
+          {isPdf ? (
+            <iframe
+              src={dataUrl}
+              className="w-full h-[400px]"
+              title="PDF Preview"
+            />
+          ) : (
+            <img
+              src={dataUrl}
+              alt="Template Sample"
+              className="w-full h-auto max-h-[400px] object-contain"
+            />
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
