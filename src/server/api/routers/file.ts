@@ -1471,6 +1471,8 @@ export const fileRouter = createTRPCRouter({
             bankName: null,
             confidence: 0,
             identifiers: [],
+            columnSchema: null,
+            description: undefined,
           },
           availableTemplates: templates.map(t => ({
             id: t.id,
