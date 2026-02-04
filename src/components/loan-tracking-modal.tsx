@@ -357,14 +357,14 @@ export function LoanTrackingModal({ isOpen, onClose, caseId }: LoanTrackingModal
                           <TableHead className="w-[50px] sticky top-0 bg-background z-10">선택</TableHead>
                           <TableHead className="w-[100px] sticky top-0 bg-background z-10">날짜</TableHead>
                           <TableHead className="w-[130px] text-right sticky top-0 bg-background z-10">금액</TableHead>
-                            <TableHead className="sticky top-0 bg-background">비고</TableHead>
-                            <TableHead className="w-[150px] sticky top-0 bg-background">파일명</TableHead>
-                            {searchMethod === "auto" && (
-                              <TableHead className="w-[100px] sticky top-0 bg-background">신뢰도</TableHead>
-                            )}
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
+                          <TableHead className="sticky top-0 bg-background z-10">비고</TableHead>
+                          <TableHead className="w-[150px] sticky top-0 bg-background z-10">파일명</TableHead>
+                          {searchMethod === "auto" && (
+                            <TableHead className="w-[100px] sticky top-0 bg-background z-10">신뢰도</TableHead>
+                          )}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
                         {searchResults.map((deposit) => (
                           <TableRow 
                             key={deposit.id}
@@ -392,7 +392,7 @@ export function LoanTrackingModal({ isOpen, onClose, caseId }: LoanTrackingModal
                               <TableCell>
                                 <Badge 
                                   variant={deposit.confidence >= 50 ? "default" : "secondary"}
-                                  className={deposit.confidence >= 50 ? "bg-green-600" : ""}
+                                  className={deposit.confidence >= 70 ? "bg-green-600" : deposit.confidence >= 50 ? "bg-yellow-500" : ""}
                                 >
                                   {deposit.confidence}%
                                 </Badge>
@@ -402,7 +402,6 @@ export function LoanTrackingModal({ isOpen, onClose, caseId }: LoanTrackingModal
                         ))}
                       </TableBody>
                     </Table>
-                    </div>
                   </div>
                 </>
               )}
