@@ -1862,10 +1862,10 @@ async function performExtraction(
     }
   }
 
-  // llmAnalysis에서 memoInAmountColumn 전달
-  if (analysisResult.llmAnalysis?.memoInAmountColumn) {
+  // errorDetails에서 memoInAmountColumn 전달
+  if (analysisResult.errorDetails?.memoInAmountColumn) {
     numericColumnMapping.memoInAmountColumn = true;
-    console.log(`[performExtraction] memoInAmountColumn enabled from LLM analysis`);
+    console.log(`[performExtraction] memoInAmountColumn enabled from analysis metadata`);
   }
 
   // 디버그: columnMapping 변환 결과
