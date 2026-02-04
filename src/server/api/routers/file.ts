@@ -1802,7 +1802,7 @@ async function performExtraction(
     "은행", "계좌번호", "내역", "정보"
   ];
 
-  if (!columnMapping.memo && !analysisResult.llmAnalysis?.memoInAmountColumn) {
+  if (!columnMapping.memo && !analysisResult.errorDetails?.memoInAmountColumn) {
     // memo가 없고 memoInAmountColumn도 아닌 경우, 헤더에서 비고 컬럼 찾기
     for (const keyword of memoColumnKeywords) {
       const foundHeader = headerRow.find(h => 
