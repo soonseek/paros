@@ -1836,28 +1836,56 @@ export const transactionRouter = createTRPCRouter({
 
       // Round number 여부 및 대출 키워드 여부 표시
       const loanKeywords = ["대출", "론", "융자", "담보", "신용", "마이너스", "카드론", "현금서비스"];
+      const highConfidenceKeywords = ["저축은행", "캐피탈", "파이낸스", "대부"];
+
+      const processedDeposits = deposits.map(d => {
+        const amount = Number(d.depositAmount);
+        const memo = d.memo || "";
+        
+        // Round number 체크 (500만원, 1000만원 단위)
+        const is1000manUnit = amount >= 10000000 && amount % 10000000 === 0; // 1000만원 단위
+        const is500manUnit = amount >= 5000000 && amount % 5000000 === 0;    // 500만원 단위
+        const is100manUnit = amount >= 1000000 && amount % 1000000 === 0;    // 100만원 단위
+        
+        // 키워드 체크
+        const hasLoanKeyword = loanKeywords.some(k => memo.includes(k));
+        const hasHighConfidenceKeyword = highConfidenceKeywords.some(k => memo.includes(k));
+        
+        // 신뢰도 계산
+        let confidence = 0;
+        
+        // 금액 기반 신뢰도
+        if (is1000manUnit) confidence += 40;       // 1000만원 단위
+        else if (is500manUnit) confidence += 30;  // 500만원 단위
+        else if (is100manUnit) confidence += 15;  // 100만원 단위
+        
+        if (amount >= 10000000) confidence += 20; // 1000만원 이상
+        else if (amount >= 5000000) confidence += 10; // 500만원 이상
+        
+        // 키워드 기반 신뢰도
+        if (hasHighConfidenceKeyword) confidence += 40; // 저축은행, 캐피탈 등
+        if (hasLoanKeyword) confidence += 30;           // 대출, 융자 등
+
+        return {
+          id: d.id,
+          date: d.transactionDate.toISOString(),
+          amount,
+          balance: Number(d.balance) || 0,
+          memo,
+          documentId: d.document?.id || null,
+          documentName: d.document?.originalFileName || null,
+          isRoundNumber: is1000manUnit || is500manUnit,
+          hasLoanKeyword: hasLoanKeyword || hasHighConfidenceKeyword,
+          confidence: Math.min(confidence, 100), // 최대 100
+        };
+      });
+
+      // 신뢰도 높은 순서로 정렬
+      processedDeposits.sort((a, b) => b.confidence - a.confidence);
 
       return {
-        deposits: deposits.map(d => {
-          const amount = Number(d.depositAmount);
-          const memo = d.memo || "";
-          const isRoundNumber = amount >= 1000000 && amount % 1000000 === 0;
-          const hasLoanKeyword = loanKeywords.some(k => memo.includes(k));
-
-          return {
-            id: d.id,
-            date: d.transactionDate.toISOString(),
-            amount,
-            balance: Number(d.balance) || 0,
-            memo,
-            documentId: d.document?.id || null,
-            documentName: d.document?.originalFileName || null,
-            isRoundNumber,
-            hasLoanKeyword,
-            confidence: (isRoundNumber ? 30 : 0) + (hasLoanKeyword ? 50 : 0) + (amount >= 10000000 ? 20 : 0),
-          };
-        }),
-        totalCount: deposits.length,
+        deposits: processedDeposits,
+        totalCount: processedDeposits.length,
       };
     }),
 
