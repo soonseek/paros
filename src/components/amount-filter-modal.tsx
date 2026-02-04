@@ -206,10 +206,12 @@ export function AmountFilterModal({ isOpen, onClose, caseId }: AmountFilterModal
           {data && data.transactions.length > 0 && (
             <div className="border rounded-lg flex-1 flex flex-col overflow-hidden">
               <div className="p-3 bg-muted flex justify-between items-center flex-shrink-0">
-                <span className="font-medium">필터링 결과</span>
+                <span className="font-medium">
+                  필터링 결과 (샘플 {Math.min(10, data.transactions.length)}건 / 전체 {data.summary.total}건)
+                </span>
                 <Button size="sm" onClick={handleDownload}>
                   <Download className="h-4 w-4 mr-2" />
-                  엑셀 다운로드
+                  전체 엑셀 다운로드
                 </Button>
               </div>
               
@@ -217,17 +219,21 @@ export function AmountFilterModal({ isOpen, onClose, caseId }: AmountFilterModal
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[120px]">날짜</TableHead>
+                      <TableHead className="w-[50px]">순번</TableHead>
+                      <TableHead className="w-[100px]">날짜</TableHead>
                       <TableHead className="w-[80px]">구분</TableHead>
-                      <TableHead className="text-right w-[150px]">금액</TableHead>
-                      <TableHead className="text-right w-[150px]">잔액</TableHead>
+                      <TableHead className="text-right w-[130px]">금액</TableHead>
+                      <TableHead className="text-right w-[130px]">잔액</TableHead>
                       <TableHead>비고</TableHead>
                       <TableHead className="w-[120px]">문서</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {data.transactions.map((tx) => (
+                    {data.transactions.slice(0, 10).map((tx, idx) => (
                       <TableRow key={tx.id}>
+                        <TableCell className="font-mono text-sm text-muted-foreground">
+                          {idx + 1}
+                        </TableCell>
                         <TableCell className="font-mono text-sm">
                           {formatDate(tx.transactionDate)}
                         </TableCell>
@@ -245,7 +251,7 @@ export function AmountFilterModal({ isOpen, onClose, caseId }: AmountFilterModal
                         <TableCell className="text-right font-mono">
                           {tx.balance.toLocaleString()}원
                         </TableCell>
-                        <TableCell className="text-sm max-w-[250px] truncate" title={tx.memo}>
+                        <TableCell className="text-sm max-w-[200px] truncate" title={tx.memo}>
                           {tx.memo || "-"}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground truncate" title={tx.documentName}>
@@ -253,6 +259,19 @@ export function AmountFilterModal({ isOpen, onClose, caseId }: AmountFilterModal
                         </TableCell>
                       </TableRow>
                     ))}
+                    {data.transactions.length > 10 && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-6 bg-muted/50">
+                          <p className="text-sm text-muted-foreground mb-2">
+                            +{data.transactions.length - 10}건 더 있음
+                          </p>
+                          <Button size="sm" variant="outline" onClick={handleDownload}>
+                            <Download className="h-4 w-4 mr-2" />
+                            전체 {data.transactions.length}건 엑셀 다운로드
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </ScrollArea>
