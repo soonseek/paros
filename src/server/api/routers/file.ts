@@ -1339,10 +1339,11 @@ export const fileRouter = createTRPCRouter({
             const withdrawalIdx = columnMapping.withdrawal;
             const balanceIdx = columnMapping.balance;
             const memoIdx = columnMapping.memo;
+            // amount + transactionType 방식 지원
+            const amountIdx = columnMapping.amount;
+            const transactionTypeIdx = columnMapping.transaction_type;
             
             const dateValue = dateIdx !== undefined && dateIdx >= 0 ? String(row[dateIdx] || '') : '';
-            const depositValue = depositIdx !== undefined && depositIdx >= 0 ? row[depositIdx] : '';
-            const withdrawalValue = withdrawalIdx !== undefined && withdrawalIdx >= 0 ? row[withdrawalIdx] : '';
             const balanceValue = balanceIdx !== undefined && balanceIdx >= 0 ? row[balanceIdx] : '';
             const memoValue = memoIdx !== undefined && memoIdx >= 0 ? String(row[memoIdx] || '') : '';
             
@@ -1354,8 +1355,44 @@ export const fileRouter = createTRPCRouter({
               return isNaN(num) ? 0 : Math.abs(num);
             };
             
-            const deposit = parseAmount(depositValue);
-            const withdrawal = parseAmount(withdrawalValue);
+            let deposit = 0;
+            let withdrawal = 0;
+            
+            // amount + transactionType 방식인 경우
+            if (amountIdx !== undefined && amountIdx >= 0 && transactionTypeIdx !== undefined && transactionTypeIdx >= 0) {
+              const amount = parseAmount(row[amountIdx]);
+              const typeValue = String(row[transactionTypeIdx] || '').toLowerCase();
+              
+              // 입금 키워드 확인
+              const isDeposit = ['입금', '입', 'in', 'credit', 'deposit', '수입', '이체입금', '입금이체'].some(
+                keyword => typeValue.includes(keyword)
+              );
+              // 출금 키워드 확인
+              const isWithdrawal = ['출금', '출', 'out', 'debit', 'withdrawal', '지출', '이체출금', '출금이체', '지급'].some(
+                keyword => typeValue.includes(keyword)
+              );
+              
+              if (isDeposit) {
+                deposit = amount;
+              } else if (isWithdrawal) {
+                withdrawal = amount;
+              } else {
+                // 구분을 알 수 없으면 금액을 그대로 표시 (양수면 입금, 음수면 출금으로 추정)
+                const rawAmount = String(row[amountIdx] || '');
+                if (rawAmount.includes('-')) {
+                  withdrawal = amount;
+                } else {
+                  deposit = amount;
+                }
+              }
+            } else {
+              // 기존 deposit/withdrawal 방식
+              const depositValue = depositIdx !== undefined && depositIdx >= 0 ? row[depositIdx] : '';
+              const withdrawalValue = withdrawalIdx !== undefined && withdrawalIdx >= 0 ? row[withdrawalIdx] : '';
+              deposit = parseAmount(depositValue);
+              withdrawal = parseAmount(withdrawalValue);
+            }
+            
             const balance = parseAmount(balanceValue);
             
             // 유효한 거래만 추가 (날짜 또는 금액이 있어야 함)
