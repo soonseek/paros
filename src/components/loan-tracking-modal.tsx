@@ -482,7 +482,11 @@ export function LoanTrackingModal({ isOpen, onClose, caseId }: LoanTrackingModal
 
                       {/* 다운로드 버튼 */}
                       <div className="flex justify-end mb-2 flex-shrink-0">
-                        <Button size="sm" onClick={() => handleDownloadTab(result)}>
+                        <Button 
+                          size="sm" 
+                          onClick={() => handleDownloadTab(result)}
+                          data-testid={`loan-download-btn-${result.loanId}`}
+                        >
                           <Download className="h-4 w-4 mr-2" />
                           이 대출건 엑셀 다운로드
                         </Button>
