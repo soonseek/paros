@@ -417,30 +417,6 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
           );
         }
       }
-                : doc
-            )
-          );
-
-          // Query invalidation을 여기서도 실행 (onComplete 외에 추가)
-          await utils.transaction.search.invalidate({ caseId });
-          await utils.document.list.invalidate({ caseId });
-        } catch (error) {
-          const errorMsg =
-            error instanceof Error ? error.message : "파일 처리 실패";
-          setFileErrors((prev) => [...prev, `처리 실패: ${errorMsg}`]);
-          toast.error(`파일 처리 실패: ${errorMsg}`);
-          setAnalyzingDocumentId(null);
-
-          // Story 3.7: Update document status to failed
-          setUploadedDocuments((prev) =>
-            prev.map((doc) =>
-              doc.id === documentId
-                ? { ...doc, analysisStatus: "failed" }
-                : doc
-            )
-          );
-        }
-      }
 
       // Check for duplicates (MEDIUM-3 fix)
       const newFiles = successfullyUploadedFiles.filter(
@@ -471,7 +447,7 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
 
       setIsProcessing(false);
     },
-    [onFilesSelected, selectedFiles, uploadFileMutation, analyzeFileMutation, extractDataMutation, caseId, onUploadSuccess]
+    [onFilesSelected, selectedFiles, uploadFileMutation, preAnalyzeFileMutation, caseId, onUploadSuccess]
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
