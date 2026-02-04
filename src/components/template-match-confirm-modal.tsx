@@ -37,6 +37,10 @@ import {
   Columns,
 } from "lucide-react";
 
+interface ColumnSchema {
+  columns: Record<string, { index: number; header: string }>;
+}
+
 interface MatchResult {
   matched: boolean;
   templateId: string | null;
@@ -46,10 +50,6 @@ interface MatchResult {
   identifiers: string[];
   columnSchema?: ColumnSchema | null;
   description?: string;
-}
-
-interface ColumnSchema {
-  columns: Record<string, { index: number; header: string }>;
 }
 
 interface AvailableTemplate {
