@@ -504,6 +504,10 @@ export const templateRouter = createTRPCRouter({
             suggestedColumnSchema: { columns: {} },
             confidence: 0.5,
             reasoning: "OpenAI API 키 없음 - 기본 정보만 추출됨",
+            // 샘플 파일 정보
+            sampleFileKey: uploadedFileKey,
+            sampleFileName: input.fileName,
+            sampleFileMimeType: input.mimeType,
           };
         }
         
