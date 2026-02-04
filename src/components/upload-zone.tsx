@@ -139,6 +139,13 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
     previewPages: number;
     headers: string[];
     sampleRows: string[][];
+    parsedSampleData: {
+      transactionDate: string;
+      deposit: number;
+      withdrawal: number;
+      balance: number;
+      memo: string;
+    }[];
     matchResult: {
       matched: boolean;
       templateId: string | null;
