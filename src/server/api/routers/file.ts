@@ -1397,13 +1397,16 @@ export const fileRouter = createTRPCRouter({
             confidence: 0,
             identifiers: [],
           },
-          // 전체 템플릿 목록 (선택용)
+          // 전체 템플릿 목록 (선택용) - columnSchema 포함
           availableTemplates: templates.map(t => ({
             id: t.id,
             name: t.name,
             bankName: t.bankName,
             description: t.description,
             identifiers: t.identifiers,
+            columnSchema: t.columnSchema as {
+              columns: Record<string, { index: number; header: string }>;
+            } | null,
           })),
         };
       } else {
