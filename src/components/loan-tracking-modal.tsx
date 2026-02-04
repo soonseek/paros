@@ -230,6 +230,7 @@ export function LoanTrackingModal({ isOpen, onClose, caseId }: LoanTrackingModal
       { wch: 15 }, // 남은 대출금
       { wch: 30 }, // 비고
       { wch: 25 }, // 거래내역 파일
+      { wch: 25 }, // 이동 대상 계좌
     ];
 
     const loanDate = formatDate(result.loanDate).replace(/\./g, "-");
