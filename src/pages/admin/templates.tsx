@@ -330,6 +330,12 @@ const TemplatesPage: NextPage = () => {
   };
 
   const handleSave = () => {
+    // 새 템플릿 생성 시 샘플 파일 필수 체크
+    if (!editingId && !sampleFileInfo.sampleFileKey) {
+      toast.error("템플릿 생성을 위해 먼저 샘플 파일을 업로드하고 분석해주세요");
+      return;
+    }
+
     // identifiers 파싱
     const identifiers = identifiersInput
       .split(",")
@@ -342,9 +348,24 @@ const TemplatesPage: NextPage = () => {
     };
 
     if (editingId) {
-      updateMutation.mutate({ id: editingId, ...data });
+      // 수정 시 샘플 파일 정보는 선택적
+      updateMutation.mutate({ 
+        id: editingId, 
+        ...data,
+        ...(sampleFileInfo.sampleFileKey && {
+          sampleFileKey: sampleFileInfo.sampleFileKey,
+          sampleFileName: sampleFileInfo.sampleFileName || "",
+          sampleFileMimeType: sampleFileInfo.sampleFileMimeType || "",
+        }),
+      });
     } else {
-      createMutation.mutate(data);
+      // 생성 시 샘플 파일 정보 필수
+      createMutation.mutate({
+        ...data,
+        sampleFileKey: sampleFileInfo.sampleFileKey!,
+        sampleFileName: sampleFileInfo.sampleFileName!,
+        sampleFileMimeType: sampleFileInfo.sampleFileMimeType!,
+      });
     }
   };
 
