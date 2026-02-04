@@ -448,13 +448,18 @@ export function LoanTrackingModal({ isOpen, onClose, caseId }: LoanTrackingModal
                       <TabsTrigger 
                         key={result.loanId} 
                         value={result.loanId}
-                        className="flex items-center gap-2"
+                        className="flex items-center gap-2 max-w-[250px]"
                       >
-                        <span className="font-mono text-xs">
+                        <span className="font-mono text-xs whitespace-nowrap">
                           {formatAmount(result.loanAmount)}
                         </span>
+                        {result.loanMemo && (
+                          <span className="text-xs text-muted-foreground truncate" title={result.loanMemo}>
+                            {result.loanMemo.length > 15 ? result.loanMemo.slice(0, 15) + "..." : result.loanMemo}
+                          </span>
+                        )}
                         {result.summary.exhausted && (
-                          <CheckCircle className="h-3 w-3 text-green-500" />
+                          <CheckCircle className="h-3 w-3 text-green-500 flex-shrink-0" />
                         )}
                       </TabsTrigger>
                     ))}
