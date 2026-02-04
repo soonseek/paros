@@ -126,6 +126,12 @@ const TemplatesPage: NextPage = () => {
   const [testResult, setTestResult] = useState<any>(null);
   const [isTestDialogOpen, setIsTestDialogOpen] = useState(false);
   const [detectedHeaders, setDetectedHeaders] = useState<string[]>([]); // AI 분석으로 추출된 헤더
+  // 샘플 파일 정보 (필수)
+  const [sampleFileInfo, setSampleFileInfo] = useState<{
+    sampleFileKey: string | null;
+    sampleFileName: string | null;
+    sampleFileMimeType: string | null;
+  }>({ sampleFileKey: null, sampleFileName: null, sampleFileMimeType: null });
 
   // API
   const templatesQuery = api.template.list.useQuery({ includeInactive: true });
