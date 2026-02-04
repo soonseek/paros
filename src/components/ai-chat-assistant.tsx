@@ -402,7 +402,7 @@ export const AIChatAssistant = memo<AIChatAssistantProps>(({ caseId }) => {
               maxLength={500}
             />
             <Button
-              disabled={transactions.length === 0 || isLoading || !chatInput.trim()}
+              disabled={isLoading || !chatInput.trim()}
               onClick={handleSendMessage}
               size="lg"
               className="shrink-0 px-6"
