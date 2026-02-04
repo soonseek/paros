@@ -777,7 +777,7 @@ export function TemplateMatchConfirmModal({
               <Button
                 variant="outline"
                 onClick={handleBack}
-                disabled={isProcessing}
+                disabled={isProcessing || isReparsing}
               >
                 ← 뒤로
               </Button>
@@ -785,14 +785,28 @@ export function TemplateMatchConfirmModal({
                 <Button
                   variant="secondary"
                   onClick={onUseLLM}
-                  disabled={isProcessing}
+                  disabled={isProcessing || isReparsing}
                 >
                   <Search className="h-4 w-4 mr-2" />
                   LLM 자동 분석
                 </Button>
+                {/* 결과 파싱 재시도 버튼 */}
+                <Button
+                  variant="outline"
+                  onClick={handleReParse}
+                  disabled={!selectedTemplateId || isProcessing || isReparsing}
+                  data-testid="reparse-button"
+                >
+                  {isReparsing ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                  )}
+                  결과 파싱 재시도
+                </Button>
                 <Button
                   onClick={handleConfirmSelection}
-                  disabled={!selectedTemplateId || isProcessing}
+                  disabled={!selectedTemplateId || isProcessing || isReparsing}
                 >
                   {isProcessing ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
