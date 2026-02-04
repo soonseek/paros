@@ -1381,7 +1381,7 @@ export const fileRouter = createTRPCRouter({
           pageTexts: tableData.pageTexts,
           // 파싱된 샘플 데이터 (5개 컬럼: 일자, 입금, 출금, 잔액, 비고)
           parsedSampleData,
-          // 매칭 결과
+          // 매칭 결과 (columnSchema 포함하여 UI에서 미리보기 가능하게)
           matchResult: matchedTemplate ? {
             matched: true,
             templateId: matchedTemplate.id,
@@ -1389,6 +1389,10 @@ export const fileRouter = createTRPCRouter({
             bankName: matchedTemplate.bankName,
             confidence,
             identifiers: matchedTemplate.identifiers,
+            columnSchema: matchedTemplate.columnSchema as {
+              columns: Record<string, { index: number; header: string }>;
+            } | null,
+            description: matchedTemplate.description,
           } : {
             matched: false,
             templateId: null,
@@ -1396,6 +1400,8 @@ export const fileRouter = createTRPCRouter({
             bankName: null,
             confidence: 0,
             identifiers: [],
+            columnSchema: null,
+            description: undefined,
           },
           // 전체 템플릿 목록 (선택용) - columnSchema 포함
           availableTemplates: templates.map(t => ({
