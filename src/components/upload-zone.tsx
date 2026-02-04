@@ -882,6 +882,7 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
           previewPages={preAnalysisData.previewPages}
           headers={preAnalysisData.headers}
           sampleRows={preAnalysisData.sampleRows}
+          parsedSampleData={preAnalysisData.parsedSampleData}
           matchResult={preAnalysisData.matchResult}
           availableTemplates={preAnalysisData.availableTemplates}
           onConfirm={handleConfirmMatch}
