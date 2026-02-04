@@ -644,6 +644,10 @@ ${sampleDataStr}
           suggestedColumnSchema: result.suggestedColumnSchema,
           confidence: result.confidence,
           reasoning: result.reasoning,
+          // 샘플 파일 정보
+          sampleFileKey: uploadedFileKey,
+          sampleFileName: input.fileName,
+          sampleFileMimeType: input.mimeType,
         };
       }
     }),
