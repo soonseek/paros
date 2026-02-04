@@ -303,9 +303,19 @@ export function TemplateMatchConfirmModal({
                       <div className="text-center py-4">
                         <AlertTriangle className="h-8 w-8 mx-auto text-yellow-500 mb-2" />
                         <p className="font-medium">자동 매칭 실패</p>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm text-muted-foreground mb-4">
                           등록된 템플릿 중 일치하는 양식을 찾지 못했습니다
                         </p>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={handleSelectOther}
+                          disabled={isProcessing}
+                          className="w-full"
+                        >
+                          <ChevronRight className="h-4 w-4 mr-2" />
+                          템플릿 선택하기
+                        </Button>
                       </div>
                     )}
                   </CardContent>
