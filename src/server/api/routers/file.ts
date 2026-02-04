@@ -1313,6 +1313,64 @@ export const fileRouter = createTRPCRouter({
             : 50;
         }
         
+        // 매칭된 템플릿이 있으면 파싱된 샘플 데이터 생성
+        let parsedSampleData: {
+          transactionDate: string;
+          deposit: number;
+          withdrawal: number;
+          balance: number;
+          memo: string;
+        }[] = [];
+        
+        if (matchedTemplate) {
+          const { convertSchemaToMapping } = await import("~/lib/template-classifier");
+          const templateSchema = matchedTemplate.columnSchema as {
+            columns: Record<string, { index: number; header: string }>;
+            parseRules?: { rowMergePattern?: "pair" | "none" };
+          };
+          
+          const { columnMapping } = convertSchemaToMapping(templateSchema, tableData.headers);
+          
+          // 샘플 데이터 파싱 (최대 10행)
+          const sampleRows = tableData.rows.slice(0, 10);
+          for (const row of sampleRows) {
+            const dateIdx = columnMapping.date;
+            const depositIdx = columnMapping.deposit;
+            const withdrawalIdx = columnMapping.withdrawal;
+            const balanceIdx = columnMapping.balance;
+            const memoIdx = columnMapping.memo;
+            
+            const dateValue = dateIdx !== undefined && dateIdx >= 0 ? String(row[dateIdx] || '') : '';
+            const depositValue = depositIdx !== undefined && depositIdx >= 0 ? row[depositIdx] : '';
+            const withdrawalValue = withdrawalIdx !== undefined && withdrawalIdx >= 0 ? row[withdrawalIdx] : '';
+            const balanceValue = balanceIdx !== undefined && balanceIdx >= 0 ? row[balanceIdx] : '';
+            const memoValue = memoIdx !== undefined && memoIdx >= 0 ? String(row[memoIdx] || '') : '';
+            
+            // 금액 파싱
+            const parseAmount = (val: unknown): number => {
+              if (!val) return 0;
+              const str = String(val).replace(/[,\s원₩]/g, '');
+              const num = parseFloat(str);
+              return isNaN(num) ? 0 : Math.abs(num);
+            };
+            
+            const deposit = parseAmount(depositValue);
+            const withdrawal = parseAmount(withdrawalValue);
+            const balance = parseAmount(balanceValue);
+            
+            // 유효한 거래만 추가 (날짜 또는 금액이 있어야 함)
+            if (dateValue || deposit > 0 || withdrawal > 0) {
+              parsedSampleData.push({
+                transactionDate: dateValue,
+                deposit,
+                withdrawal,
+                balance,
+                memo: memoValue,
+              });
+            }
+          }
+        }
+        
         return {
           success: true,
           fileName: document.originalFileName,
@@ -1321,6 +1379,8 @@ export const fileRouter = createTRPCRouter({
           headers: tableData.headers,
           sampleRows: tableData.rows.slice(0, 10),
           pageTexts: tableData.pageTexts,
+          // 파싱된 샘플 데이터 (5개 컬럼: 일자, 입금, 출금, 잔액, 비고)
+          parsedSampleData,
           // 매칭 결과
           matchResult: matchedTemplate ? {
             matched: true,
