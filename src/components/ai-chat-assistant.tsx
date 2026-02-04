@@ -17,18 +17,6 @@ import { api } from "~/utils/api";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 
-interface Transaction {
-  id: string;
-  transactionDate: Date;
-  depositAmount: string | number | null;
-  withdrawalAmount: string | number | null;
-  balance: string | number | null;
-  memo: string | null;
-  category: string | null;
-  subcategory: string | null;
-  documentName?: string | null; // 거래내역서 파일명
-}
-
 interface AIChatAssistantProps {
   caseId: string;
   // transactions 더 이상 필요 없음 - DB에서 직접 조회
