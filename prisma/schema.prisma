@@ -579,6 +579,11 @@ model TransactionTemplate {
     // 컬럼 매핑 스키마 (JSON)
     columnSchema Json                               // { columns: {...}, parseRules: {...} }
     
+    // 샘플 파일 (양식 미리보기용)
+    sampleFileKey    String?                        // S3 object key
+    sampleFileName   String?                        // 원본 파일명
+    sampleFileMimeType String?                      // MIME type (application/pdf, image/png 등)
+    
     // 메타데이터
     isActive    Boolean  @default(true)             // 활성화 여부
     priority    Int      @default(0)                // 매칭 우선순위 (높을수록 먼저)
