@@ -44,8 +44,9 @@ export function AmountFilterModal({ isOpen, onClose, caseId }: AmountFilterModal
   const handleDownload = () => {
     if (!data || data.transactions.length === 0) return;
 
-    // 엑셀 데이터 준비
-    const excelData = data.transactions.map(tx => ({
+    // 전체 내역만 포함 (요약 없음)
+    const excelData = data.transactions.map((tx, idx) => ({
+      "순번": idx + 1,
       "날짜": formatDate(tx.transactionDate),
       "구분": tx.type,
       "금액": tx.amount,
@@ -54,48 +55,6 @@ export function AmountFilterModal({ isOpen, onClose, caseId }: AmountFilterModal
       "문서명": tx.documentName || "",
     }));
 
-    // 요약 정보 추가
-    excelData.push({
-      "날짜": "",
-      "구분": "-" as "입금" | "출금",
-      "금액": 0,
-      "잔액": 0,
-      "비고": "",
-      "문서명": "",
-    });
-    excelData.push({
-      "날짜": "=== 요약 ===",
-      "구분": "-" as "입금" | "출금",
-      "금액": 0,
-      "잔액": 0,
-      "비고": "",
-      "문서명": "",
-    });
-    excelData.push({
-      "날짜": "필터 기준",
-      "구분": "-" as "입금" | "출금",
-      "금액": threshold,
-      "잔액": 0,
-      "비고": "원 이상",
-      "문서명": "",
-    });
-    excelData.push({
-      "날짜": "입금 건수",
-      "구분": "-" as "입금" | "출금",
-      "금액": data.summary.depositCount,
-      "잔액": 0,
-      "비고": "",
-      "문서명": "",
-    });
-    excelData.push({
-      "날짜": "출금 건수",
-      "구분": "-" as "입금" | "출금",
-      "금액": data.summary.withdrawalCount,
-      "잔액": 0,
-      "비고": "",
-      "문서명": "",
-    });
-
     // 워크북 생성
     const ws = XLSX.utils.json_to_sheet(excelData);
     const wb = XLSX.utils.book_new();
@@ -103,6 +62,7 @@ export function AmountFilterModal({ isOpen, onClose, caseId }: AmountFilterModal
 
     // 컬럼 너비 설정
     ws["!cols"] = [
+      { wch: 6 },  // 순번
       { wch: 12 }, // 날짜
       { wch: 8 },  // 구분
       { wch: 15 }, // 금액
