@@ -3,6 +3,9 @@
  * 
  * 업로드 후 앞 3페이지 분석 결과를 보여주고
  * 사용자가 매칭 결과를 확인/선택할 수 있게 함
+ * 
+ * - 왼쪽: 매칭 결과 또는 템플릿 선택 목록
+ * - 오른쪽: 업로드된 PDF 샘플 데이터 미리보기
  */
 
 import { useState } from "react";
@@ -15,7 +18,6 @@ import {
   DialogFooter,
 } from "~/components/ui/dialog";
 import { Button } from "~/components/ui/button";
-import { ScrollArea } from "~/components/ui/scroll-area";
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table";
@@ -29,6 +31,7 @@ import {
   AlertTriangle,
   CheckCircle,
   Search,
+  FileSpreadsheet,
 } from "lucide-react";
 
 interface MatchResult {
@@ -58,7 +61,7 @@ interface TemplateMatchConfirmModalProps {
   sampleRows: string[][];
   matchResult: MatchResult;
   availableTemplates: AvailableTemplate[];
-  onConfirm: (templateId: string | null) => void; // null이면 자동 매칭 사용
+  onConfirm: (templateId: string | null) => void;
   onSelectTemplate: (templateId: string) => void;
   onUseLLM: () => void;
   isProcessing?: boolean;
@@ -114,227 +117,264 @@ export function TemplateMatchConfirmModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] w-[1400px] max-h-[90vh] flex flex-col" data-testid="template-match-confirm-modal">
-        <DialogHeader className="flex-shrink-0">
+      <DialogContent 
+        className="max-w-[98vw] w-[1600px] h-[95vh] flex flex-col p-0 gap-0" 
+        data-testid="template-match-confirm-modal"
+      >
+        {/* 헤더 */}
+        <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
           <DialogTitle className="text-xl flex items-center gap-2">
             <FileText className="h-5 w-5" />
             {showTemplateList ? "템플릿 선택" : "양식 매칭 확인"}
           </DialogTitle>
           <DialogDescription>
             {showTemplateList 
-              ? "적용할 템플릿을 선택하세요"
+              ? "적용할 템플릿을 선택하세요. 오른쪽에서 업로드된 파일의 데이터를 확인할 수 있습니다."
               : `파일의 앞 ${previewPages}페이지를 분석하여 템플릿 매칭을 수행했습니다. 결과를 확인해주세요.`
             }
           </DialogDescription>
         </DialogHeader>
 
-        {!showTemplateList ? (
-          /* 매칭 결과 화면 */
-          <div className="flex-1 flex gap-4 overflow-hidden">
-            {/* 왼쪽: 매칭 결과 */}
-            <div className="w-1/2 flex flex-col gap-4">
-              {/* 파일 정보 */}
-              <Card>
-                <CardHeader className="py-3">
-                  <CardTitle className="text-sm font-medium">업로드 파일</CardTitle>
-                </CardHeader>
-                <CardContent className="py-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm truncate max-w-[250px]" title={fileName}>
-                      {fileName}
-                    </span>
-                    <Badge variant="outline">
-                      총 {totalPages}페이지
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    앞 {previewPages}페이지로 매칭 테스트 수행
-                  </p>
-                </CardContent>
-              </Card>
-
-              {/* 매칭 결과 */}
-              <Card className={matchResult.matched ? "border-green-200 bg-green-50/50" : "border-yellow-200 bg-yellow-50/50"}>
-                <CardHeader className="py-3">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    {matchResult.matched ? (
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                    ) : (
-                      <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                    )}
-                    매칭 결과
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="py-2">
-                  {matchResult.matched ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">템플릿</span>
-                        <span className="font-medium">{matchResult.templateName}</span>
-                      </div>
-                      {matchResult.bankName && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-muted-foreground">은행/카드사</span>
-                          <span className="flex items-center gap-1">
-                            <Building2 className="h-3 w-3" />
-                            {matchResult.bankName}
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">신뢰도</span>
-                        <Badge className={getConfidenceColor(matchResult.confidence)}>
-                          {matchResult.confidence}%
-                        </Badge>
-                      </div>
-                      {matchResult.identifiers.length > 0 && (
-                        <div>
-                          <span className="text-sm text-muted-foreground">매칭된 식별자</span>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {matchResult.identifiers.slice(0, 5).map((id, idx) => (
-                              <Badge key={idx} variant="secondary" className="text-xs">
-                                {id}
-                              </Badge>
-                            ))}
-                            {matchResult.identifiers.length > 5 && (
-                              <Badge variant="secondary" className="text-xs">
-                                +{matchResult.identifiers.length - 5}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-center py-4">
-                      <AlertTriangle className="h-8 w-8 mx-auto text-yellow-500 mb-2" />
-                      <p className="font-medium">자동 매칭 실패</p>
-                      <p className="text-sm text-muted-foreground">
-                        등록된 템플릿 중 일치하는 양식을 찾지 못했습니다
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* 감지된 헤더 */}
-              <Card className="flex-1 flex flex-col overflow-hidden">
-                <CardHeader className="py-3 flex-shrink-0">
-                  <CardTitle className="text-sm font-medium">감지된 컬럼 헤더 ({headers.length}개)</CardTitle>
-                </CardHeader>
-                <CardContent className="py-2 flex-1 overflow-auto">
-                  <div className="flex flex-wrap gap-1">
-                    {headers.map((header, idx) => (
-                      <Badge key={idx} variant="outline" className="text-xs">
-                        [{idx}] {header}
-                      </Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* 오른쪽: 샘플 데이터 */}
-            <div className="w-1/2 flex flex-col overflow-hidden border-l pl-4">
-              <div className="text-sm font-medium text-muted-foreground mb-2">
-                샘플 데이터 (최대 10행)
-              </div>
-              <Card className="flex-1 flex flex-col overflow-hidden">
-                <ScrollArea className="flex-1">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[40px]">#</TableHead>
-                        {headers.slice(0, 6).map((header, idx) => (
-                          <TableHead key={idx} className="min-w-[100px] text-xs">
-                            {header}
-                          </TableHead>
-                        ))}
-                        {headers.length > 6 && (
-                          <TableHead className="text-xs text-muted-foreground">
-                            +{headers.length - 6}열
-                          </TableHead>
-                        )}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {sampleRows.map((row, rowIdx) => (
-                        <TableRow key={rowIdx}>
-                          <TableCell className="text-xs text-muted-foreground">
-                            {rowIdx + 1}
-                          </TableCell>
-                          {row.slice(0, 6).map((cell, cellIdx) => (
-                            <TableCell key={cellIdx} className="text-xs max-w-[150px] truncate">
-                              {cell || <span className="text-muted-foreground">-</span>}
-                            </TableCell>
-                          ))}
-                          {row.length > 6 && (
-                            <TableCell className="text-xs text-muted-foreground">...</TableCell>
-                          )}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
-              </Card>
-            </div>
-          </div>
-        ) : (
-          /* 템플릿 선택 화면 */
-          <div className="flex-1 overflow-hidden">
-            <ScrollArea className="h-full pr-4">
-              <div className="grid grid-cols-2 gap-3">
-                {availableTemplates.map((template) => (
-                  <Card
-                    key={template.id}
-                    className={`cursor-pointer transition-all hover:border-primary/50 ${
-                      selectedTemplateId === template.id
-                        ? "border-primary bg-primary/5 ring-1 ring-primary"
-                        : ""
-                    }`}
-                    onClick={() => setSelectedTemplateId(template.id)}
-                  >
+        {/* 메인 컨텐츠 */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* 왼쪽 패널: 매칭 결과 또는 템플릿 선택 */}
+          <div className="w-[45%] flex flex-col border-r overflow-hidden">
+            <div className="flex-1 overflow-y-auto p-4">
+              {!showTemplateList ? (
+                /* 매칭 결과 화면 */
+                <div className="space-y-4">
+                  {/* 파일 정보 */}
+                  <Card>
                     <CardHeader className="py-3">
-                      <CardTitle className="text-sm font-medium flex items-center justify-between">
-                        <span className="truncate">{template.name}</span>
-                        {selectedTemplateId === template.id && (
-                          <Check className="h-4 w-4 text-primary flex-shrink-0" />
-                        )}
-                      </CardTitle>
-                      {template.bankName && (
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Building2 className="h-3 w-3" />
-                          {template.bankName}
-                        </div>
-                      )}
+                      <CardTitle className="text-sm font-medium">업로드 파일</CardTitle>
                     </CardHeader>
                     <CardContent className="py-2">
-                      <p className="text-xs text-muted-foreground line-clamp-2">
-                        {template.description}
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm truncate max-w-[300px]" title={fileName}>
+                          {fileName}
+                        </span>
+                        <Badge variant="outline">
+                          총 {totalPages}페이지
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        앞 {previewPages}페이지로 매칭 테스트 수행
                       </p>
-                      {template.identifiers.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {template.identifiers.slice(0, 3).map((id, idx) => (
-                            <Badge key={idx} variant="secondary" className="text-xs px-1.5 py-0">
-                              {id}
-                            </Badge>
-                          ))}
-                          {template.identifiers.length > 3 && (
-                            <Badge variant="secondary" className="text-xs px-1.5 py-0">
-                              +{template.identifiers.length - 3}
-                            </Badge>
+                    </CardContent>
+                  </Card>
+
+                  {/* 매칭 결과 */}
+                  <Card className={matchResult.matched ? "border-green-200 bg-green-50/50" : "border-yellow-200 bg-yellow-50/50"}>
+                    <CardHeader className="py-3">
+                      <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        {matchResult.matched ? (
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                        ) : (
+                          <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                        )}
+                        매칭 결과
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="py-2">
+                      {matchResult.matched ? (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">템플릿</span>
+                            <span className="font-medium">{matchResult.templateName}</span>
+                          </div>
+                          {matchResult.bankName && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-muted-foreground">은행/카드사</span>
+                              <span className="flex items-center gap-1">
+                                <Building2 className="h-3 w-3" />
+                                {matchResult.bankName}
+                              </span>
+                            </div>
                           )}
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">신뢰도</span>
+                            <Badge className={getConfidenceColor(matchResult.confidence)}>
+                              {matchResult.confidence}%
+                            </Badge>
+                          </div>
+                          {matchResult.identifiers.length > 0 && (
+                            <div>
+                              <span className="text-sm text-muted-foreground">매칭된 식별자</span>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {matchResult.identifiers.slice(0, 5).map((id, idx) => (
+                                  <Badge key={idx} variant="secondary" className="text-xs">
+                                    {id}
+                                  </Badge>
+                                ))}
+                                {matchResult.identifiers.length > 5 && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    +{matchResult.identifiers.length - 5}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-center py-4">
+                          <AlertTriangle className="h-8 w-8 mx-auto text-yellow-500 mb-2" />
+                          <p className="font-medium">자동 매칭 실패</p>
+                          <p className="text-sm text-muted-foreground">
+                            등록된 템플릿 중 일치하는 양식을 찾지 못했습니다
+                          </p>
                         </div>
                       )}
                     </CardContent>
                   </Card>
-                ))}
-              </div>
-            </ScrollArea>
-          </div>
-        )}
 
-        <DialogFooter className="flex-shrink-0 flex items-center justify-between sm:justify-between border-t pt-4">
+                  {/* 감지된 헤더 */}
+                  <Card>
+                    <CardHeader className="py-3">
+                      <CardTitle className="text-sm font-medium">감지된 컬럼 헤더 ({headers.length}개)</CardTitle>
+                    </CardHeader>
+                    <CardContent className="py-2">
+                      <div className="flex flex-wrap gap-1 max-h-[150px] overflow-y-auto">
+                        {headers.map((header, idx) => (
+                          <Badge key={idx} variant="outline" className="text-xs">
+                            [{idx}] {header}
+                          </Badge>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
+                /* 템플릿 선택 화면 */
+                <div className="space-y-3">
+                  <div className="text-sm font-medium text-muted-foreground mb-2">
+                    등록된 템플릿 ({availableTemplates.length}개)
+                  </div>
+                  {availableTemplates.map((template) => (
+                    <Card
+                      key={template.id}
+                      className={`cursor-pointer transition-all hover:border-primary/50 ${
+                        selectedTemplateId === template.id
+                          ? "border-primary bg-primary/5 ring-2 ring-primary"
+                          : ""
+                      }`}
+                      onClick={() => setSelectedTemplateId(template.id)}
+                    >
+                      <CardHeader className="py-3">
+                        <CardTitle className="text-sm font-medium flex items-center justify-between">
+                          <span className="truncate">{template.name}</span>
+                          {selectedTemplateId === template.id && (
+                            <Check className="h-4 w-4 text-primary flex-shrink-0" />
+                          )}
+                        </CardTitle>
+                        {template.bankName && (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Building2 className="h-3 w-3" />
+                            {template.bankName}
+                          </div>
+                        )}
+                      </CardHeader>
+                      <CardContent className="py-2">
+                        <p className="text-xs text-muted-foreground line-clamp-2">
+                          {template.description}
+                        </p>
+                        {template.identifiers.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {template.identifiers.slice(0, 4).map((id, idx) => (
+                              <Badge key={idx} variant="secondary" className="text-xs px-1.5 py-0">
+                                {id}
+                              </Badge>
+                            ))}
+                            {template.identifiers.length > 4 && (
+                              <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                                +{template.identifiers.length - 4}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                  {availableTemplates.length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <FileText className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                      <p>등록된 템플릿이 없습니다</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 오른쪽 패널: PDF 데이터 미리보기 */}
+          <div className="w-[55%] flex flex-col overflow-hidden bg-muted/30">
+            <div className="flex-shrink-0 px-4 py-3 border-b bg-background">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileSpreadsheet className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">업로드된 파일 데이터 미리보기</span>
+                </div>
+                <Badge variant="outline" className="text-xs">
+                  {sampleRows.length}행 샘플
+                </Badge>
+              </div>
+            </div>
+            
+            <div className="flex-1 overflow-auto p-4">
+              {headers.length > 0 ? (
+                <div className="bg-background rounded-lg border overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/50">
+                          <TableHead className="w-[50px] text-center font-bold">#</TableHead>
+                          {headers.map((header, idx) => (
+                            <TableHead key={idx} className="min-w-[120px] text-xs font-medium whitespace-nowrap">
+                              <div className="flex flex-col">
+                                <span className="text-muted-foreground">[{idx}]</span>
+                                <span>{header}</span>
+                              </div>
+                            </TableHead>
+                          ))}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {sampleRows.map((row, rowIdx) => (
+                          <TableRow key={rowIdx} className={rowIdx % 2 === 0 ? "bg-background" : "bg-muted/20"}>
+                            <TableCell className="text-center text-xs text-muted-foreground font-mono">
+                              {rowIdx + 1}
+                            </TableCell>
+                            {row.map((cell, cellIdx) => (
+                              <TableCell key={cellIdx} className="text-xs whitespace-nowrap">
+                                {cell || <span className="text-muted-foreground italic">-</span>}
+                              </TableCell>
+                            ))}
+                            {/* 헤더보다 데이터가 적을 경우 빈 셀 추가 */}
+                            {row.length < headers.length && 
+                              Array.from({ length: headers.length - row.length }).map((_, i) => (
+                                <TableCell key={`empty-${i}`} className="text-xs">
+                                  <span className="text-muted-foreground italic">-</span>
+                                </TableCell>
+                              ))
+                            }
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground h-full">
+                  <FileText className="h-16 w-16 mb-4 opacity-30" />
+                  <p className="text-lg font-medium">데이터 미리보기 없음</p>
+                  <p className="text-sm">파일에서 데이터를 추출하지 못했습니다</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 푸터 */}
+        <DialogFooter className="flex-shrink-0 flex items-center justify-between sm:justify-between border-t px-6 py-4">
           {!showTemplateList ? (
             /* 매칭 결과 화면 버튼 */
             <>
