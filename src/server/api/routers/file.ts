@@ -1454,6 +1454,7 @@ export const fileRouter = createTRPCRouter({
           headers,
           sampleRows,
           pageTexts: [],
+          parsedSampleData: [], // Excel은 템플릿 선택 후 파싱
           matchResult: {
             matched: false,
             templateId: null,
