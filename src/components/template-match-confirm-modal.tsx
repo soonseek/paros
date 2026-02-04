@@ -488,100 +488,133 @@ export function TemplateMatchConfirmModal({
           {/* 오른쪽 패널 */}
           <div className="w-[60%] flex flex-col overflow-hidden bg-muted/30">
             {showTemplateList && previewTemplate ? (
-              /* 템플릿 미리보기 */
+              /* 템플릿 선택 화면: 템플릿 정보 + 재파싱된 샘플 데이터 미리보기 */
               <div className="flex flex-col h-full overflow-hidden">
+                {/* 상단: 템플릿 컬럼 매핑 정보 */}
+                <div className="flex-shrink-0 border-b">
+                  <div className="px-4 py-3 bg-background border-b">
+                    <div className="flex items-center gap-2">
+                      <Columns className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">템플릿 미리보기: {previewTemplate.name}</span>
+                      {previewTemplate.bankName && (
+                        <Badge variant="outline" className="text-xs">
+                          {previewTemplate.bankName}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="p-4 bg-muted/20 max-h-[200px] overflow-auto">
+                    {previewTemplate.columnSchema ? (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[80px]">인덱스</TableHead>
+                            <TableHead>헤더명</TableHead>
+                            <TableHead className="w-[100px]">역할</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {getColumnMappings(previewTemplate.columnSchema).map((col, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell className="font-mono text-sm">[{col.index}]</TableCell>
+                              <TableCell className="text-sm">{col.header}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="text-xs">
+                                  {col.roleLabel}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        컬럼 매핑 정보가 없습니다
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* 하단: 재파싱된 샘플 데이터 또는 안내 */}
                 <div className="flex-shrink-0 px-4 py-3 border-b bg-background">
-                  <div className="flex items-center gap-2">
-                    <Columns className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">템플릿 미리보기: {previewTemplate.name}</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FileSpreadsheet className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">
+                        {reparsedData ? "재파싱된 샘플 데이터" : "샘플 데이터 미리보기"}
+                      </span>
+                      {reparsedData && (
+                        <Badge variant="default" className="text-xs bg-green-600">
+                          {selectedTemplate?.name} 적용됨
+                        </Badge>
+                      )}
+                    </div>
+                    <Badge variant="outline" className="text-xs">
+                      {reparsedData ? `${reparsedData.length}건` : `${sampleRows.length}행`}
+                    </Badge>
                   </div>
                 </div>
                 
-                <div className="flex-1 overflow-auto p-4 space-y-4">
-                  {/* 템플릿 기본 정보 */}
-                  <Card>
-                    <CardHeader className="py-3">
-                      <CardTitle className="text-sm font-medium">템플릿 정보</CardTitle>
-                    </CardHeader>
-                    <CardContent className="py-2 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">이름</span>
-                        <span className="font-medium">{previewTemplate.name}</span>
-                      </div>
-                      {previewTemplate.bankName && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-muted-foreground">은행/카드사</span>
-                          <span className="flex items-center gap-1">
-                            <Building2 className="h-3 w-3" />
-                            {previewTemplate.bankName}
-                          </span>
-                        </div>
-                      )}
-                      <div>
-                        <span className="text-sm text-muted-foreground">설명</span>
-                        <p className="text-sm mt-1">{previewTemplate.description || '-'}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* 컬럼 매핑 정보 */}
-                  <Card>
-                    <CardHeader className="py-3">
-                      <CardTitle className="text-sm font-medium">컬럼 매핑</CardTitle>
-                    </CardHeader>
-                    <CardContent className="py-2">
-                      {previewTemplate.columnSchema ? (
+                <div className="flex-1 overflow-auto p-4">
+                  {reparsedData && reparsedData.length > 0 ? (
+                    /* 재파싱된 데이터 테이블 */
+                    <div className="bg-background rounded-lg border overflow-hidden" data-testid="reparsed-data-table">
+                      <div className="overflow-x-auto">
                         <Table>
                           <TableHeader>
-                            <TableRow>
-                              <TableHead className="w-[80px]">인덱스</TableHead>
-                              <TableHead>헤더명</TableHead>
-                              <TableHead className="w-[100px]">역할</TableHead>
+                            <TableRow className="bg-green-50">
+                              <TableHead className="w-[50px] text-center font-bold">#</TableHead>
+                              <TableHead className="w-[120px] font-bold">거래일자</TableHead>
+                              <TableHead className="w-[130px] text-right font-bold text-blue-600">입금</TableHead>
+                              <TableHead className="w-[130px] text-right font-bold text-red-600">출금</TableHead>
+                              <TableHead className="w-[140px] text-right font-bold">잔액</TableHead>
+                              <TableHead className="font-bold">비고</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {getColumnMappings(previewTemplate.columnSchema).map((col, idx) => (
-                              <TableRow key={idx}>
-                                <TableCell className="font-mono text-sm">[{col.index}]</TableCell>
-                                <TableCell className="text-sm">{col.header}</TableCell>
-                                <TableCell>
-                                  <Badge variant="outline" className="text-xs">
-                                    {col.roleLabel}
-                                  </Badge>
+                            {reparsedData.map((row, idx) => (
+                              <TableRow key={idx} className={idx % 2 === 0 ? "bg-background" : "bg-muted/20"}>
+                                <TableCell className="text-center text-xs text-muted-foreground font-mono">
+                                  {idx + 1}
+                                </TableCell>
+                                <TableCell className="font-mono text-sm">
+                                  {row.transactionDate || '-'}
+                                </TableCell>
+                                <TableCell className="text-right font-mono text-blue-600">
+                                  {formatAmount(row.deposit)}
+                                </TableCell>
+                                <TableCell className="text-right font-mono text-red-600">
+                                  {formatAmount(row.withdrawal)}
+                                </TableCell>
+                                <TableCell className="text-right font-mono">
+                                  {formatAmount(row.balance)}
+                                </TableCell>
+                                <TableCell className="text-sm max-w-[300px] truncate" title={row.memo}>
+                                  {row.memo || '-'}
                                 </TableCell>
                               </TableRow>
                             ))}
                           </TableBody>
                         </Table>
-                      ) : (
-                        <p className="text-sm text-muted-foreground text-center py-4">
-                          컬럼 매핑 정보가 없습니다
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  {/* 식별자 */}
-                  {previewTemplate.identifiers.length > 0 && (
-                    <Card>
-                      <CardHeader className="py-3">
-                        <CardTitle className="text-sm font-medium">식별자 ({previewTemplate.identifiers.length}개)</CardTitle>
-                      </CardHeader>
-                      <CardContent className="py-2">
-                        <div className="flex flex-wrap gap-1">
-                          {previewTemplate.identifiers.map((id, idx) => (
-                            <Badge key={idx} variant="secondary" className="text-xs">
-                              {id}
-                            </Badge>
-                          ))}
+                      </div>
+                    </div>
+                  ) : (
+                    /* 안내 메시지 */
+                    <div className="flex flex-col items-center justify-center h-full text-center py-8">
+                      <RefreshCw className="h-12 w-12 text-muted-foreground/30 mb-4" />
+                      <p className="text-muted-foreground mb-2">
+                        템플릿을 선택하고 <strong>&apos;결과 파싱 재시도&apos;</strong> 버튼을 눌러
+                      </p>
+                      <p className="text-muted-foreground">
+                        해당 템플릿으로 파싱된 결과를 미리 확인할 수 있습니다.
+                      </p>
+                      {isReparsing && (
+                        <div className="flex items-center gap-2 mt-4 text-primary">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>재파싱 중...</span>
                         </div>
-                      </CardContent>
-                    </Card>
-                  )}
-
-                  {/* 샘플 파일 미리보기 */}
-                  {previewTemplate.sampleFileKey && (
-                    <SampleFilePreview templateId={previewTemplate.id} />
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
