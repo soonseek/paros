@@ -1523,6 +1523,9 @@ export const fileRouter = createTRPCRouter({
             columnSchema: t.columnSchema as {
               columns: Record<string, { index: number; header: string }>;
             } | null,
+            sampleFileKey: t.sampleFileKey,
+            sampleFileName: t.sampleFileName,
+            sampleFileMimeType: t.sampleFileMimeType,
           })),
         };
       }
