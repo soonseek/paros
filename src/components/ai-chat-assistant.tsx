@@ -226,8 +226,8 @@ export const AIChatAssistant = memo<AIChatAssistantProps>(({ caseId }) => {
                 </p>
               </div>
 
-              {transactions.length > 0 && (
-                <div className="w-full max-w-lg space-y-4">
+              {/* 대출금 추적 전용 프리셋과 일반 추천 질문 */}
+              <div className="w-full max-w-lg space-y-4">
                   {/* 대출금 추적 전용 프리셋 */}
                   <div className="space-y-2">
                     <p className="text-xs font-medium text-primary uppercase tracking-wide">
