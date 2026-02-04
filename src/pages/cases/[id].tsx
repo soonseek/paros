@@ -224,17 +224,21 @@ const CaseDetailPage: NextPage = () => {
     });
   }, [transactionsData?.transactions, documents]);
 
-  // Delete transactions mutation (파일별 삭제용)
+  // Delete transactions mutation (파일별 삭제용 - 거래내역 + 파일 함께 삭제)
   const deleteTransactionsMutation = api.transaction.deleteByDocument.useMutation({
     onSuccess: (data) => {
-      toast.success(data.message || "거래내역이 삭제되었습니다");
+      toast.success(data.message || "삭제되었습니다");
+      // 거래내역 목록 갱신
       void utils.transaction.search.invalidate({
         caseId: id as string,
-        ...(selectedDocumentId && { documentId: selectedDocumentId }),
+      });
+      // 문서 목록 갱신
+      void utils.document.list.invalidate({
+        caseId: id as string,
       });
     },
     onError: (err) => {
-      toast.error(err.message || "거래내역 삭제에 실패했습니다");
+      toast.error(err.message || "삭제에 실패했습니다");
     },
   });
 
