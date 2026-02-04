@@ -1188,10 +1188,13 @@ export const fileRouter = createTRPCRouter({
     }),
 
   /**
-   * Pre-analyze file for template selection
+   * Pre-analyze file for template matching (앞 3페이지만 추출하여 매칭 테스트)
    * 
-   * Layer 1 매칭 전에 파일을 파싱하고 헤더/샘플 데이터 반환
-   * 템플릿 선택 모달에서 사용
+   * 새로운 업로드 절차:
+   * 1. 파일 업로드 후 앞 3페이지만 추출
+   * 2. 템플릿 매칭 테스트 수행
+   * 3. 매칭 결과(템플릿명, 신뢰도, 샘플 데이터)를 반환
+   * 4. 사용자가 확인 후 진행 또는 템플릿 선택
    */
   preAnalyzeFile: protectedProcedure
     .input(
@@ -1236,20 +1239,45 @@ export const fileRouter = createTRPCRouter({
         });
       }
 
-      // Download and parse file
+      // Download file
       const fileBuffer = await downloadFile(document.s3Key);
       
       if (document.mimeType.includes("pdf")) {
-        // PDF: Upstage OCR
+        // PDF: 앞 3페이지만 추출하여 분석
+        const { PDFDocument } = await import("pdf-lib");
         const { parsePdfWithUpstage } = await import("~/lib/pdf-ocr");
         const { SettingsService } = await import("~/server/services/settings-service");
         const settingsService = new SettingsService(ctx.db);
         const upstageApiKey = await settingsService.getSetting('UPSTAGE_API_KEY');
         
-        const tableData = await parsePdfWithUpstage(fileBuffer, upstageApiKey || undefined);
+        // PDF 로드 및 페이지 수 확인
+        const pdfDoc = await PDFDocument.load(fileBuffer);
+        const totalPdfPages = pdfDoc.getPageCount();
+        const previewPages = Math.min(3, totalPdfPages); // 최대 3페이지
         
-        // Template matching 시도 (Layer 1만)
-        const { matchByIdentifiers, normalizeText } = await import("~/lib/template-classifier");
+        console.log(`[PreAnalyze] PDF 총 ${totalPdfPages}페이지, 미리보기용 ${previewPages}페이지 추출`);
+        
+        // 앞 3페이지만 추출
+        let previewBuffer: Buffer;
+        if (totalPdfPages <= 3) {
+          // 3페이지 이하면 전체 사용
+          previewBuffer = fileBuffer;
+        } else {
+          // 앞 3페이지만 새 PDF로 생성
+          const previewPdf = await PDFDocument.create();
+          const pageIndices = Array.from({ length: previewPages }, (_, i) => i);
+          const copiedPages = await previewPdf.copyPages(pdfDoc, pageIndices);
+          copiedPages.forEach(page => previewPdf.addPage(page));
+          previewBuffer = Buffer.from(await previewPdf.save());
+        }
+        
+        console.log(`[PreAnalyze] 미리보기 PDF 크기: ${(previewBuffer.length / 1024).toFixed(2)}KB`);
+        
+        // Upstage API로 앞 3페이지 분석
+        const tableData = await parsePdfWithUpstage(previewBuffer, upstageApiKey || undefined);
+        
+        // 템플릿 매칭 시도
+        const { matchByIdentifiers } = await import("~/lib/template-classifier");
         
         const templates = await ctx.db.transactionTemplate.findMany({
           where: { isActive: true },
@@ -1270,19 +1298,53 @@ export const fileRouter = createTRPCRouter({
           tableData.pageTexts
         );
         
+        // 매칭 신뢰도 계산
+        let confidence = 0;
+        if (matchedTemplate) {
+          // 식별자 매칭 개수 기반 신뢰도
+          const identifiers = matchedTemplate.identifiers || [];
+          const pageTextContent = (tableData.pageTexts || []).join(" ").toLowerCase();
+          const headersContent = tableData.headers.join(" ").toLowerCase();
+          const matchedIdentifiers = identifiers.filter(id => 
+            pageTextContent.includes(id.toLowerCase()) || headersContent.includes(id.toLowerCase())
+          );
+          confidence = identifiers.length > 0 
+            ? Math.round((matchedIdentifiers.length / identifiers.length) * 100) 
+            : 50;
+        }
+        
         return {
           success: true,
+          fileName: document.originalFileName,
+          totalPdfPages,
+          previewPages,
           headers: tableData.headers,
           sampleRows: tableData.rows.slice(0, 10),
           pageTexts: tableData.pageTexts,
-          totalRows: tableData.totalRows,
-          // Layer 1 매칭 결과
-          layer1Match: matchedTemplate ? {
+          // 매칭 결과
+          matchResult: matchedTemplate ? {
+            matched: true,
             templateId: matchedTemplate.id,
             templateName: matchedTemplate.name,
             bankName: matchedTemplate.bankName,
-          } : null,
-          needsTemplateSelection: !matchedTemplate, // Layer 1 실패 시 true
+            confidence,
+            identifiers: matchedTemplate.identifiers,
+          } : {
+            matched: false,
+            templateId: null,
+            templateName: null,
+            bankName: null,
+            confidence: 0,
+            identifiers: [],
+          },
+          // 전체 템플릿 목록 (선택용)
+          availableTemplates: templates.map(t => ({
+            id: t.id,
+            name: t.name,
+            bankName: t.bankName,
+            description: t.description,
+            identifiers: t.identifiers,
+          })),
         };
       } else {
         // Excel/CSV
@@ -1318,14 +1380,35 @@ export const fileRouter = createTRPCRouter({
         const headers = (rawData[0] || []).map(h => String(h));
         const sampleRows = rawData.slice(1, 11);
         
+        // 템플릿 목록
+        const templates = await ctx.db.transactionTemplate.findMany({
+          where: { isActive: true },
+          orderBy: { priority: "desc" },
+        });
+        
         return {
           success: true,
+          fileName: document.originalFileName,
+          totalPdfPages: 0,
+          previewPages: 0,
           headers,
           sampleRows,
           pageTexts: [],
-          totalRows: rawData.length - 1,
-          layer1Match: null,
-          needsTemplateSelection: true, // Excel은 항상 템플릿 선택 필요
+          matchResult: {
+            matched: false,
+            templateId: null,
+            templateName: null,
+            bankName: null,
+            confidence: 0,
+            identifiers: [],
+          },
+          availableTemplates: templates.map(t => ({
+            id: t.id,
+            name: t.name,
+            bankName: t.bankName,
+            description: t.description,
+            identifiers: t.identifiers,
+          })),
         };
       }
     }),
