@@ -651,4 +651,48 @@ ${sampleDataStr}
         };
       }
     }),
+
+  /**
+   * 템플릿 샘플 파일 조회 (Base64)
+   */
+  getSampleFile: protectedProcedure
+    .input(z.object({
+      templateId: z.string(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const template = await ctx.db.transactionTemplate.findUnique({
+        where: { id: input.templateId },
+        select: {
+          sampleFileKey: true,
+          sampleFileName: true,
+          sampleFileMimeType: true,
+        },
+      });
+
+      if (!template || !template.sampleFileKey) {
+        return {
+          success: false,
+          error: "샘플 파일이 없습니다",
+        };
+      }
+
+      try {
+        const { downloadFile } = await import("~/lib/storage");
+        const fileBuffer = await downloadFile(template.sampleFileKey);
+        const base64 = fileBuffer.toString("base64");
+
+        return {
+          success: true,
+          fileName: template.sampleFileName,
+          mimeType: template.sampleFileMimeType,
+          base64,
+        };
+      } catch (error) {
+        console.error("[Template Sample File] Download error:", error);
+        return {
+          success: false,
+          error: "파일 다운로드 실패",
+        };
+      }
+    }),
 });
