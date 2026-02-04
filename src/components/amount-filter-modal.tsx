@@ -169,7 +169,7 @@ export function AmountFilterModal({ isOpen, onClose, caseId }: AmountFilterModal
                 <span className="font-medium">
                   필터링 결과 (샘플 {Math.min(10, data.transactions.length)}건 / 전체 {data.summary.total}건)
                 </span>
-                <Button size="sm" onClick={handleDownload}>
+                <Button size="sm" onClick={handleDownload} data-testid="amount-filter-download-btn">
                   <Download className="h-4 w-4 mr-2" />
                   전체 엑셀 다운로드
                 </Button>
