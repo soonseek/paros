@@ -101,27 +101,29 @@ export function detectMemoColumn(rows: unknown[][], headerRowIndex: number): num
       // Skip empty or very short values
       if (text.length < 2) continue;
 
+      const currentScore = scores[col] ?? 0;
+
       // Score indicators for memo content:
       // 1. Contains Korean names (2-4 character Korean text)
-      if (/^[가-힣]{2,4}$/.test(text) && scores[col] !== undefined) scores[col] += 3;
+      if (/^[가-힣]{2,4}$/.test(text)) scores[col] = currentScore + 3;
 
       // 2. Contains account numbers (numeric sequences 10-14 digits)
-      if (/^\d{10,14}$/.test(text) && scores[col] !== undefined) scores[col] += 2;
+      if (/^\d{10,14}$/.test(text)) scores[col] = (scores[col] ?? 0) + 2;
 
       // 3. Contains bank names
-      if (/(은행|뱅크|제일|기업|국민|외환|수협|농협|지역농협|카카오|토스|새마을)/.test(text) && scores[col] !== undefined) scores[col] += 2;
+      if (/(은행|뱅크|제일|기업|국민|외환|수협|농협|지역농협|카카오|토스|새마을)/.test(text)) scores[col] = (scores[col] ?? 0) + 2;
 
       // 4. Mixed text and numbers (typical in transaction memos)
-      if (/[가-힣]+.*\d+|\d+.*[가-힣]+/.test(text) && scores[col] !== undefined) scores[col] += 1;
+      if (/[가-힣]+.*\d+|\d+.*[가-힣]+/.test(text)) scores[col] = (scores[col] ?? 0) + 1;
 
       // 5. Not a pure number (dates, amounts are usually pure)
-      if (!/^\d+$/.test(text) && !/^\d{4}-\d{2}-\d{2}$/.test(text) && scores[col] !== undefined) {
-        scores[col] += 1;
+      if (!/^\d+$/.test(text) && !/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+        scores[col] = (scores[col] ?? 0) + 1;
       }
 
       // 6. Common memo keywords
-      if (/(이체|송금|입금|출금|자동|이체|이자|수수료|월세|상환|대출|적립)/.test(text) && scores[col] !== undefined) {
-        scores[col] += 2;
+      if (/(이체|송금|입금|출금|자동|이체|이자|수수료|월세|상환|대출|적립)/.test(text)) {
+        scores[col] = (scores[col] ?? 0) + 2;
       }
     }
   }
