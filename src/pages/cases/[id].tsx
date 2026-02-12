@@ -314,7 +314,7 @@ const CaseDetailPage: NextPage = () => {
   const handleExport = async (
     option: string,
     transactionIds?: string[],
-    selectedColumns?: string[],
+    selectedColumns?: ("메모" | "태그" | "신뢰도" | "AI 분류" | "거래 성격")[],
     findingFilters?: {
       isResolved?: boolean;
       severity?: "CRITICAL" | "WARNING" | "INFO";
