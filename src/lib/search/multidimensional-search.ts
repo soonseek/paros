@@ -10,7 +10,7 @@ import { filterByKeyword } from "./keyword-search";
 import { filterByDateRange } from "./date-filter";
 import { filterByAmountRange } from "./amount-filter";
 import { filterByTags } from "./tag-filter";
-import type { SearchFilters, SearchResultMetadata, ExtendedSearchFilters } from "~/types/search";
+import type { SearchFilters, SearchResultMetadata, ExtendedSearchFilters, Transaction as BaseTransaction } from "~/types/search";
 
 // Story 8.2: 추가 필터 함수들
 import { filterByTransactionType } from "./transaction-type-filter";
@@ -21,7 +21,7 @@ import { filterByConfidenceRange } from "./confidence-filter";
 /**
  * 거래 인터페이스 (Prisma Transaction 기반)
  */
-export interface Transaction {
+export interface Transaction extends BaseTransaction {
   id: string;
   transactionDate: Date;
   depositAmount: string | null;
