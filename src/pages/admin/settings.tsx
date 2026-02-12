@@ -3,7 +3,7 @@
  * AI API 키 및 시스템 설정 관리
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { api } from '~/utils/api';
 import { Button } from '~/components/ui/button';
