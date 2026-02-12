@@ -58,16 +58,16 @@ export function applySearchFilters(
   transactions: Transaction[],
   filters: SearchFilters
 ): Transaction[] {
-  let filtered = transactions;
+  let filtered: Transaction[] = transactions;
 
   // 키워드 검색 (Task 2)
   if (filters.keyword) {
-    filtered = filterByKeyword(filtered, filters.keyword);
+    filtered = filterByKeyword(filtered, filters.keyword) as Transaction[];
   }
 
   // 날짜 범위 검색 (Task 3)
   if (filters.dateRange && (filters.dateRange.start || filters.dateRange.end)) {
-    filtered = filterByDateRange(filtered, filters.dateRange);
+    filtered = filterByDateRange(filtered, filters.dateRange) as Transaction[];
   }
 
   // 금액 범위 검색 (Task 4)
@@ -76,12 +76,12 @@ export function applySearchFilters(
     (filters.amountRange.min !== undefined ||
       filters.amountRange.max !== undefined)
   ) {
-    filtered = filterByAmountRange(filtered, filters.amountRange);
+    filtered = filterByAmountRange(filtered, filters.amountRange) as Transaction[];
   }
 
   // 태그 검색 (Task 5) - OR 조건
   if (filters.tags && filters.tags.length > 0) {
-    filtered = filterByTags(filtered, filters.tags);
+    filtered = filterByTags(filtered, filters.tags) as Transaction[];
   }
 
   return filtered;
