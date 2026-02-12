@@ -133,8 +133,9 @@ export function detectMemoColumn(rows: unknown[][], headerRowIndex: number): num
   let bestColumn = -1;
 
   for (let i = 0; i < scores.length; i++) {
-    if (scores[i] > maxScore) {
-      maxScore = scores[i];
+    const score = scores[i] ?? 0;
+    if (score > maxScore) {
+      maxScore = score;
       bestColumn = i;
     }
   }
