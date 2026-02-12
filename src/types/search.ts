@@ -81,3 +81,18 @@ export interface SearchResultMetadata {
   /** 3초 이내 응답 여부 (NFR-003) */
   withinSLA: boolean;
 }
+
+/**
+ * Transaction type for search filters
+ */
+export interface Transaction {
+  depositAmount?: string | number | null;
+  withdrawalAmount?: string | number | null;
+  confidenceScore?: number | null;
+  transactionDate?: Date | string | null;
+  memo?: string | null;
+  tags?: { tag: { name: string } }[];
+  category?: string | null;
+  transactionNature?: string | null;
+  importantTransaction?: boolean | null;
+}
