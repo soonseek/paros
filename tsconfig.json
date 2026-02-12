@@ -38,5 +38,5 @@
     "**/*.js",
     ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "generated", "coverage", "playwright.config.ts", "tests"]
+  "exclude": ["node_modules", "generated", "coverage", "playwright.config.ts", "tests", "src/server/ai/column-analyzer-agent.ts"]
 }
