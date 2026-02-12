@@ -41,11 +41,10 @@ export const auditLog = {
 
     await db.auditLog.create({
       data: {
-        entityType: entityType as any,
-        action: action as any,
+        entityType: entityType as string,
+        action: action as string,
         entityId: caseId,
         userId,
-        caseId,
         changes: JSON.stringify(details),
       },
     });
