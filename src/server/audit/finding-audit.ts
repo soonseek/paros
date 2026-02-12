@@ -40,10 +40,10 @@ export async function logFindingCreated(params: {
       action: "CREATE",
       entityId: findingId,
       userId,
-      caseId,
       changes: JSON.stringify({
         findingType,
         description,
+        caseId,
       }),
     },
   });
