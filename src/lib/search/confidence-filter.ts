@@ -6,12 +6,7 @@
  * @module lib/search/confidence-filter
  */
 
-/**
- * Transaction type for confidence filtering
- */
-interface Transaction {
-  confidenceScore?: number | null;
-}
+import type { Transaction } from "~/types/search";
 
 /**
  * 신뢰도 범위 인터페이스 (Story 8.2, Task 6.1)
