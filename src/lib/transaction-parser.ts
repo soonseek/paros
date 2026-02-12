@@ -422,7 +422,7 @@ export interface FormattedTransaction {
  * Format transaction for UI display
  */
 export function formatTransactionForDisplay(transaction: StandardTransaction): FormattedTransaction {
-  const formattedDate = transaction.거래일자.toISOString().split('T')[0];
+  const formattedDate = transaction.거래일자.toISOString().split('T')[0] ?? '';
   const colorClass = transaction.구분 === "입금" ? "text-blue-600" : "text-red-600";
   const sign = transaction.구분 === "입금" ? "+" : "-";
   const formattedAmount = `${sign}${transaction.금액.toLocaleString()}`;
