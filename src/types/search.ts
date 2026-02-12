@@ -86,6 +86,7 @@ export interface SearchResultMetadata {
  * Transaction type for search filters
  */
 export interface Transaction {
+  id?: string;
   depositAmount?: string | number | null;
   withdrawalAmount?: string | number | null;
   confidenceScore?: number | null;
