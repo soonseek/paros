@@ -342,7 +342,7 @@ export async function classifyTransaction(
 
   const parsedTemplates: TransactionTemplate[] = templates.map(t => ({
     ...t,
-    columnSchema: t.columnSchema as TemplateColumnSchema,
+    columnSchema: t.columnSchema as unknown as TemplateColumnSchema,
   }));
 
   // Layer 1: 정확한 키워드 매칭 (페이지 텍스트 사용)
