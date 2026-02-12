@@ -819,8 +819,8 @@ export const fundFlowRouter = createTRPCRouter({
       for (const chain of chains) {
         const txIds = chain.path
           .split(",")
-          .map((id) => id.trim())
-          .filter((id) => id.length > 0);
+          .map((id: string) => id.trim())
+          .filter((id: string) => id.length > 0);
         if (txIds.length > 0) {
           chainTxIds.set(chain.id, txIds);
         }
