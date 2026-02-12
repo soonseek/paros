@@ -199,7 +199,7 @@ export function applyExtendedSearchFilters(
   transactions: Transaction[],
   filters: ExtendedSearchFilters
 ): Transaction[] {
-  let filtered = transactions;
+  let filtered: Transaction[] = transactions;
 
   // Story 8.1: 기본 4개 필터 적용
   filtered = applySearchFilters(filtered, filters);
@@ -208,17 +208,17 @@ export function applyExtendedSearchFilters(
 
   // 거래 유형 필터 (Task 3) - OR 조건
   if (filters.transactionType && filters.transactionType.length > 0) {
-    filtered = filterByTransactionType(filtered, filters.transactionType);
+    filtered = filterByTransactionType(filtered, filters.transactionType) as Transaction[];
   }
 
   // 거래 성격 필터 (Task 4) - OR 조건
   if (filters.transactionNature && filters.transactionNature.length > 0) {
-    filtered = filterByTransactionNature(filtered, filters.transactionNature);
+    filtered = filterByTransactionNature(filtered, filters.transactionNature) as Transaction[];
   }
 
   // 중요 거래 필터 (Task 5)
   if (filters.isImportantOnly) {
-    filtered = filterByImportance(filtered, true);
+    filtered = filterByImportance(filtered, true) as Transaction[];
   }
 
   // AI 신뢰도 범위 필터 (Task 6)
@@ -227,7 +227,7 @@ export function applyExtendedSearchFilters(
     (filters.confidenceRange.min !== undefined ||
       filters.confidenceRange.max !== undefined)
   ) {
-    filtered = filterByConfidenceRange(filtered, filters.confidenceRange);
+    filtered = filterByConfidenceRange(filtered, filters.confidenceRange) as Transaction[];
   }
 
   return filtered;
