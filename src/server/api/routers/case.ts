@@ -123,7 +123,7 @@ export const caseRouter = createTRPCRouter({
       // Create new case with lawyerId set to current user
       const newCase = await ctx.db.case.create({
         data: {
-          caseNumber,
+          caseNumber: caseNumber ?? `CASE-${Date.now()}`,
           debtorName,
           courtName,
           filingDate,
