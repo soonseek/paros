@@ -726,7 +726,7 @@ const CaseDetailPage: NextPage = () => {
               <h2 className="text-xl font-bold mb-4">발견사항</h2>
               {findings && findings.length > 0 ? (
                 <FindingList
-                  findings={findings}
+                  findings={findings as Finding[]}
                   onUpdate={() => {
                     // Findings 목록 갱신
                     void utils.findings.getFindingsForCase.invalidate({ caseId: id as string });
