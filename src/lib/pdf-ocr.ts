@@ -663,7 +663,7 @@ const datePatterns = [
 function parseHTMLTable(html: string): TableData {
   // First, try to find <table> tag content
   const tableMatch = html.match(/<table[^>]*>(.*?)<\/table>/is);
-  const tableContent = tableMatch ? tableMatch[1] : html;
+  const tableContent = tableMatch?.[1] ?? html;
 
   // Extract table rows using regex
   const rowRegex = /<tr[^>]*>(.*?)<\/tr>/gs;
