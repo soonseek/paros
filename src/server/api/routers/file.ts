@@ -2055,7 +2055,7 @@ async function performExtraction(
 
   // Convert columnMapping from string→string to ColumnMapping (number) for extractAndSaveTransactions
   const numericColumnMapping: ColumnMapping = {};
-  for (const [key, columnName] of Object.entries(columnMapping)) {
+  for (const [key, columnName] of Object.entries(columnMapping) as [string, string | boolean][]) {
     // memoInAmountColumn은 boolean 값이므로 별도 처리
     if (key === "memoInAmountColumn" && columnName === true) {
       numericColumnMapping.memoInAmountColumn = true;
