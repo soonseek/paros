@@ -250,8 +250,8 @@ export const templateRouter = createTRPCRouter({
       }
 
       // 새 이름 중복 체크
-      const duplicate = await ctx.db.transactionTemplate.findUnique({
-        where: { name: input.newName },
+      const duplicate = await ctx.db.transactionTemplate.findFirst({
+        where: { name: input.newName, bankName: existing.bankName },
       });
 
       if (duplicate) {
