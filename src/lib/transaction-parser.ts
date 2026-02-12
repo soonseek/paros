@@ -346,7 +346,14 @@ export function parseStandardTransactions(
   errors: Array<{ row: number; error: string }>;
 } {
   // Detect columns from header
-  const detection = detectColumns(rawData[headerRowIndex]);
+  const headerRow = rawData[headerRowIndex];
+  if (!headerRow) {
+    return {
+      transactions: [],
+      errors: [{ row: headerRowIndex + 1, error: "헤더 행을 찾을 수 없습니다" }],
+    };
+  }
+  const detection = detectColumns(headerRow);
 
   if (!detection) {
     return {
