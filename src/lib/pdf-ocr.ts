@@ -467,6 +467,7 @@ function extractFromTableElementsHTML(tableElements: Array<{
     // 각 테이블을 개별 파싱
     for (let j = 0; j < allTables.length; j++) {
       const singleTableHTML = allTables[j];
+      if (!singleTableHTML) continue;
       
       console.log(`[HTML Table] Parsing table ${j + 1}/${allTables.length} (length: ${singleTableHTML.length})...`);
       
