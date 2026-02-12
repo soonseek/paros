@@ -284,8 +284,6 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
             try {
               // Invalidate transaction search query (실제 사용하는 쿼리)
               await utils.transaction.search.invalidate({ caseId });
-              // Invalidate file analysis status
-              await utils.file.getAnalysisStatus.invalidate({ caseId });
               console.log("[Query Invalidation] All related queries invalidated after upload");
             } catch (error) {
               console.error("[Query Invalidation Error]", error);
