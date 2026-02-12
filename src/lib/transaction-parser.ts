@@ -330,7 +330,7 @@ export function parseTransactionRow(
     거래일자: transactionDate,
     구분: type,
     금액: amount,
-    잔액: balance,
+    잔액: balance ?? undefined,
     비고: memo,
   };
 }
