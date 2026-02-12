@@ -35,7 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!storedToken) {
         const cookies = document.cookie.split(';').reduce((acc, cookie) => {
           const [key, value] = cookie.trim().split('=');
-          acc[key] = value;
+          if (key) acc[key] = value ?? '';
           return acc;
         }, {} as Record<string, string>);
 
