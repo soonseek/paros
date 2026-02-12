@@ -234,7 +234,8 @@ export function detectMemoColumn(
   
   // 최소 점수 임계값
   const MIN_SCORE = 5;
-  return textScores[0]?.score >= MIN_SCORE ? textScores[0].col : undefined;
+  const topScore = textScores[0];
+  return topScore && topScore.score >= MIN_SCORE ? topScore.col : undefined;
 }
 
 /**
