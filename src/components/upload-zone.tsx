@@ -559,7 +559,6 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
       
       // Invalidate queries
       await utils.transaction.search.invalidate({ caseId });
-      await utils.document.list.invalidate({ caseId });
       
       setIsMatchConfirmModalOpen(false);
     } catch (error) {
@@ -612,7 +611,6 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
       
       // Invalidate queries
       await utils.transaction.search.invalidate({ caseId });
-      await utils.document.list.invalidate({ caseId });
       
       setIsMatchConfirmModalOpen(false);
     } catch (error) {
@@ -665,7 +663,6 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
       
       // Invalidate queries
       await utils.transaction.search.invalidate({ caseId });
-      await utils.document.list.invalidate({ caseId });
       
       setIsMatchConfirmModalOpen(false);
     } catch (error) {
