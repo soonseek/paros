@@ -825,7 +825,8 @@ function parseSpaceSeparatedTable(text: string): TableData {
 
   // Try to detect column alignment by looking at consistent spacing patterns
   // For now, simple split by 2+ spaces
-  const headers = lines[0].split(/\s{2,}/).map(h => h.trim());
+  const firstLine = lines[0] ?? '';
+  const headers = firstLine.split(/\s{2,}/).map(h => h.trim());
   const rows = lines.slice(1).map(line =>
     line.split(/\s{2,}/).map(cell => cell.trim())
   );
