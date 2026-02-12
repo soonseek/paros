@@ -222,10 +222,10 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
                   // "템플릿 매칭 (Layer 2): 입출금거래내역 [기업은행]" 파싱
                   const templateRegex = /템플릿 매칭 \(Layer (\d+)\): ([^\[]+)(?:\[([^\]]+)\])?/;
                   const match = llmAnalysisData.reasoning.match(templateRegex);
-                  if (match) {
+                  if (match && match[1] && match[2]) {
                     templateMatch = {
                       templateName: match[2].trim(),
-                      bankName: match[3] || undefined,
+                      bankName: match[3] ?? undefined,
                       layer: parseInt(match[1]),
                       confidence: analysisResult.confidence,
                     };
