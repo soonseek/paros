@@ -855,7 +855,7 @@ function parseMarkdownTable(markdownTable: string): TableData {
   }
 
   // Extract header row (first line)
-  const headerLine = lines[0];
+  const headerLine = lines[0] ?? '';
   const headers = parseMarkdownRow(headerLine);
 
   // Skip separator line (second line, starts with |---)
