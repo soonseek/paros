@@ -876,7 +876,7 @@ export const fundFlowRouter = createTRPCRouter({
       await auditLog.create({
         db: ctx.db,
         action: "EXPORT_FUND_FLOW",
-        userId: ctx.session.user.id,
+        userId: ctx.userId,
         caseId,
         entityType: "CASE",
         details: {
