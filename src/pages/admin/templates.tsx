@@ -188,20 +188,21 @@ const TemplatesPage: NextPage = () => {
       
       // LLM 결과로 업데이트 (일반 케이스 기본값 적용)
       for (const [type, col] of Object.entries(suggestedColumns)) {
+        const colDef = col as ColumnDefinition;
         if (type === "deposit") {
           mergedColumns.deposit = {
-            ...col,
-            whenDeposit: col.whenDeposit || "amount",
-            whenWithdrawal: col.whenWithdrawal || "skip", // 일반 케이스 기본값
+            ...colDef,
+            whenDeposit: colDef.whenDeposit || "amount",
+            whenWithdrawal: colDef.whenWithdrawal || "skip", // 일반 케이스 기본값
           };
         } else if (type === "withdrawal") {
           mergedColumns.withdrawal = {
-            ...col,
-            whenDeposit: col.whenDeposit || "skip", // 일반 케이스 기본값
-            whenWithdrawal: col.whenWithdrawal || "amount",
+            ...colDef,
+            whenDeposit: colDef.whenDeposit || "skip", // 일반 케이스 기본값
+            whenWithdrawal: colDef.whenWithdrawal || "amount",
           };
         } else {
-          mergedColumns[type] = col;
+          mergedColumns[type] = colDef;
         }
       }
       
