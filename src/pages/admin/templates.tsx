@@ -463,24 +463,31 @@ const TemplatesPage: NextPage = () => {
     event.target.value = "";
   };
 
-  const updateColumnSchema = (columnType: string, field: string, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      columnSchema: {
-        ...prev.columnSchema,
-        columns: {
-          ...prev.columnSchema.columns,
-          [columnType]: {
-            ...prev.columnSchema.columns[columnType],
-            [field]: value,
-            // 헤더 변경 시 인덱스 자동 설정
-            ...(field === "header" && detectedHeaders.length > 0 && {
-              index: detectedHeaders.findIndex(h => h === value)
-            }),
+  const updateColumnSchema = (columnType: string, field: string, value: unknown) => {
+    setFormData(prev => {
+      const existingCol = prev.columnSchema.columns[columnType] ?? { index: -1, header: "" };
+      const updatedCol: ColumnDefinition = {
+        index: existingCol.index,
+        header: existingCol.header,
+        whenDeposit: existingCol.whenDeposit,
+        whenWithdrawal: existingCol.whenWithdrawal,
+        [field]: value,
+      };
+      // 헤더 변경 시 인덱스 자동 설정
+      if (field === "header" && detectedHeaders.length > 0) {
+        updatedCol.index = detectedHeaders.findIndex(h => h === value);
+      }
+      return {
+        ...prev,
+        columnSchema: {
+          ...prev.columnSchema,
+          columns: {
+            ...prev.columnSchema.columns,
+            [columnType]: updatedCol,
           },
         },
-      },
-    }));
+      };
+    });
   };
 
   const removeColumn = (columnType: string) => {
