@@ -174,7 +174,8 @@ export function detectColumns(headerRow: unknown[]): ColumnDetection | null {
 
   // Date column
   for (let i = 0; i < headers.length; i++) {
-    if (patterns.dateKeywords.some((kw) => headers[i].includes(kw))) {
+    const header = headers[i];
+    if (header && patterns.dateKeywords.some((kw) => header.includes(kw))) {
       detection.dateColumn = i;
       break;
     }
@@ -182,19 +183,21 @@ export function detectColumns(headerRow: unknown[]): ColumnDetection | null {
 
   // Deposit/Withdrawal columns
   for (let i = 0; i < headers.length; i++) {
-    if (patterns.depositKeywords.some((kw) => headers[i].includes(kw))) {
+    const header = headers[i];
+    if (!header) continue;
+    if (patterns.depositKeywords.some((kw) => header.includes(kw))) {
       detection.depositColumn = i;
     }
-    if (patterns.withdrawalKeywords.some((kw) => headers[i].includes(kw))) {
+    if (patterns.withdrawalKeywords.some((kw) => header.includes(kw))) {
       detection.withdrawalColumn = i;
     }
-    if (patterns.balanceKeywords.some((kw) => headers[i].includes(kw))) {
+    if (patterns.balanceKeywords.some((kw) => header.includes(kw))) {
       detection.balanceColumn = i;
     }
-    if (patterns.memoKeywords.some((kw) => headers[i].includes(kw))) {
+    if (patterns.memoKeywords.some((kw) => header.includes(kw))) {
       detection.memoColumn = i;
     }
-    if (headers[i].includes("거래구분")) {
+    if (header.includes("거래구분")) {
       detection.transactionTypeColumn = i;
     }
   }
