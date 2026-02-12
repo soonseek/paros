@@ -238,6 +238,7 @@ export function parseBalance(balanceValue: unknown): number | null {
     
     // 마지막 숫자 추출 (병합된 경우 잔액이 마지막)
     const lastNumber = matches[matches.length - 1];
+    if (!lastNumber) return null;
     const cleaned = lastNumber.replace(/,/g, "");
     const parsed = parseFloat(cleaned);
     
