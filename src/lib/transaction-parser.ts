@@ -86,6 +86,7 @@ export function detectMemoColumn(rows: unknown[][], headerRowIndex: number): num
   if (dataRows.length === 0) return -1;
 
   const headerRow = rows[headerRowIndex];
+  if (!headerRow) return -1;
   const numColumns = headerRow.length;
   const scores: number[] = new Array(numColumns).fill(0);
 
