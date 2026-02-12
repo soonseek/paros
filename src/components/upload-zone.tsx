@@ -207,8 +207,9 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
                 const columnMapping = analysisResult.columnMapping as Record<string, string | undefined> ?? {};
                 const columns = Object.keys(columnMapping);
 
-                // Extract LLM analysis metadata if available
-                const llmAnalysisData = analysisResult.llmAnalysis as {
+                // Extract LLM analysis metadata if available (stored in extractedData JSON)
+                const extractedDataObj = analysisResult.extractedData as Record<string, unknown> | null;
+                const llmAnalysisData = (extractedDataObj?.llmAnalysis ?? null) as {
                   transactionTypeMethod?: string;
                   memoInAmountColumn?: boolean;
                   reasoning?: string;
