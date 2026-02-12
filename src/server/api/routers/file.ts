@@ -2045,8 +2045,10 @@ async function performExtraction(
 
       if (candidateColumns.length > 0) {
         const memoCandidate = candidateColumns[candidateColumns.length - 1]; // 보통 마지막 컬럼이 비고
-        console.log(`[performExtraction] Fallback memo detection: using last unknown column "${memoCandidate}"`);
-        columnMapping.memo = memoCandidate;
+        if (memoCandidate) {
+          console.log(`[performExtraction] Fallback memo detection: using last unknown column "${memoCandidate}"`);
+          columnMapping.memo = memoCandidate;
+        }
       }
     }
   }
