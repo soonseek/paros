@@ -270,24 +270,22 @@ async function searchTransactions(
   }
 
   // 금액 범위
-  if (transactionType === "deposit" || transactionType === "all") {
-    if (minAmount !== undefined || maxAmount !== undefined) {
-      const amountFilter: Prisma.DecimalNullableFilter = {};
-      if (minAmount !== undefined) amountFilter.gte = minAmount;
-      if (maxAmount !== undefined) amountFilter.lte = maxAmount;
-      
-      if (transactionType === "deposit") {
-        where.depositAmount = amountFilter;
-      } else if (transactionType === "withdrawal") {
-        where.withdrawalAmount = amountFilter;
-      } else {
-        // all - 입금 또는 출금에서 검색
-        where.OR = [
-          ...(where.OR || []),
-          { depositAmount: amountFilter },
-          { withdrawalAmount: amountFilter },
-        ];
-      }
+  if (minAmount !== undefined || maxAmount !== undefined) {
+    const amountFilter: Prisma.DecimalNullableFilter = {};
+    if (minAmount !== undefined) amountFilter.gte = minAmount;
+    if (maxAmount !== undefined) amountFilter.lte = maxAmount;
+    
+    if (transactionType === "deposit") {
+      where.depositAmount = amountFilter;
+    } else if (transactionType === "withdrawal") {
+      where.withdrawalAmount = amountFilter;
+    } else {
+      // all - 입금 또는 출금에서 검색
+      where.OR = [
+        ...(where.OR || []),
+        { depositAmount: amountFilter },
+        { withdrawalAmount: amountFilter },
+      ];
     }
   }
 
