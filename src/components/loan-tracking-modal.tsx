@@ -368,10 +368,10 @@ export function LoanTrackingModal({ isOpen, onClose, caseId }: LoanTrackingModal
                             {searchMethod === "auto" && "confidence" in deposit && (
                               <TableCell>
                                 <Badge 
-                                  variant={deposit.confidence >= 50 ? "default" : "secondary"}
-                                  className={deposit.confidence >= 70 ? "bg-green-600" : deposit.confidence >= 50 ? "bg-yellow-500" : ""}
+                                  variant={(deposit.confidence as number) >= 50 ? "default" : "secondary"}
+                                  className={(deposit.confidence as number) >= 70 ? "bg-green-600" : (deposit.confidence as number) >= 50 ? "bg-yellow-500" : ""}
                                 >
-                                  {deposit.confidence}%
+                                  {deposit.confidence as number}%
                                 </Badge>
                               </TableCell>
                             )}
