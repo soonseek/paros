@@ -254,10 +254,9 @@ const CaseDetailPage: NextPage = () => {
 
   // Story 7.2: 선택된 거래 내보내기 mutation
   const exportSelectedMutation = api.export.exportSelectedTransactions.useMutation({
-    onSuccess: (data) => {
+    onSuccess: () => {
       // AC4: 다운로드 피드백 메시지
-      const transactionCount = data.base64 ? 1 : 0; // 기본 구현 (향후 개선 여지)
-      toast.success(`선택한 거래가 엑셀 파일로 다운로드되었습니다 (${transactionCount}개)`);
+      toast.success("선택한 거래가 엑셀 파일로 다운로드되었습니다");
     },
     onError: (err) => {
       toast.error(err.message || "선택된 거래 내보내기에 실패했습니다");
