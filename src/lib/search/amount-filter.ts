@@ -6,13 +6,7 @@
  * @module lib/search/amount-filter
  */
 
-/**
- * Transaction type for amount filtering
- */
-interface Transaction {
-  depositAmount?: string | number | null;
-  withdrawalAmount?: string | number | null;
-}
+import type { Transaction } from "~/types/search";
 
 /**
  * 금액 범위 인터페이스 (Story 8.1, Task 4.1)
