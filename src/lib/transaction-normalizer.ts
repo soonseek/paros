@@ -40,6 +40,7 @@ export function detectColumnRoles(headers: string[]): ColumnMapping {
   for (let i = 0; i < headers.length; i++) {
     const header = lowerHeaders[i];
     const original = headers[i];
+    if (!header || !original) continue;
     
     // 날짜 컬럼 감지
     if (!mapping.date) {
