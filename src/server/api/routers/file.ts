@@ -1451,9 +1451,9 @@ export const fileRouter = createTRPCRouter({
               columns: Record<string, { index: number; header: string }>;
             } | null,
             description: matchedTemplate.description,
-            sampleFileKey: matchedTemplate.sampleFileKey,
-            sampleFileName: matchedTemplate.sampleFileName,
-            sampleFileMimeType: matchedTemplate.sampleFileMimeType,
+            sampleFileKey: (matchedTemplate as { sampleFileKey?: string | null }).sampleFileKey ?? null,
+            sampleFileName: (matchedTemplate as { sampleFileName?: string | null }).sampleFileName ?? null,
+            sampleFileMimeType: (matchedTemplate as { sampleFileMimeType?: string | null }).sampleFileMimeType ?? null,
           } : {
             matched: false,
             templateId: null,
