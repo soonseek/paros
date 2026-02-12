@@ -913,7 +913,10 @@ export const fileRouter = createTRPCRouter({
           rawColumnMapping,
           analysisResult.headerRowIndex,
           document.mimeType,
-          analysisResult // Pass analysisResult for extractedData
+          {
+            extractedData: analysisResult.extractedData as { headers: string[]; rows: string[][] } | undefined,
+            errorDetails: analysisResult.errorDetails as { memoInAmountColumn?: boolean } | undefined,
+          }
         );
 
         const timeoutPromise = new Promise<never>((_, reject) => {
