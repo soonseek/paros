@@ -745,6 +745,7 @@ function extractCellsFromHTML(rowHTML: string): string[] {
   // CRITICAL FIX: Do NOT filter empty cells - they represent null/empty values in columns!
   // Removing empty cells causes column index misalignment (e.g., empty withdrawal becomes deposit)
   return cells.map(cell => {
+    if (!cell) return '';
     // Remove any remaining HTML tags
     let text = cell.replace(/<[^>]+>/g, "");
     // Decode common HTML entities
