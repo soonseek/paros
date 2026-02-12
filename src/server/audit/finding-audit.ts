@@ -17,7 +17,7 @@
  * - changes: JSON string with details
  */
 
-import type { PrismaClient } from "~/server/db";
+import type { PrismaClient } from "@prisma/client";
 
 /**
  * Finding 생성 감사 로그
