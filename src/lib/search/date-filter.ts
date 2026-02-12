@@ -52,6 +52,7 @@ export function filterByDateRange(
   }
 
   return transactions.filter((tx) => {
+    if (!tx.transactionDate) return false;
     const txDate = new Date(tx.transactionDate);
 
     // 시작일 필터링 (AC2: start 이후의 모든 거래)
