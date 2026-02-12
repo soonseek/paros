@@ -38,5 +38,5 @@
     "**/*.js",
     ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "generated", "coverage"]
+  "exclude": ["node_modules", "generated", "coverage", "playwright.config.ts", "tests"]
 }
