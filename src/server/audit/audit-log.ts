@@ -13,7 +13,7 @@
  * - changes: JSON string with export details
  */
 
-import type { PrismaClient } from "~/server/db";
+import type { PrismaClient } from "@prisma/client";
 
 /**
  * Audit Log Service Interface
