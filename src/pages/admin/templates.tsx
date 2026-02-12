@@ -215,7 +215,7 @@ const TemplatesPage: NextPage = () => {
         description: data.suggestedDescription || prev.description,
         columnSchema: {
           columns: mergedColumns,
-          parseRules: data.suggestedColumnSchema?.parseRules || {},
+          parseRules: (data.suggestedColumnSchema as ColumnSchema | undefined)?.parseRules ?? {},
         },
       }));
       setIdentifiersInput((data.suggestedIdentifiers || []).join(", "));
