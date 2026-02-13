@@ -293,7 +293,7 @@ export class ExcelExportService {
         };
         current.count += 1;
         if (t.confidenceScore) {
-          current.totalConfidence += t.confidenceScore.toNumber();
+          current.totalConfidence += t.confidenceScore;
         }
         categoryMap.set(t.category, current);
       } else {
