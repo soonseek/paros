@@ -204,8 +204,8 @@ export class ExcelExportService {
     findings: Array<{
       id: string;
       findingType: string;
-      severity: 'CRITICAL' | 'WARNING' | 'INFO';
-      priority: 'HIGH' | 'MEDIUM' | 'LOW' | null;
+      severity: string;
+      priority: string | null;
       description: string | null;
       relatedTransactionIds: string[];
       relatedCreditorNames: string | null;
