@@ -1081,7 +1081,7 @@ export class ExcelExportService {
       깊이: chain.depth,
       시작거래: chain.startTransactionId,
       종료거래: chain.endTransactionIds.join(', '),
-      신뢰도: formatConfidence(chain.confidenceScore?.toNumber()),
+      신뢰도: formatConfidence(chain.confidenceScore?.toNumber() ?? null),
     }));
     addDataRow(chainSheet, chainData);
     autoFitColumns(chainSheet);
