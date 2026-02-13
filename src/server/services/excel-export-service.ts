@@ -110,16 +110,15 @@ export class ExcelExportService {
   /**
    * 사건 기본 정보 시트 생성 (Task 3.2)
    *
-   * Story 7.1, AC2: 사건번호, 채무자명, 법원, 파산관재인, 개시결정일, 분석일
+   * Story 7.1, AC2: 사건번호, 채무자명, 법원, 접수일, 분석일
    */
   private createCaseInfoSheet(
     workbook: ExcelJS.Workbook,
     caseData: {
       caseNumber: string;
       debtorName: string;
-      court: string | null;
-      trustee: string | null;
-      commencementDate: Date | null;
+      courtName: string | null;
+      filingDate: Date | null;
       createdAt: Date;
     }
   ) {
@@ -131,11 +130,10 @@ export class ExcelExportService {
     const caseInfo = [
       { 항목: '사건번호', 값: caseData.caseNumber },
       { 항목: '채무자명', 값: caseData.debtorName },
-      { 항목: '법원', 값: caseData.court ?? '' },
-      { 항목: '파산관재인', 값: caseData.trustee ?? '' },
+      { 항목: '법원', 값: caseData.courtName ?? '' },
       {
-        항목: '개시결정일',
-        값: caseData.commencementDate ?? '',
+        항목: '접수일',
+        값: caseData.filingDate ? caseData.filingDate.toISOString().split('T')[0] : '',
       },
       { 항목: '분석일', 값: new Date().toISOString().split('T')[0] },
     ];
