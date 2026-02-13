@@ -16,7 +16,7 @@
  */
 
 import { TRPCError } from "@trpc/server";
-import type { PrismaClient } from "~/server/db";
+import type { PrismaClient } from "@prisma/client";
 import {
   logFindingNoteCreated,
   logFindingNoteUpdated,
