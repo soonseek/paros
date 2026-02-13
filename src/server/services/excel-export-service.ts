@@ -156,7 +156,7 @@ export class ExcelExportService {
       memo: string | null;
       transactionNature: string | null;
       category: string | null;
-      confidenceScore: { toNumber: () => number } | null;
+      confidenceScore: number | null;
       tags: Array<{ tag: { name: string } }>;
     }>
   ) {
