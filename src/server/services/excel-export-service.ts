@@ -47,9 +47,8 @@ export class ExcelExportService {
         id: true,
         caseNumber: true,
         debtorName: true,
-        court: true,
-        trustee: true,
-        commencementDate: true,
+        courtName: true,
+        filingDate: true,
         createdAt: true,
       },
     });
