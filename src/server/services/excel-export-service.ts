@@ -806,7 +806,7 @@ export class ExcelExportService {
     const workbook = createWorkbook();
 
     // Story 7.3, Task 3.2: 발견사항 시트 생성
-    this.createFindingsExportSheet(workbook, findings);
+    this.createFindingsExportSheet(workbook, findings as any);
 
     // Story 7.3, Task 4.1: 파일명 생성
     const caseData = await db.case.findUnique({
