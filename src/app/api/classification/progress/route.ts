@@ -119,6 +119,7 @@ export async function GET(request: NextRequest) {
             });
             controller.close();
           }
+          })();
         }, 500);
 
         // 60초 타임아웃
