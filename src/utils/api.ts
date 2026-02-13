@@ -110,7 +110,6 @@ export const api = createTRPCNext<AppRouter>({
             // React Query v5에서는 defaultOptions.mutations.onError가 제거됨
             // 에러 처리는 각 뮤테이션에서 개별적으로 처리
           },
-          },
         },
       },
     };
