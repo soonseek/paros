@@ -788,7 +788,7 @@ export class ExcelExportService {
 
     // Story 7.3, Task 5.1: In-memory sorting for priority-severity-date (Epic 6.5 패턴 재사용)
     if (sortBy === 'priority-severity-date') {
-      findings = this.sortFindingsByPriority(findings);
+      findings = this.sortFindingsByPriority(findings as any) as typeof findings;
     }
 
     // Story 7.3, Task 7.2: 파일 크기 검증
