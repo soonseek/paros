@@ -102,62 +102,14 @@ export const api = createTRPCNext<AppRouter>({
       queryClientConfig: {
         defaultOptions: {
           queries: {
-            onError: (error) => {
-              console.error("[tRPC Query Error]", error);
-
-              // Check for 401 in multiple ways
-              if (error instanceof TRPCClientError) {
-                // Check tRPC error code
-                if (error.data?.code === "UNAUTHORIZED") {
-                  console.error("[tRPC] UNAUTHORIZED error detected");
-                  handleUnauthorizedError();
-                  return;
-                }
-
-                // Check HTTP status
-                if ((error as any).shape?.data?.httpStatus === 401) {
-                  console.error("[tRPC] HTTP 401 detected in error");
-                  handleUnauthorizedError();
-                  return;
-                }
-              }
-
-              // Generic 401 check
-              const errorStr = JSON.stringify(error);
-              if (errorStr.includes("401") || errorStr.includes("UNAUTHORIZED") || errorStr.includes("Unauthorized")) {
-                console.error("[tRPC] 401/UNAUTHORIZED detected in error string");
-                handleUnauthorizedError();
-              }
-            },
+            // React Query v5에서는 defaultOptions.queries.onError가 제거됨
+            // 에러 처리는 각 쿼리에서 개별적으로 처리
+            refetchOnWindowFocus: false,
           },
           mutations: {
-            onError: (error) => {
-              console.error("[tRPC Mutation Error]", error);
-
-              // Check for 401 in multiple ways
-              if (error instanceof TRPCClientError) {
-                // Check tRPC error code
-                if (error.data?.code === "UNAUTHORIZED") {
-                  console.error("[tRPC] UNAUTHORIZED error detected");
-                  handleUnauthorizedError();
-                  return;
-                }
-
-                // Check HTTP status
-                if ((error as any).shape?.data?.httpStatus === 401) {
-                  console.error("[tRPC] HTTP 401 detected in error");
-                  handleUnauthorizedError();
-                  return;
-                }
-              }
-
-              // Generic 401 check
-              const errorStr = JSON.stringify(error);
-              if (errorStr.includes("401") || errorStr.includes("UNAUTHORIZED") || errorStr.includes("Unauthorized")) {
-                console.error("[tRPC] 401/UNAUTHORIZED detected in error string");
-                handleUnauthorizedError();
-              }
-            },
+            // React Query v5에서는 defaultOptions.mutations.onError가 제거됨
+            // 에러 처리는 각 뮤테이션에서 개별적으로 처리
+          },
           },
         },
       },
