@@ -116,11 +116,11 @@ export const AIChatAssistant = memo<AIChatAssistantProps>(({ caseId }) => {
       });
 
       // 응답에서 테이블 데이터 파싱
-      const tableData = parseMarkdownTable(result.response);
+      const tableData = parseMarkdownTable(result.response as string);
 
       const assistantMsg: ChatMessage = {
         role: 'assistant',
-        content: result.response,
+        content: result.response as string,
         timestamp: new Date(),
         tableData: tableData ?? undefined,
       };
