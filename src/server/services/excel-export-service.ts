@@ -268,7 +268,7 @@ export class ExcelExportService {
     workbook: ExcelJS.Workbook,
     transactions: Array<{
       category: string | null;
-      confidenceScore: { toNumber: () => number } | null;
+      confidenceScore: number | null;
     }>
   ) {
     const worksheet = createWorksheetWithHeaders(workbook, 'AI 분류 요약', [
