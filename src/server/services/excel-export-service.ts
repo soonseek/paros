@@ -468,7 +468,7 @@ export class ExcelExportService {
     );
 
     // Story 7.1 AI 리뷰 LOW #4: 생성된 파일 크기 검증
-    const binaryString = atob(response.base64);
+    const binaryString = atob(response.data);
     const fileSize = binaryString.length;
 
     if (fileSize > MAX_FILE_SIZE_BYTES) {
@@ -660,7 +660,7 @@ export class ExcelExportService {
     );
 
     // Story 7.1 AI 리뷰 LOW #4: 생성된 파일 크기 검증
-    const binaryString = atob(response.base64);
+    const binaryString = atob(response.data);
     const fileSize = binaryString.length;
 
     if (fileSize > MAX_FILE_SIZE_BYTES) {
