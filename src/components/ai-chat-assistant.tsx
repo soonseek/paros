@@ -8,7 +8,7 @@
 "use client";
 
 import { useState, useCallback, memo, useRef, useEffect } from "react";
-import { Loader2, Send, Bot, User, Copy, CheckCheck, Sparkles, Download, FileSpreadsheet } from "lucide-react";
+import { Loader2, Send, Bot, User, Copy, CheckCheck, Sparkles, FileSpreadsheet } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "./ui/card";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
