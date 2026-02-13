@@ -65,13 +65,14 @@ export async function GET(request: NextRequest) {
         let lastProgress = -1;
 
         // 폴링 간격 (500ms)
-        const pollInterval = setInterval(async () => {
-          try {
-            const classificationJob = await db.classificationJob.findUnique(
-              {
-                where: { fileAnalysisResultId: fileAnalysisResult.id },
-              }
-            );
+        const pollInterval = setInterval(() => {
+          void (async () => {
+            try {
+              const classificationJob = await db.classificationJob.findUnique(
+                {
+                  where: { fileAnalysisResultId: fileAnalysisResult.id },
+                }
+              );
 
             if (!classificationJob) {
               // 작업이 아직 생성되지 않음
