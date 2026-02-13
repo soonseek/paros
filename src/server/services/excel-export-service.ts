@@ -181,7 +181,7 @@ export class ExcelExportService {
       태그: formatTags(t.tags),
       AI_분류: t.category ?? '',
       거래성격: formatTransactionNature(t.transactionNature),
-      신뢰도: t.confidenceScore?.toNumber() ?? null,
+      신뢰도: t.confidenceScore ?? null,
     }));
 
     addDataRow(worksheet, transactionRows);
