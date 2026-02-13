@@ -69,7 +69,7 @@ function parseMarkdownTable(content: string): TableData | null {
 }
 
 // 엑셀 다운로드 함수
-function downloadAsExcel(tableData: TableData, filename: string = '대출금_추적_결과') {
+function downloadAsExcel(tableData: TableData, filename = '대출금_추적_결과') {
   const ws = XLSX.utils.aoa_to_sheet([tableData.headers, ...tableData.rows]);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '추적결과');
