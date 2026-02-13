@@ -941,16 +941,16 @@ export class ExcelExportService {
     switch (sortBy) {
       case 'priority-severity-date':
         // In-memory sorting 적용 (Task 5.1)
-        return [{ createdAt: 'desc' } as const];
+        return [{ createdAt: 'desc' }] as { createdAt: 'desc' }[];
 
       case 'severity-date':
-        return [{ severity: 'asc' }, { createdAt: 'desc' }] as const;
+        return [{ severity: 'asc' }, { createdAt: 'desc' }] as { severity?: 'asc'; createdAt?: 'desc' }[];
 
       case 'date':
-        return [{ createdAt: 'desc' }] as const;
+        return [{ createdAt: 'desc' }] as { createdAt: 'desc' }[];
 
       default:
-        return [{ createdAt: 'desc' }] as const;
+        return [{ createdAt: 'desc' }] as { createdAt: 'desc' }[];
     }
   }
 
