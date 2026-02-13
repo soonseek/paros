@@ -10,7 +10,7 @@
  * @see https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events
  */
 
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { db } from "~/server/db";
 
 /**
