@@ -68,8 +68,8 @@ export async function logFindingResolved(params: {
       action: "RESOLVE",
       entityId: findingId,
       userId,
-      caseId,
-      changes: JSON.stringify({
+            changes: JSON.stringify({
+        caseId,
         resolved: true,
         resolvedAt: new Date().toISOString(),
       }),
@@ -106,8 +106,8 @@ export async function logFindingNoteCreated(params: {
       action: "CREATE",
       entityId: noteId,
       userId,
-      caseId,
-      changes: JSON.stringify({
+            changes: JSON.stringify({
+        caseId,
         findingId,
         noteId,
         content,
@@ -147,8 +147,8 @@ export async function logFindingNoteUpdated(params: {
       action: "UPDATE",
       entityId: noteId,
       userId,
-      caseId,
-      changes: JSON.stringify({
+            changes: JSON.stringify({
+        caseId,
         findingId,
         noteId,
         oldContent,
@@ -187,8 +187,8 @@ export async function logFindingNoteDeleted(params: {
       action: "DELETE",
       entityId: noteId,
       userId,
-      caseId,
-      changes: JSON.stringify({
+            changes: JSON.stringify({
+        caseId,
         findingId,
         noteId,
         deletedContent,
@@ -226,8 +226,8 @@ export async function logFindingPriorityUpdated(params: {
       action: "UPDATE",
       entityId: findingId,
       userId,
-      caseId,
-      changes: JSON.stringify({
+            changes: JSON.stringify({
+        caseId,
         oldPriority,
         newPriority,
       }),
@@ -262,8 +262,8 @@ export async function logFindingPriorityReset(params: {
       action: "RESET",
       entityId: findingId,
       userId,
-      caseId,
-      changes: JSON.stringify({
+            changes: JSON.stringify({
+        caseId,
         oldPriority,
         resetTo: null,
       }),
