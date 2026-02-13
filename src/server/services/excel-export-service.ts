@@ -153,8 +153,8 @@ export class ExcelExportService {
       transactionDate: Date;
       depositAmount: { toNumber: () => number } | null;
       withdrawalAmount: { toNumber: () => number } | null;
-      description: string | null;
-      nature: string | null;
+      memo: string | null;
+      transactionNature: string | null;
       category: string | null;
       confidenceScore: { toNumber: () => number } | null;
       tags: Array<{ tag: { name: string } }>;
