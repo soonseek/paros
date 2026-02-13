@@ -177,10 +177,10 @@ export class ExcelExportService {
       날짜: t.transactionDate,
       입금액: t.depositAmount?.toNumber() ?? null,
       출금액: t.withdrawalAmount?.toNumber() ?? null,
-      메모: t.description ?? '',
+      메모: t.memo ?? '',
       태그: formatTags(t.tags),
       AI_분류: t.category ?? '',
-      거래성격: formatTransactionNature(t.nature),
+      거래성격: formatTransactionNature(t.transactionNature),
       신뢰도: t.confidenceScore?.toNumber() ?? null,
     }));
 
