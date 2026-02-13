@@ -913,7 +913,10 @@ export const fileRouter = createTRPCRouter({
           rawColumnMapping,
           analysisResult.headerRowIndex,
           document.mimeType,
-          analysisResult // Pass analysisResult for extractedData
+          {
+            extractedData: analysisResult.extractedData as { headers: string[]; rows: string[][] } | undefined,
+            errorDetails: analysisResult.errorDetails as { memoInAmountColumn?: boolean } | undefined,
+          }
         );
 
         const timeoutPromise = new Promise<never>((_, reject) => {
@@ -1448,9 +1451,9 @@ export const fileRouter = createTRPCRouter({
               columns: Record<string, { index: number; header: string }>;
             } | null,
             description: matchedTemplate.description,
-            sampleFileKey: matchedTemplate.sampleFileKey,
-            sampleFileName: matchedTemplate.sampleFileName,
-            sampleFileMimeType: matchedTemplate.sampleFileMimeType,
+            sampleFileKey: (matchedTemplate as { sampleFileKey?: string | null }).sampleFileKey ?? null,
+            sampleFileName: (matchedTemplate as { sampleFileName?: string | null }).sampleFileName ?? null,
+            sampleFileMimeType: (matchedTemplate as { sampleFileMimeType?: string | null }).sampleFileMimeType ?? null,
           } : {
             matched: false,
             templateId: null,
@@ -2042,15 +2045,17 @@ async function performExtraction(
 
       if (candidateColumns.length > 0) {
         const memoCandidate = candidateColumns[candidateColumns.length - 1]; // 보통 마지막 컬럼이 비고
-        console.log(`[performExtraction] Fallback memo detection: using last unknown column "${memoCandidate}"`);
-        columnMapping.memo = memoCandidate;
+        if (memoCandidate) {
+          console.log(`[performExtraction] Fallback memo detection: using last unknown column "${memoCandidate}"`);
+          columnMapping.memo = memoCandidate;
+        }
       }
     }
   }
 
   // Convert columnMapping from string→string to ColumnMapping (number) for extractAndSaveTransactions
   const numericColumnMapping: ColumnMapping = {};
-  for (const [key, columnName] of Object.entries(columnMapping)) {
+  for (const [key, columnName] of Object.entries(columnMapping) as [string, string | boolean][]) {
     // memoInAmountColumn은 boolean 값이므로 별도 처리
     if (key === "memoInAmountColumn" && columnName === true) {
       numericColumnMapping.memoInAmountColumn = true;

@@ -10,7 +10,7 @@
  * @see https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events
  */
 
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { db } from "~/server/db";
 
 /**
@@ -65,13 +65,14 @@ export async function GET(request: NextRequest) {
         let lastProgress = -1;
 
         // 폴링 간격 (500ms)
-        const pollInterval = setInterval(async () => {
-          try {
-            const classificationJob = await db.classificationJob.findUnique(
-              {
-                where: { fileAnalysisResultId: fileAnalysisResult.id },
-              }
-            );
+        const pollInterval = setInterval(() => {
+          void (async () => {
+            try {
+              const classificationJob = await db.classificationJob.findUnique(
+                {
+                  where: { fileAnalysisResultId: fileAnalysisResult.id },
+                }
+              );
 
             if (!classificationJob) {
               // 작업이 아직 생성되지 않음
@@ -118,6 +119,7 @@ export async function GET(request: NextRequest) {
             });
             controller.close();
           }
+          })();
         }, 500);
 
         // 60초 타임아웃

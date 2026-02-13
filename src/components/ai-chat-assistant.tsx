@@ -8,7 +8,7 @@
 "use client";
 
 import { useState, useCallback, memo, useRef, useEffect } from "react";
-import { Loader2, Send, Bot, User, Copy, CheckCheck, Sparkles, Download, FileSpreadsheet } from "lucide-react";
+import { Loader2, Send, Bot, User, Copy, CheckCheck, Sparkles, FileSpreadsheet } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "./ui/card";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
@@ -69,7 +69,7 @@ function parseMarkdownTable(content: string): TableData | null {
 }
 
 // 엑셀 다운로드 함수
-function downloadAsExcel(tableData: TableData, filename: string = '대출금_추적_결과') {
+function downloadAsExcel(tableData: TableData, filename = '대출금_추적_결과') {
   const ws = XLSX.utils.aoa_to_sheet([tableData.headers, ...tableData.rows]);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '추적결과');
@@ -116,11 +116,11 @@ export const AIChatAssistant = memo<AIChatAssistantProps>(({ caseId }) => {
       });
 
       // 응답에서 테이블 데이터 파싱
-      const tableData = parseMarkdownTable(result.response);
+      const tableData = parseMarkdownTable(result.response as string);
 
       const assistantMsg: ChatMessage = {
         role: 'assistant',
-        content: result.response,
+        content: result.response as string,
         timestamp: new Date(),
         tableData: tableData ?? undefined,
       };

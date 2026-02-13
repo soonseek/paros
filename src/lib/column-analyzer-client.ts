@@ -54,7 +54,7 @@ const ANALYZER_SERVICE_URL = process.env.COLUMN_ANALYZER_URL || "http://localhos
 export async function analyzeColumnsFromPdf(pdfBuffer: Buffer): Promise<ColumnAnalysisResult> {
   try {
     const formData = new FormData();
-    const blob = new Blob([pdfBuffer], { type: "application/pdf" });
+    const blob = new Blob([new Uint8Array(pdfBuffer)], { type: "application/pdf" });
     formData.append("file", blob, "transaction.pdf");
 
     const response = await fetch(`${ANALYZER_SERVICE_URL}/analyze/pdf`, {

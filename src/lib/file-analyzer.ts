@@ -185,7 +185,16 @@ export async function analyzeFileStructure(
       try {
         const { analyzeColumnsWithLLM } = await import("./column-analyzer-llm");
         
-        const llmResult = await analyzeColumnsWithLLM(headers, extractedData.rows);
+        // Convert string[][] to Record<string, unknown>[] for LLM analysis
+        const rowsAsRecords = extractedData.rows.map(row => {
+          const record: Record<string, unknown> = {};
+          headers.forEach((header, idx) => {
+            record[header] = row[idx] ?? '';
+          });
+          return record;
+        });
+        
+        const llmResult = await analyzeColumnsWithLLM(headers, rowsAsRecords);
         
         if (llmResult.success) {
           console.log("[File Analysis] LLM analysis successful");

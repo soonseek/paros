@@ -47,9 +47,8 @@ export class ExcelExportService {
         id: true,
         caseNumber: true,
         debtorName: true,
-        court: true,
-        trustee: true,
-        commencementDate: true,
+        courtName: true,
+        filingDate: true,
         createdAt: true,
       },
     });
@@ -111,16 +110,15 @@ export class ExcelExportService {
   /**
    * 사건 기본 정보 시트 생성 (Task 3.2)
    *
-   * Story 7.1, AC2: 사건번호, 채무자명, 법원, 파산관재인, 개시결정일, 분석일
+   * Story 7.1, AC2: 사건번호, 채무자명, 법원, 접수일, 분석일
    */
   private createCaseInfoSheet(
     workbook: ExcelJS.Workbook,
     caseData: {
       caseNumber: string;
       debtorName: string;
-      court: string | null;
-      trustee: string | null;
-      commencementDate: Date | null;
+      courtName: string | null;
+      filingDate: Date | null;
       createdAt: Date;
     }
   ) {
@@ -132,11 +130,10 @@ export class ExcelExportService {
     const caseInfo = [
       { 항목: '사건번호', 값: caseData.caseNumber },
       { 항목: '채무자명', 값: caseData.debtorName },
-      { 항목: '법원', 값: caseData.court ?? '' },
-      { 항목: '파산관재인', 값: caseData.trustee ?? '' },
+      { 항목: '법원', 값: caseData.courtName ?? '' },
       {
-        항목: '개시결정일',
-        값: caseData.commencementDate ?? '',
+        항목: '접수일',
+        값: caseData.filingDate ? caseData.filingDate.toISOString().split('T')[0] : '',
       },
       { 항목: '분석일', 값: new Date().toISOString().split('T')[0] },
     ];
@@ -156,10 +153,10 @@ export class ExcelExportService {
       transactionDate: Date;
       depositAmount: { toNumber: () => number } | null;
       withdrawalAmount: { toNumber: () => number } | null;
-      description: string | null;
-      nature: string | null;
+      memo: string | null;
+      transactionNature: string | null;
       category: string | null;
-      confidenceScore: { toNumber: () => number } | null;
+      confidenceScore: number | null;
       tags: Array<{ tag: { name: string } }>;
     }>
   ) {
@@ -180,11 +177,11 @@ export class ExcelExportService {
       날짜: t.transactionDate,
       입금액: t.depositAmount?.toNumber() ?? null,
       출금액: t.withdrawalAmount?.toNumber() ?? null,
-      메모: t.description ?? '',
+      메모: t.memo ?? '',
       태그: formatTags(t.tags),
       AI_분류: t.category ?? '',
-      거래성격: formatTransactionNature(t.nature),
-      신뢰도: t.confidenceScore?.toNumber() ?? null,
+      거래성격: formatTransactionNature(t.transactionNature),
+      신뢰도: t.confidenceScore ?? null,
     }));
 
     addDataRow(worksheet, transactionRows);
@@ -207,8 +204,8 @@ export class ExcelExportService {
     findings: Array<{
       id: string;
       findingType: string;
-      severity: 'CRITICAL' | 'WARNING' | 'INFO';
-      priority: 'HIGH' | 'MEDIUM' | 'LOW' | null;
+      severity: string;
+      priority: string | null;
       description: string | null;
       relatedTransactionIds: string[];
       relatedCreditorNames: string | null;
@@ -271,7 +268,7 @@ export class ExcelExportService {
     workbook: ExcelJS.Workbook,
     transactions: Array<{
       category: string | null;
-      confidenceScore: { toNumber: () => number } | null;
+      confidenceScore: number | null;
     }>
   ) {
     const worksheet = createWorksheetWithHeaders(workbook, 'AI 분류 요약', [
@@ -296,7 +293,7 @@ export class ExcelExportService {
         };
         current.count += 1;
         if (t.confidenceScore) {
-          current.totalConfidence += t.confidenceScore.toNumber();
+          current.totalConfidence += t.confidenceScore;
         }
         categoryMap.set(t.category, current);
       } else {
@@ -471,7 +468,7 @@ export class ExcelExportService {
     );
 
     // Story 7.1 AI 리뷰 LOW #4: 생성된 파일 크기 검증
-    const binaryString = atob(response.base64);
+    const binaryString = atob(response.data);
     const fileSize = binaryString.length;
 
     if (fileSize > MAX_FILE_SIZE_BYTES) {
@@ -663,7 +660,7 @@ export class ExcelExportService {
     );
 
     // Story 7.1 AI 리뷰 LOW #4: 생성된 파일 크기 검증
-    const binaryString = atob(response.base64);
+    const binaryString = atob(response.data);
     const fileSize = binaryString.length;
 
     if (fileSize > MAX_FILE_SIZE_BYTES) {
@@ -791,7 +788,7 @@ export class ExcelExportService {
 
     // Story 7.3, Task 5.1: In-memory sorting for priority-severity-date (Epic 6.5 패턴 재사용)
     if (sortBy === 'priority-severity-date') {
-      findings = this.sortFindingsByPriority(findings);
+      findings = this.sortFindingsByPriority(findings as any) as typeof findings;
     }
 
     // Story 7.3, Task 7.2: 파일 크기 검증
@@ -809,7 +806,7 @@ export class ExcelExportService {
     const workbook = createWorkbook();
 
     // Story 7.3, Task 3.2: 발견사항 시트 생성
-    this.createFindingsExportSheet(workbook, findings);
+    this.createFindingsExportSheet(workbook, findings as any);
 
     // Story 7.3, Task 4.1: 파일명 생성
     const caseData = await db.case.findUnique({
@@ -944,16 +941,16 @@ export class ExcelExportService {
     switch (sortBy) {
       case 'priority-severity-date':
         // In-memory sorting 적용 (Task 5.1)
-        return [{ createdAt: 'desc' } as const];
+        return [{ createdAt: 'desc' }] as { createdAt: 'desc' }[];
 
       case 'severity-date':
-        return [{ severity: 'asc' }, { createdAt: 'desc' }] as const;
+        return [{ severity: 'asc' }, { createdAt: 'desc' }] as { severity?: 'asc'; createdAt?: 'desc' }[];
 
       case 'date':
-        return [{ createdAt: 'desc' }] as const;
+        return [{ createdAt: 'desc' }] as { createdAt: 'desc' }[];
 
       default:
-        return [{ createdAt: 'desc' }] as const;
+        return [{ createdAt: 'desc' }] as { createdAt: 'desc' }[];
     }
   }
 
@@ -974,18 +971,18 @@ export class ExcelExportService {
   ) {
     return [...findings].sort((a, b) => {
       // 1차: priority 순 (HIGH > MEDIUM > LOW > null)
-      const priorityOrder = { HIGH: 0, MEDIUM: 1, LOW: 2, null: 3 };
-      const aPriority = priorityOrder[a.priority ?? null];
-      const bPriority = priorityOrder[b.priority ?? null];
+      const priorityOrder: Record<string, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+      const aPriority = a.priority ? priorityOrder[a.priority] ?? 3 : 3;
+      const bPriority = b.priority ? priorityOrder[b.priority] ?? 3 : 3;
 
       if (aPriority !== bPriority) {
         return aPriority - bPriority;
       }
 
       // 2차: 같은 priority 내에서 severity 순 (CRITICAL > WARNING > INFO)
-      const severityOrder = { CRITICAL: 0, WARNING: 1, INFO: 2 };
-      const aSeverity = severityOrder[a.severity];
-      const bSeverity = severityOrder[b.severity];
+      const severityOrder: Record<string, number> = { CRITICAL: 0, WARNING: 1, INFO: 2 };
+      const aSeverity = severityOrder[a.severity] ?? 2;
+      const bSeverity = severityOrder[b.severity] ?? 2;
 
       if (aSeverity !== bSeverity) {
         return aSeverity - bSeverity;
@@ -1084,7 +1081,7 @@ export class ExcelExportService {
       깊이: chain.depth,
       시작거래: chain.startTransactionId,
       종료거래: chain.endTransactionIds.join(', '),
-      신뢰도: formatConfidence(chain.confidenceScore?.toNumber()),
+      신뢰도: formatConfidence(chain.confidenceScore?.toNumber() ?? null),
     }));
     addDataRow(chainSheet, chainData);
     autoFitColumns(chainSheet);

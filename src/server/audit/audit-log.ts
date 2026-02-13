@@ -13,7 +13,7 @@
  * - changes: JSON string with export details
  */
 
-import type { PrismaClient } from "~/server/db";
+import type { PrismaClient } from "@prisma/client";
 
 /**
  * Audit Log Service Interface
@@ -41,11 +41,10 @@ export const auditLog = {
 
     await db.auditLog.create({
       data: {
-        entityType: entityType as any,
-        action: action as any,
+        entityType: entityType as string,
+        action: action as string,
         entityId: caseId,
         userId,
-        caseId,
         changes: JSON.stringify(details),
       },
     });

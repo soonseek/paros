@@ -10,7 +10,7 @@ import { filterByKeyword } from "./keyword-search";
 import { filterByDateRange } from "./date-filter";
 import { filterByAmountRange } from "./amount-filter";
 import { filterByTags } from "./tag-filter";
-import type { SearchFilters, SearchResultMetadata, ExtendedSearchFilters } from "~/types/search";
+import type { SearchFilters, SearchResultMetadata, ExtendedSearchFilters, Transaction as BaseTransaction } from "~/types/search";
 
 // Story 8.2: 추가 필터 함수들
 import { filterByTransactionType } from "./transaction-type-filter";
@@ -21,7 +21,7 @@ import { filterByConfidenceRange } from "./confidence-filter";
 /**
  * 거래 인터페이스 (Prisma Transaction 기반)
  */
-export interface Transaction {
+export interface Transaction extends BaseTransaction {
   id: string;
   transactionDate: Date;
   depositAmount: string | null;
@@ -58,16 +58,16 @@ export function applySearchFilters(
   transactions: Transaction[],
   filters: SearchFilters
 ): Transaction[] {
-  let filtered = transactions;
+  let filtered: Transaction[] = transactions;
 
   // 키워드 검색 (Task 2)
   if (filters.keyword) {
-    filtered = filterByKeyword(filtered, filters.keyword);
+    filtered = filterByKeyword(filtered, filters.keyword) as Transaction[];
   }
 
   // 날짜 범위 검색 (Task 3)
   if (filters.dateRange && (filters.dateRange.start || filters.dateRange.end)) {
-    filtered = filterByDateRange(filtered, filters.dateRange);
+    filtered = filterByDateRange(filtered, filters.dateRange) as Transaction[];
   }
 
   // 금액 범위 검색 (Task 4)
@@ -76,12 +76,12 @@ export function applySearchFilters(
     (filters.amountRange.min !== undefined ||
       filters.amountRange.max !== undefined)
   ) {
-    filtered = filterByAmountRange(filtered, filters.amountRange);
+    filtered = filterByAmountRange(filtered, filters.amountRange) as Transaction[];
   }
 
   // 태그 검색 (Task 5) - OR 조건
   if (filters.tags && filters.tags.length > 0) {
-    filtered = filterByTags(filtered, filters.tags);
+    filtered = filterByTags(filtered, filters.tags) as Transaction[];
   }
 
   return filtered;
@@ -199,7 +199,7 @@ export function applyExtendedSearchFilters(
   transactions: Transaction[],
   filters: ExtendedSearchFilters
 ): Transaction[] {
-  let filtered = transactions;
+  let filtered: Transaction[] = transactions;
 
   // Story 8.1: 기본 4개 필터 적용
   filtered = applySearchFilters(filtered, filters);
@@ -208,17 +208,17 @@ export function applyExtendedSearchFilters(
 
   // 거래 유형 필터 (Task 3) - OR 조건
   if (filters.transactionType && filters.transactionType.length > 0) {
-    filtered = filterByTransactionType(filtered, filters.transactionType);
+    filtered = filterByTransactionType(filtered, filters.transactionType) as Transaction[];
   }
 
   // 거래 성격 필터 (Task 4) - OR 조건
   if (filters.transactionNature && filters.transactionNature.length > 0) {
-    filtered = filterByTransactionNature(filtered, filters.transactionNature);
+    filtered = filterByTransactionNature(filtered, filters.transactionNature) as Transaction[];
   }
 
   // 중요 거래 필터 (Task 5)
   if (filters.isImportantOnly) {
-    filtered = filterByImportance(filtered, true);
+    filtered = filterByImportance(filtered, true) as Transaction[];
   }
 
   // AI 신뢰도 범위 필터 (Task 6)
@@ -227,7 +227,7 @@ export function applyExtendedSearchFilters(
     (filters.confidenceRange.min !== undefined ||
       filters.confidenceRange.max !== undefined)
   ) {
-    filtered = filterByConfidenceRange(filtered, filters.confidenceRange);
+    filtered = filterByConfidenceRange(filtered, filters.confidenceRange) as Transaction[];
   }
 
   return filtered;

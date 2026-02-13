@@ -40,6 +40,7 @@ export function detectColumnRoles(headers: string[]): ColumnMapping {
   for (let i = 0; i < headers.length; i++) {
     const header = lowerHeaders[i];
     const original = headers[i];
+    if (!header || !original) continue;
     
     // 날짜 컬럼 감지
     if (!mapping.date) {
@@ -233,7 +234,8 @@ export function detectMemoColumn(
   
   // 최소 점수 임계값
   const MIN_SCORE = 5;
-  return textScores[0]?.score >= MIN_SCORE ? textScores[0].col : undefined;
+  const topScore = textScores[0];
+  return topScore && topScore.score >= MIN_SCORE ? topScore.col : undefined;
 }
 
 /**

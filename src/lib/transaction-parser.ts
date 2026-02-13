@@ -86,6 +86,7 @@ export function detectMemoColumn(rows: unknown[][], headerRowIndex: number): num
   if (dataRows.length === 0) return -1;
 
   const headerRow = rows[headerRowIndex];
+  if (!headerRow) return -1;
   const numColumns = headerRow.length;
   const scores: number[] = new Array(numColumns).fill(0);
 
@@ -100,27 +101,29 @@ export function detectMemoColumn(rows: unknown[][], headerRowIndex: number): num
       // Skip empty or very short values
       if (text.length < 2) continue;
 
+      const currentScore = scores[col] ?? 0;
+
       // Score indicators for memo content:
       // 1. Contains Korean names (2-4 character Korean text)
-      if (/^[가-힣]{2,4}$/.test(text)) scores[col] += 3;
+      if (/^[가-힣]{2,4}$/.test(text)) scores[col] = currentScore + 3;
 
       // 2. Contains account numbers (numeric sequences 10-14 digits)
-      if (/^\d{10,14}$/.test(text)) scores[col] += 2;
+      if (/^\d{10,14}$/.test(text)) scores[col] = (scores[col] ?? 0) + 2;
 
       // 3. Contains bank names
-      if (/(은행|뱅크|제일|기업|국민|외환|수협|농협|지역농협|카카오|토스|새마을)/.test(text)) scores[col] += 2;
+      if (/(은행|뱅크|제일|기업|국민|외환|수협|농협|지역농협|카카오|토스|새마을)/.test(text)) scores[col] = (scores[col] ?? 0) + 2;
 
       // 4. Mixed text and numbers (typical in transaction memos)
-      if (/[가-힣]+.*\d+|\d+.*[가-힣]+/.test(text)) scores[col] += 1;
+      if (/[가-힣]+.*\d+|\d+.*[가-힣]+/.test(text)) scores[col] = (scores[col] ?? 0) + 1;
 
       // 5. Not a pure number (dates, amounts are usually pure)
       if (!/^\d+$/.test(text) && !/^\d{4}-\d{2}-\d{2}$/.test(text)) {
-        scores[col] += 1;
+        scores[col] = (scores[col] ?? 0) + 1;
       }
 
       // 6. Common memo keywords
       if (/(이체|송금|입금|출금|자동|이체|이자|수수료|월세|상환|대출|적립)/.test(text)) {
-        scores[col] += 2;
+        scores[col] = (scores[col] ?? 0) + 2;
       }
     }
   }
@@ -130,8 +133,9 @@ export function detectMemoColumn(rows: unknown[][], headerRowIndex: number): num
   let bestColumn = -1;
 
   for (let i = 0; i < scores.length; i++) {
-    if (scores[i] > maxScore) {
-      maxScore = scores[i];
+    const score = scores[i] ?? 0;
+    if (score > maxScore) {
+      maxScore = score;
       bestColumn = i;
     }
   }
@@ -170,7 +174,8 @@ export function detectColumns(headerRow: unknown[]): ColumnDetection | null {
 
   // Date column
   for (let i = 0; i < headers.length; i++) {
-    if (patterns.dateKeywords.some((kw) => headers[i].includes(kw))) {
+    const header = headers[i];
+    if (header && patterns.dateKeywords.some((kw) => header.includes(kw))) {
       detection.dateColumn = i;
       break;
     }
@@ -178,19 +183,21 @@ export function detectColumns(headerRow: unknown[]): ColumnDetection | null {
 
   // Deposit/Withdrawal columns
   for (let i = 0; i < headers.length; i++) {
-    if (patterns.depositKeywords.some((kw) => headers[i].includes(kw))) {
+    const header = headers[i];
+    if (!header) continue;
+    if (patterns.depositKeywords.some((kw) => header.includes(kw))) {
       detection.depositColumn = i;
     }
-    if (patterns.withdrawalKeywords.some((kw) => headers[i].includes(kw))) {
+    if (patterns.withdrawalKeywords.some((kw) => header.includes(kw))) {
       detection.withdrawalColumn = i;
     }
-    if (patterns.balanceKeywords.some((kw) => headers[i].includes(kw))) {
+    if (patterns.balanceKeywords.some((kw) => header.includes(kw))) {
       detection.balanceColumn = i;
     }
-    if (patterns.memoKeywords.some((kw) => headers[i].includes(kw))) {
+    if (patterns.memoKeywords.some((kw) => header.includes(kw))) {
       detection.memoColumn = i;
     }
-    if (headers[i].includes("거래구분")) {
+    if (header.includes("거래구분")) {
       detection.transactionTypeColumn = i;
     }
   }
@@ -323,7 +330,7 @@ export function parseTransactionRow(
     거래일자: transactionDate,
     구분: type,
     금액: amount,
-    잔액: balance,
+    잔액: balance ?? undefined,
     비고: memo,
   };
 }
@@ -339,7 +346,14 @@ export function parseStandardTransactions(
   errors: Array<{ row: number; error: string }>;
 } {
   // Detect columns from header
-  const detection = detectColumns(rawData[headerRowIndex]);
+  const headerRow = rawData[headerRowIndex];
+  if (!headerRow) {
+    return {
+      transactions: [],
+      errors: [{ row: headerRowIndex + 1, error: "헤더 행을 찾을 수 없습니다" }],
+    };
+  }
+  const detection = detectColumns(headerRow);
 
   if (!detection) {
     return {
@@ -408,7 +422,7 @@ export interface FormattedTransaction {
  * Format transaction for UI display
  */
 export function formatTransactionForDisplay(transaction: StandardTransaction): FormattedTransaction {
-  const formattedDate = transaction.거래일자.toISOString().split('T')[0];
+  const formattedDate = transaction.거래일자.toISOString().split('T')[0] ?? '';
   const colorClass = transaction.구분 === "입금" ? "text-blue-600" : "text-red-600";
   const sign = transaction.구분 === "입금" ? "+" : "-";
   const formattedAmount = `${sign}${transaction.금액.toLocaleString()}`;

@@ -1270,15 +1270,17 @@ export const transactionRouter = createTRPCRouter({
         if (minAmount !== undefined) {
           const depositAmountMin = { gte: minAmount };
           const withdrawalAmountMin = { gte: minAmount };
-          (where.OR as Array<Record<string, unknown>>)[0].depositAmount = depositAmountMin;
-          (where.OR as Array<Record<string, unknown>>)[1].withdrawalAmount = withdrawalAmountMin;
+          const orArray = where.OR as Array<Record<string, unknown>>;
+          if (orArray[0]) orArray[0].depositAmount = depositAmountMin;
+          if (orArray[1]) orArray[1].withdrawalAmount = withdrawalAmountMin;
         }
 
         if (maxAmount !== undefined) {
           const depositAmountMax = { lte: maxAmount };
           const withdrawalAmountMax = { lte: maxAmount };
-          (where.OR as Array<Record<string, unknown>>)[0].depositAmount = depositAmountMax;
-          (where.OR as Array<Record<string, unknown>>)[1].withdrawalAmount = withdrawalAmountMax;
+          const orArray = where.OR as Array<Record<string, unknown>>;
+          if (orArray[0]) orArray[0].depositAmount = depositAmountMax;
+          if (orArray[1]) orArray[1].withdrawalAmount = withdrawalAmountMax;
         }
       }
 
@@ -2199,15 +2201,15 @@ export const transactionRouter = createTRPCRouter({
           const transferCount = trackedItems.filter(t => t.type === "이동").length;
 
           // 정렬: 날짜순, 동일 날짜 내에서는 대출실행 > 이동 > 출금 순서
-          const typeOrder = { "대출실행": 0, "이동": 1, "출금": 2 };
+          const typeOrder: Record<string, number> = { "대출실행": 0, "이동": 1, "출금": 2 };
           trackedItems.sort((a, b) => {
-            const dateA = a.date.split('T')[0];
-            const dateB = b.date.split('T')[0];
+            const dateA = a.date.split('T')[0] ?? '';
+            const dateB = b.date.split('T')[0] ?? '';
             if (dateA !== dateB) {
               return dateA.localeCompare(dateB); // 날짜 오름차순
             }
             // 동일 날짜: 대출실행 > 이동 > 출금
-            return typeOrder[a.type] - typeOrder[b.type];
+            return (typeOrder[a.type] ?? 99) - (typeOrder[b.type] ?? 99);
           });
 
           return {

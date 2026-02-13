@@ -141,3 +141,9 @@ const NewCasePage: NextPage = () => {
 };
 
 export default NewCasePage;
+
+// Disable SSG for this page (uses useRouter which requires client-side)
+export const getServerSideProps = () => {
+  return { props: {} };
+};
+

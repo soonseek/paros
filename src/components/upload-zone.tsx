@@ -383,6 +383,7 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
       // 새로운 흐름: 1단계 - 앞 3페이지 분석 → 매칭 확인 모달 → 2단계 - 전체 분석
       for (let idx = 0; idx < uploadedDocumentIds.length; idx++) {
         const documentId = uploadedDocumentIds[idx];
+        if (!documentId) continue;
         
         try {
           setAnalyzingDocumentId(documentId);
@@ -558,7 +559,6 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
       
       // Invalidate queries
       await utils.transaction.search.invalidate({ caseId });
-      await utils.document.list.invalidate({ caseId });
       
       setIsMatchConfirmModalOpen(false);
     } catch (error) {
@@ -611,7 +611,6 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
       
       // Invalidate queries
       await utils.transaction.search.invalidate({ caseId });
-      await utils.document.list.invalidate({ caseId });
       
       setIsMatchConfirmModalOpen(false);
     } catch (error) {
@@ -664,7 +663,6 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
       
       // Invalidate queries
       await utils.transaction.search.invalidate({ caseId });
-      await utils.document.list.invalidate({ caseId });
       
       setIsMatchConfirmModalOpen(false);
     } catch (error) {

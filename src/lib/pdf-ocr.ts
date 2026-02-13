@@ -183,7 +183,7 @@ async function parseSinglePdf(
 
   // Create FormData for multipart upload
   const formData = new FormData();
-  const blob = new Blob([pdfBuffer], { type: "application/pdf" });
+  const blob = new Blob([new Uint8Array(pdfBuffer)], { type: "application/pdf" });
   formData.append("document", blob, "document.pdf");
 
   // Add Upstage API parameters (based on official Python guide)
@@ -467,6 +467,7 @@ function extractFromTableElementsHTML(tableElements: Array<{
     // 각 테이블을 개별 파싱
     for (let j = 0; j < allTables.length; j++) {
       const singleTableHTML = allTables[j];
+      if (!singleTableHTML) continue;
       
       console.log(`[HTML Table] Parsing table ${j + 1}/${allTables.length} (length: ${singleTableHTML.length})...`);
       
@@ -662,7 +663,7 @@ const datePatterns = [
 function parseHTMLTable(html: string): TableData {
   // First, try to find <table> tag content
   const tableMatch = html.match(/<table[^>]*>(.*?)<\/table>/is);
-  const tableContent = tableMatch ? tableMatch[1] : html;
+  const tableContent = tableMatch?.[1] ?? html;
 
   // Extract table rows using regex
   const rowRegex = /<tr[^>]*>(.*?)<\/tr>/gs;
@@ -680,7 +681,9 @@ function parseHTMLTable(html: string): TableData {
   let headerRowIndex = 0;
   
   for (let i = 0; i < Math.min(matches.length, 5); i++) {
-    const cells = extractCellsFromHTML(matches[i][1]);
+    const matchContent = matches[i]?.[1];
+    if (!matchContent) continue;
+    const cells = extractCellsFromHTML(matchContent);
     if (cells.length > maxColumns) {
       maxColumns = cells.length;
       headerRowIndex = i;
@@ -690,7 +693,7 @@ function parseHTMLTable(html: string): TableData {
   console.log(`[HTML Table] 헤더 행 선택: row ${headerRowIndex + 1} (${maxColumns} columns)`);
   
   // Parse headers from selected row
-  const headerRow = matches[headerRowIndex][1];
+  const headerRow = matches[headerRowIndex]?.[1] ?? '';
   const rawHeaders = extractCellsFromHTML(headerRow);
   
   // 띄어쓰기 정규화: OCR에서 "거래 일자", "출 금 금 액" 등으로 읽히는 경우 처리
@@ -701,7 +704,9 @@ function parseHTMLTable(html: string): TableData {
 
   // Skip separator rows (rows with only dashes/spaces or HTML tags without text)
   const dataRows = matches.slice(headerRowIndex + 1).filter(match => {
-    const cells = extractCellsFromHTML(match[1]);
+    const matchContent = match?.[1];
+    if (!matchContent) return false;
+    const cells = extractCellsFromHTML(matchContent);
     // Check if row has actual text content (not just dashes or separators)
     const hasContent = cells.some(cell => {
       const trimmed = cell.trim();
@@ -710,7 +715,7 @@ function parseHTMLTable(html: string): TableData {
     return hasContent;
   });
 
-  const rows = dataRows.map(match => extractCellsFromHTML(match[1]));
+  const rows = dataRows.map(match => extractCellsFromHTML(match?.[1] ?? ''));
 
   console.log(`[HTML Table] ${headers.length} columns, ${rows.length} data rows`);
   console.log("[HTML Table] Final headers:", headers);
@@ -740,6 +745,7 @@ function extractCellsFromHTML(rowHTML: string): string[] {
   // CRITICAL FIX: Do NOT filter empty cells - they represent null/empty values in columns!
   // Removing empty cells causes column index misalignment (e.g., empty withdrawal becomes deposit)
   return cells.map(cell => {
+    if (!cell) return '';
     // Remove any remaining HTML tags
     let text = cell.replace(/<[^>]+>/g, "");
     // Decode common HTML entities
@@ -819,7 +825,8 @@ function parseSpaceSeparatedTable(text: string): TableData {
 
   // Try to detect column alignment by looking at consistent spacing patterns
   // For now, simple split by 2+ spaces
-  const headers = lines[0].split(/\s{2,}/).map(h => h.trim());
+  const firstLine = lines[0] ?? '';
+  const headers = firstLine.split(/\s{2,}/).map(h => h.trim());
   const rows = lines.slice(1).map(line =>
     line.split(/\s{2,}/).map(cell => cell.trim())
   );
@@ -848,7 +855,7 @@ function parseMarkdownTable(markdownTable: string): TableData {
   }
 
   // Extract header row (first line)
-  const headerLine = lines[0];
+  const headerLine = lines[0] ?? '';
   const headers = parseMarkdownRow(headerLine);
 
   // Skip separator line (second line, starts with |---)

@@ -3,7 +3,7 @@
  * AI API 키 및 시스템 설정 관리
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { api } from '~/utils/api';
 import { Button } from '~/components/ui/button';
@@ -36,36 +36,38 @@ export default function AdminSettings() {
 
   // 설정 조회
   const { data: aiSettings, refetch: refetchAI } = api.settings.getByCategory.useQuery(
-    { category: 'AI' },
-    {
-      onSuccess: (data) => {
-        // 기존 설정값 로드
-        const providerSetting = data.find((s) => s.key === 'AI_PROVIDER');
-        if (providerSetting?.value) {
-          setAiProvider(providerSetting.value);
-        }
-      },
-    }
+    { category: 'AI' }
   );
+
+  // AI 설정값 로드
+  useEffect(() => {
+    if (aiSettings) {
+      const providerSetting = aiSettings.find((s) => s.key === 'AI_PROVIDER');
+      if (providerSetting?.value) {
+        setAiProvider(providerSetting.value);
+      }
+    }
+  }, [aiSettings]);
 
   // S3 설정 조회
   const { data: generalSettings, refetch: refetchGeneral } = api.settings.getByCategory.useQuery(
-    { category: 'GENERAL' },
-    {
-      onSuccess: (data) => {
-        // S3 설정값 로드
-        const awsRegionSetting = data.find((s) => s.key === 'AWS_REGION');
-        if (awsRegionSetting?.value) {
-          setAwsRegion(awsRegionSetting.value);
-        }
-        
-        const bucketSetting = data.find((s) => s.key === 'AWS_S3_BUCKET_NAME');
-        if (bucketSetting?.value) {
-          setAwsS3BucketName(bucketSetting.value);
-        }
-      },
-    }
+    { category: 'GENERAL' }
   );
+
+  // S3 설정값 로드
+  useEffect(() => {
+    if (generalSettings) {
+      const awsRegionSetting = generalSettings.find((s) => s.key === 'AWS_REGION');
+      if (awsRegionSetting?.value) {
+        setAwsRegion(awsRegionSetting.value);
+      }
+      
+      const bucketSetting = generalSettings.find((s) => s.key === 'AWS_S3_BUCKET_NAME');
+      if (bucketSetting?.value) {
+        setAwsS3BucketName(bucketSetting.value);
+      }
+    }
+  }, [generalSettings]);
 
   const refetch = () => {
     void refetchAI();

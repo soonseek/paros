@@ -67,7 +67,7 @@ export default async function handler(
       // Simple cookie parsing without external library
       const cookies = req.headers.cookie.split(';').reduce((acc, cookie) => {
         const [key, value] = cookie.trim().split('=');
-        acc[key] = value;
+        if (key) acc[key] = value ?? '';
         return acc;
       }, {} as Record<string, string>);
 
