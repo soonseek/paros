@@ -971,18 +971,18 @@ export class ExcelExportService {
   ) {
     return [...findings].sort((a, b) => {
       // 1차: priority 순 (HIGH > MEDIUM > LOW > null)
-      const priorityOrder = { HIGH: 0, MEDIUM: 1, LOW: 2, null: 3 };
-      const aPriority = priorityOrder[a.priority ?? null];
-      const bPriority = priorityOrder[b.priority ?? null];
+      const priorityOrder: Record<string, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+      const aPriority = a.priority ? priorityOrder[a.priority] ?? 3 : 3;
+      const bPriority = b.priority ? priorityOrder[b.priority] ?? 3 : 3;
 
       if (aPriority !== bPriority) {
         return aPriority - bPriority;
       }
 
       // 2차: 같은 priority 내에서 severity 순 (CRITICAL > WARNING > INFO)
-      const severityOrder = { CRITICAL: 0, WARNING: 1, INFO: 2 };
-      const aSeverity = severityOrder[a.severity];
-      const bSeverity = severityOrder[b.severity];
+      const severityOrder: Record<string, number> = { CRITICAL: 0, WARNING: 1, INFO: 2 };
+      const aSeverity = severityOrder[a.severity] ?? 2;
+      const bSeverity = severityOrder[b.severity] ?? 2;
 
       if (aSeverity !== bSeverity) {
         return aSeverity - bSeverity;
