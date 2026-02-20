@@ -177,8 +177,8 @@ export async function canViewCaseList(
     return false;
   }
 
-  // ADMIN can view all case lists
-  if (user.role === "ADMIN") {
+  // ADMIN/SUPER can view all case lists
+  if (user.role === "ADMIN" || user.role === "SUPER") {
     return true;
   }
 
