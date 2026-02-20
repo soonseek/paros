@@ -37,7 +37,7 @@ export function AmountFilterModal({ isOpen, onClose, caseId }: AmountFilterModal
   );
 
   // 디버깅: API 응답 로그
-  React.useEffect(() => {
+  useEffect(() => {
     if (data) {
       console.log("[금액필터] ========== API 응답 ==========");
       console.log("[금액필터] 검색 조건:", { caseId, minAmount: threshold });
