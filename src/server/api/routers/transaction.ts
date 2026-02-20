@@ -2591,9 +2591,9 @@ export const transactionRouter = createTRPCRouter({
               loanAmount,
               totalUsed,
               usageCount: trackedItems.filter(t => t.type === "출금").length,
-              transferCount, // 이동 건수 추가
-              remainingLoan: Math.max(0, remainingLoan),
-              exhausted: remainingLoan <= 0,
+              transferCount,
+              remainingLoan: Math.max(0, recalculatedRemaining),
+              exhausted: recalculatedRemaining <= 0,
             },
           };
         })
