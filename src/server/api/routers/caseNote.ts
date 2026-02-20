@@ -57,10 +57,13 @@ export const caseNoteRouter = createTRPCRouter({
       }
 
       if (caseItem.lawyerId !== ctx.userId) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "권한이 없습니다",
-        });
+        const noteUser = await ctx.db.user.findUnique({ where: { id: ctx.userId }, select: { role: true } });
+        if (noteUser?.role !== Role.SUPER && noteUser?.role !== Role.ADMIN) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "권한이 없습니다",
+          });
+        }
       }
 
       // Create note
