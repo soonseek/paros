@@ -88,7 +88,7 @@ export async function sendPasswordResetEmail({
     console.log("📧 PASSWORD RESET EMAIL");
     console.log("=".repeat(60));
     console.log(`To: ${to}`);
-    console.log(`Subject: [paros BMAD] 비밀번호 재설정`);
+    console.log(`Subject: [법무법인 파로스] 비밀번호 재설정`);
     console.log("\n메시지:");
     console.log("안녕하세요,");
     console.log("\n비밀번호 재설정 요청을 받았습니다. 아래 링크를 클릭하여 비밀번호를 재설정하세요:");
@@ -96,7 +96,7 @@ export async function sendPasswordResetEmail({
     console.log("\n이 링크는 1시간 동안 유효합니다.");
     console.log("\n요청하지 않으셨다면 이 이메일을 무시하세요.");
     console.log("\n감사합니다,");
-    console.log("paros BMAD 팀");
+    console.log("법무법인 파로스 팀");
     console.log("=".repeat(60) + "\n");
 
     return;
