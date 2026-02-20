@@ -193,7 +193,6 @@ export default function AdminSettings() {
               <div>
                 <h3 className="font-medium text-blue-800 dark:text-blue-200">거래내역서 템플릿 관리</h3>
                 <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">은행별 거래내역서 형식을 정의하여 파싱 정확도를 높입니다</p>
-                </p>
               </div>
               <Button
                 variant="outline"
