@@ -1515,7 +1515,7 @@ export default function HelpPage() {
         )}
 
         {/* 콘텐츠 영역 */}
-        <main ref={contentRef} className="flex-1 overflow-y-auto p-6 lg:p-10" data-testid="help-content">
+        <main ref={contentRef} className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10" data-testid="help-content">
           <div className="max-w-4xl mx-auto">
             <GuideContent sectionId={activeSection} />
           </div>
