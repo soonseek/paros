@@ -1154,6 +1154,13 @@ const CaseDetailPage: NextPage = () => {
         onClose={() => setIsAmountFilterOpen(false)}
         caseId={id as string}
       />
+
+      {/* 잔액 기반 입금/출금 검증 모달 */}
+      <BalanceValidationModal
+        isOpen={isBalanceValidationOpen}
+        onClose={() => setIsBalanceValidationOpen(false)}
+        caseId={id as string}
+      />
     </div>
   );
 };
