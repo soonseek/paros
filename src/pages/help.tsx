@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
-import Link from "next/link";
 import { useAuth } from "~/contexts/AuthContext";
 import { ThemeToggleButton } from "~/components/theme-toggle";
 import { Button } from "~/components/ui/button";
