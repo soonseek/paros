@@ -12,6 +12,7 @@ import { SimplifiedTransactionTable, type SimplifiedTransaction } from "~/compon
 import { AIChatAssistant } from "~/components/ai-chat-assistant";
 import { LoanTrackingModal } from "~/components/loan-tracking-modal";
 import { AmountFilterModal } from "~/components/amount-filter-modal";
+import { BalanceValidationModal } from "~/components/balance-validation-modal";
 import { FindingNoteList } from "~/components/molecules/finding-note-list";
 import { FindingNoteForm } from "~/components/molecules/finding-note-form";
 import {
