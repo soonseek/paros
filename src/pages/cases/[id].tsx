@@ -37,6 +37,7 @@ import { FileUploadZone } from "~/components/upload-zone";
 import { ExportOptionsModal } from "~/components/export/export-options-modal";
 import { api } from "~/utils/api";
 import { useAuth } from "~/contexts/AuthContext";
+import { AppHeader } from "~/components/app-header";
 import { toast } from "sonner";
 import { useI18n } from "~/lib/i18n/index";
 
