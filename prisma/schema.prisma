@@ -16,6 +16,7 @@ enum Role {
     PARALEGAL
     ADMIN
     SUPPORT
+    SUPER
 }
 
 // Case Status Enum
