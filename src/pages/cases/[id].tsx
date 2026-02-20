@@ -742,12 +742,12 @@ const CaseDetailPage: NextPage = () => {
           </div>
 
           {/* 오른쪽 60%: 사건 정보 및 메모 */}
-          <div className="lg:col-span-3 space-y-6">
+          <div className="lg:col-span-3 space-y-3 sm:space-y-6">
             {/* Case Details Card */}
-            <Card className="p-6">
-              <div className="space-y-6">
+            <Card className="p-3 sm:p-6">
+              <div className="space-y-4 sm:space-y-6">
                 {/* Case Number */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                   <div>
                     <h3 className="text-sm font-medium text-gray-500">사건번호</h3>
                     <p className="mt-1 text-lg font-semibold text-gray-900">
