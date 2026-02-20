@@ -20,6 +20,17 @@ import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
  */
 
 /**
+ * Helper: 현재 사용자의 role을 가져오기
+ */
+async function getUserRole(db: PrismaClient, userId: string): Promise<Role | null> {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { role: true },
+  });
+  return user?.role ?? null;
+}
+
+/**
  * Helper function to verify case ownership and existence
  * SUPER and ADMIN can access any case
  *
