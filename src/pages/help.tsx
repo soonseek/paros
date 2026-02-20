@@ -1511,7 +1511,7 @@ export default function HelpPage() {
 
         {/* 모바일 사이드바 오버레이 */}
         {mobileMenuOpen && (
-          <div className="lg:hidden fixed inset-0 z-30 bg-black/50" onClick={() => setMobileMenuOpen(false)}>
+          <div className="lg:hidden fixed inset-0 z-40 bg-black/50" onClick={() => setMobileMenuOpen(false)}>
             <aside
               className="absolute left-0 top-0 bottom-0 w-80 bg-white dark:bg-gray-800 overflow-y-auto shadow-xl"
               onClick={(e) => e.stopPropagation()}
