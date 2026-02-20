@@ -77,7 +77,7 @@ export function AppHeader({ title = "법무법인 파로스", showBack = false, 
           </button>
 
           {/* 관리자: 템플릿 관리 */}
-          {isAuthenticated && user?.role === "ADMIN" && (
+          {isAuthenticated && (user?.role === "ADMIN" || user?.role === "SUPER") && (
             <button
               onClick={() => router.push("/admin/templates")}
               className="hidden sm:flex p-2 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -89,7 +89,7 @@ export function AppHeader({ title = "법무법인 파로스", showBack = false, 
           )}
 
           {/* 관리자: 설정 */}
-          {isAuthenticated && user?.role === "ADMIN" && (
+          {isAuthenticated && (user?.role === "ADMIN" || user?.role === "SUPER") && (
             <button
               onClick={() => router.push("/admin/settings")}
               className="hidden sm:flex p-2 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
