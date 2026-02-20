@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure } from '~/server/api/trpc';
 import { SettingsService } from '~/server/services/settings-service';
 import { TRPCError } from '@trpc/server';
+import { clearS3Cache } from '~/lib/s3';
 
 export const settingsRouter = createTRPCRouter({
   /**
@@ -87,6 +88,11 @@ export const settingsRouter = createTRPCRouter({
 
       const service = new SettingsService(ctx.db);
       await service.setSetting(input, ctx.userId);
+
+      // AWS/S3 관련 설정 변경 시 S3 클라이언트 캐시 초기화
+      if (input.key.startsWith('AWS_')) {
+        clearS3Cache();
+      }
 
       return { success: true };
     }),

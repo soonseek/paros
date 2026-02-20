@@ -359,16 +359,24 @@ export default function AdminSettings() {
             <Label htmlFor="aws-region" className="mb-2 block">
               AWS Region
             </Label>
-            <Input
-              id="aws-region"
-              type="text"
-              value={awsRegion}
-              onChange={(e) => setAwsRegion(e.target.value)}
-              placeholder="예: ap-northeast-2"
-              data-testid="aws-region-input"
-            />
+            <Select value={awsRegion} onValueChange={setAwsRegion}>
+              <SelectTrigger id="aws-region" data-testid="aws-region-input">
+                <SelectValue placeholder="리전 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ap-northeast-2">ap-northeast-2 (서울)</SelectItem>
+                <SelectItem value="ap-northeast-1">ap-northeast-1 (도쿄)</SelectItem>
+                <SelectItem value="ap-northeast-3">ap-northeast-3 (오사카)</SelectItem>
+                <SelectItem value="ap-southeast-1">ap-southeast-1 (싱가포르)</SelectItem>
+                <SelectItem value="ap-southeast-2">ap-southeast-2 (시드니)</SelectItem>
+                <SelectItem value="us-east-1">us-east-1 (버지니아)</SelectItem>
+                <SelectItem value="us-west-2">us-west-2 (오레곤)</SelectItem>
+                <SelectItem value="eu-west-1">eu-west-1 (아일랜드)</SelectItem>
+                <SelectItem value="eu-central-1">eu-central-1 (프랑크푸르트)</SelectItem>
+              </SelectContent>
+            </Select>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-              서울: ap-northeast-2, 도쿄: ap-northeast-1
+              S3 버킷이 위치한 AWS 리전을 선택하세요.
             </p>
           </div>
 
