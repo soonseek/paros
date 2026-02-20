@@ -1,6 +1,6 @@
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
-import { Settings } from "lucide-react";
+import { Settings, FileSpreadsheet } from "lucide-react";
 
 import { Button } from "~/components/ui/button";
 import {
@@ -64,6 +64,18 @@ export default function DashboardPage() {
                 data-testid="admin-settings-button"
               >
                 <Settings className="h-5 w-5" />
+              </Button>
+            )}
+            {user?.role === 'ADMIN' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push("/admin/templates")}
+                title="템플릿 관리"
+                data-testid="admin-templates-button"
+              >
+                <FileSpreadsheet className="h-4 w-4 mr-1.5" />
+                템플릿 관리
               </Button>
             )}
             <div className="relative">
