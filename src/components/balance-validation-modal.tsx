@@ -96,14 +96,16 @@ export function BalanceValidationModal({ isOpen, onClose, caseId }: BalanceValid
 
         <div className="flex-1 overflow-hidden flex flex-col gap-4">
           {/* 설명 */}
-          <Alert>
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>OCR 파싱 오류 자동 감지</AlertTitle>
-            <AlertDescription>
-              거래 내역의 잔액을 역산하여 입금/출금이 잘못 분류된 거래를 찾아냅니다.
-              예: 잔액이 증가했는데 출금으로 기록된 경우 → 입금으로 교정
-            </AlertDescription>
-          </Alert>
+          <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
+            <div>
+              <p className="font-medium text-amber-800">OCR 파싱 오류 자동 감지</p>
+              <p className="text-sm text-amber-700 mt-1">
+                거래 내역의 잔액을 역산하여 입금/출금이 잘못 분류된 거래를 찾아냅니다.
+                예: 잔액이 증가했는데 출금으로 기록된 경우 → 입금으로 교정
+              </p>
+            </div>
+          </div>
 
           {/* 검증 버튼 */}
           {!hasValidated && (
