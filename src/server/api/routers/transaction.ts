@@ -1506,20 +1506,31 @@ export const transactionRouter = createTRPCRouter({
       });
 
       // 2. DB에서 직접 필터링 (금액 >= minAmount)
+      // 주의: 출금 금액이 음수로 저장되어 있을 수 있으므로 절대값으로도 비교해야 함
       // 디버깅 로그
-      console.log(`[filterByAmount] 시작 - caseId: ${caseId}, minAmount: ${minAmount}, documentId: ${documentId || 'all'}`);
+      console.log(`[filterByAmount] ========== 시작 ==========`);
+      console.log(`[filterByAmount] caseId: ${caseId}`);
+      console.log(`[filterByAmount] minAmount: ${minAmount}`);
+      console.log(`[filterByAmount] documentId: ${documentId || 'all'}`);
 
+      // 양수와 음수 모두 처리하기 위해 조건 확장
+      // - depositAmount >= minAmount (양수 입금)
+      // - withdrawalAmount >= minAmount (양수 출금)
+      // - withdrawalAmount <= -minAmount (음수 출금: -120만 <= -100만)
       const whereClause: Record<string, unknown> = {
         caseId,
         OR: [
           { depositAmount: { gte: minAmount } },
           { withdrawalAmount: { gte: minAmount } },
+          { withdrawalAmount: { lte: -minAmount } }, // 음수 출금 처리
         ],
       };
 
       if (documentId) {
         whereClause.documentId = documentId;
       }
+
+      console.log(`[filterByAmount] WHERE 조건:`, JSON.stringify(whereClause, null, 2));
 
       const transactions = await ctx.db.transaction.findMany({
         where: whereClause,
@@ -1541,61 +1552,67 @@ export const transactionRouter = createTRPCRouter({
       });
 
       console.log(`[filterByAmount] DB 조회 결과: ${transactions.length}건`);
+      
+      // 처음 5건의 원본 데이터 로그
+      transactions.slice(0, 5).forEach((tx, idx) => {
+        console.log(`[filterByAmount] [${idx}] date: ${tx.transactionDate.toISOString().slice(0,10)}, deposit: ${tx.depositAmount}, withdrawal: ${tx.withdrawalAmount}, memo: ${tx.memo?.slice(0,20) || '-'}`);
+      });
 
-      // 3. 통계 계산 (수정: 금액 비교 시 정확한 타입 변환)
+      // 3. 통계 계산 (음수 출금도 처리)
       // 입금건: depositAmount가 minAmount 이상이고, 실제로 입금액이 있는 경우
       const depositCount = transactions.filter(tx => {
         const depositAmt = tx.depositAmount ? Number(tx.depositAmount) : 0;
         return depositAmt >= minAmount && depositAmt > 0;
       }).length;
 
-      // 출금건: withdrawalAmount가 minAmount 이상이고, 실제로 출금액이 있는 경우
+      // 출금건: withdrawalAmount의 절대값이 minAmount 이상인 경우
+      // (양수 출금: withdrawalAmt >= minAmount, 음수 출금: withdrawalAmt <= -minAmount)
       const withdrawalCount = transactions.filter(tx => {
         const withdrawalAmt = tx.withdrawalAmount ? Number(tx.withdrawalAmount) : 0;
-        return withdrawalAmt >= minAmount && withdrawalAmt > 0;
+        const absWithdrawal = Math.abs(withdrawalAmt);
+        return absWithdrawal >= minAmount && withdrawalAmt !== 0;
       }).length;
 
       console.log(`[filterByAmount] 통계 - 입금: ${depositCount}건, 출금: ${withdrawalCount}건`);
 
-      // 4. 거래 유형 판별 로직 (수정: 정확한 금액 비교)
+      // 4. 거래 유형 판별 로직 (음수 출금도 처리)
       const mappedTransactions = transactions.map(tx => {
         const depositAmt = tx.depositAmount ? Number(tx.depositAmount) : 0;
         const withdrawalAmt = tx.withdrawalAmount ? Number(tx.withdrawalAmount) : 0;
+        const absWithdrawal = Math.abs(withdrawalAmt);
         
         // 입금건 판별: 입금액이 minAmount 이상이고 0보다 큼
-        // 출금건 판별: 출금액이 minAmount 이상이고 0보다 큼
-        // 둘 다 해당되면 금액이 더 큰 쪽으로 결정
+        // 출금건 판별: 출금액의 절대값이 minAmount 이상이고 0이 아님
         let type: "입금" | "출금";
         let amount: number;
 
         const isDeposit = depositAmt >= minAmount && depositAmt > 0;
-        const isWithdrawal = withdrawalAmt >= minAmount && withdrawalAmt > 0;
+        const isWithdrawal = absWithdrawal >= minAmount && withdrawalAmt !== 0;
 
         if (isDeposit && isWithdrawal) {
           // 둘 다 조건 만족하면 금액이 큰 쪽 선택
-          if (depositAmt >= withdrawalAmt) {
+          if (depositAmt >= absWithdrawal) {
             type = "입금";
             amount = depositAmt;
           } else {
             type = "출금";
-            amount = withdrawalAmt;
+            amount = absWithdrawal; // 절대값으로 반환
           }
         } else if (isDeposit) {
           type = "입금";
           amount = depositAmt;
         } else if (isWithdrawal) {
           type = "출금";
-          amount = withdrawalAmt;
+          amount = absWithdrawal; // 절대값으로 반환
         } else {
           // 어느 쪽도 minAmount 이상이 아님 (이론상 여기 오면 안됨 - OR 쿼리 결과이므로)
-          // 하지만 안전을 위해 0이 아닌 쪽 선택
-          console.warn(`[filterByAmount] 경고: 거래 ${tx.id}가 조건에 맞지 않음 - deposit: ${depositAmt}, withdrawal: ${withdrawalAmt}, minAmount: ${minAmount}`);
+          console.warn(`[filterByAmount] 경고: 거래 ${tx.id}가 조건에 맞지 않음 - deposit: ${depositAmt}, withdrawal: ${withdrawalAmt}, absWithdrawal: ${absWithdrawal}, minAmount: ${minAmount}`);
           if (depositAmt > 0) {
             type = "입금";
             amount = depositAmt;
           } else {
             type = "출금";
-            amount = withdrawalAmt;
+            amount = absWithdrawal;
           }
         }
 
