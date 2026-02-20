@@ -20,7 +20,7 @@ export const settingsRouter = createTRPCRouter({
     });
 
     // 관리자 권한 체크
-    if (user?.role !== 'ADMIN') {
+    if (user?.role !== 'ADMIN' && user?.role !== 'SUPER') {
       throw new TRPCError({
         code: 'FORBIDDEN',
         message: '관리자만 접근할 수 있습니다.',
@@ -48,7 +48,7 @@ export const settingsRouter = createTRPCRouter({
       });
 
       // 관리자 권한 체크
-      if (user?.role !== 'ADMIN') {
+      if (user?.role !== 'ADMIN' && user?.role !== 'SUPER') {
         throw new TRPCError({
           code: 'FORBIDDEN',
           message: '관리자만 접근할 수 있습니다.',
@@ -79,7 +79,7 @@ export const settingsRouter = createTRPCRouter({
       });
 
       // 관리자 권한 체크
-      if (user?.role !== 'ADMIN') {
+      if (user?.role !== 'ADMIN' && user?.role !== 'SUPER') {
         throw new TRPCError({
           code: 'FORBIDDEN',
           message: '관리자만 접근할 수 있습니다.',
@@ -114,7 +114,7 @@ export const settingsRouter = createTRPCRouter({
       });
 
       // 관리자 권한 체크
-      if (user?.role !== 'ADMIN') {
+      if (user?.role !== 'ADMIN' && user?.role !== 'SUPER') {
         throw new TRPCError({
           code: 'FORBIDDEN',
           message: '관리자만 접근할 수 있습니다.',
@@ -138,7 +138,7 @@ export const settingsRouter = createTRPCRouter({
     });
 
     // 관리자 권한 체크
-    if (user?.role !== 'ADMIN') {
+    if (user?.role !== 'ADMIN' && user?.role !== 'SUPER') {
       throw new TRPCError({
         code: 'FORBIDDEN',
         message: '관리자만 접근할 수 있습니다.',

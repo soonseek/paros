@@ -34,8 +34,8 @@ export async function canAccessCase(
     return false;
   }
 
-  // ADMIN can access all cases
-  if (user.role === "ADMIN") {
+  // ADMIN/SUPER can access all cases
+  if (user.role === "ADMIN" || user.role === "SUPER") {
     return true;
   }
 
@@ -78,12 +78,12 @@ export async function canModifyCase(
     return false;
   }
 
-  // ADMIN can modify all cases
-  if (user.role === "ADMIN") {
+  // ADMIN/SUPER can modify all cases
+  if (user.role === "ADMIN" || user.role === "SUPER") {
     return true;
   }
 
-  // Only LAWYER can modify their own cases
+  // Only LAWYER or SUPER can modify their own cases
   if (user.role !== "LAWYER") {
     return false;
   }
@@ -129,8 +129,8 @@ export async function canManageCaseNote(
     return false;
   }
 
-  // ADMIN can manage all notes
-  if (user.role === "ADMIN") {
+  // ADMIN/SUPER can manage all notes
+  if (user.role === "ADMIN" || user.role === "SUPER") {
     return true;
   }
 
@@ -140,9 +140,9 @@ export async function canManageCaseNote(
     return false;
   }
 
-  // For adding new notes, LAWYER, PARALEGAL, SUPPORT can add notes to cases they can access
+  // For adding new notes, LAWYER, PARALEGAL, SUPPORT, SUPER can add notes to cases they can access
   if (!noteAuthorId) {
-    return user.role === "LAWYER" || user.role === "PARALEGAL" || user.role === "SUPPORT";
+    return user.role === "LAWYER" || user.role === "PARALEGAL" || user.role === "SUPPORT" || user.role === "SUPER";
   }
 
   // For modifying/deleting notes, only the note author can modify their own notes
@@ -177,8 +177,8 @@ export async function canViewCaseList(
     return false;
   }
 
-  // ADMIN can view all case lists
-  if (user.role === "ADMIN") {
+  // ADMIN/SUPER can view all case lists
+  if (user.role === "ADMIN" || user.role === "SUPER") {
     return true;
   }
 

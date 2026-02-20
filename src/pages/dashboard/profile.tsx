@@ -16,6 +16,7 @@ import {
 } from "~/components/ui/card";
 import { api } from "~/utils/api";
 import { useAuth } from "~/contexts/AuthContext";
+import { AppHeader } from "~/components/app-header";
 
 const changePasswordSchema = z
   .object({
@@ -157,35 +158,11 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="border-b bg-white">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-gray-900">법무법인 파로스</h1>
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.push("/help")}
-              className="text-sm text-gray-500 hover:text-blue-600 transition-colors font-medium"
-              data-testid="help-nav-link"
-            >
-              도움말
-            </button>
-            <Button
-              variant="outline"
-              onClick={() => router.push("/dashboard")}
-            >
-              대시보드
-            </Button>
-            <Button variant="outline" onClick={handleLogout}>
-              로그아웃
-            </Button>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <AppHeader showBack backHref="/dashboard" />
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        <div className="max-w-2xl mx-auto space-y-6">
+      <main className="px-3 sm:px-4 py-4 sm:py-8 max-w-2xl mx-auto">
+        <div className="space-y-4 sm:space-y-6">
           {/* Profile Information Card */}
           <Card>
             <CardHeader>

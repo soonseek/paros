@@ -10,6 +10,7 @@ import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { api } from "~/utils/api";
 import { useAuth } from "~/contexts/AuthContext";
+import { AppHeader } from "~/components/app-header";
 
 const createCaseSchema = z.object({
   caseNumber: z.string().optional(), // 사건번호 선택 사항
@@ -66,71 +67,34 @@ const NewCasePage: NextPage = () => {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="max-w-2xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6">새 사건 등록</h1>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <AppHeader showBack backHref="/cases" />
+      <div className="px-3 sm:px-4 py-4 sm:py-8 max-w-2xl mx-auto">
+        <h1 className="text-xl sm:text-3xl font-bold mb-4 sm:mb-6 dark:text-gray-100">새 사건 등록</h1>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          {/* Case Number */}
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
           <div>
             <Label htmlFor="caseNumber">사건번호</Label>
-            <Input
-              id="caseNumber"
-              type="text"
-              placeholder="예: 2023하12345"
-              {...register("caseNumber")}
-            />
+            <Input id="caseNumber" type="text" placeholder="예: 2023하12345" {...register("caseNumber")} />
           </div>
-
-          {/* Debtor Name */}
           <div>
-            <Label htmlFor="debtorName">
-              채무자명 <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="debtorName"
-              type="text"
-              placeholder="채무자 이름 입력"
-              {...register("debtorName")}
-            />
-            {errors.debtorName && (
-              <p className="text-red-500 text-sm mt-1">
-                {errors.debtorName.message}
-              </p>
-            )}
+            <Label htmlFor="debtorName">채무자명 <span className="text-red-500">*</span></Label>
+            <Input id="debtorName" type="text" placeholder="채무자 이름 입력" {...register("debtorName")} />
+            {errors.debtorName && <p className="text-red-500 text-sm mt-1">{errors.debtorName.message}</p>}
           </div>
-
-          {/* Court Name */}
           <div>
             <Label htmlFor="courtName">법원명</Label>
-            <Input
-              id="courtName"
-              type="text"
-              placeholder="예: 서울회생법원"
-              {...register("courtName")}
-            />
+            <Input id="courtName" type="text" placeholder="예: 서울회생법원" {...register("courtName")} />
           </div>
-
-          {/* Filing Date */}
           <div>
             <Label htmlFor="filingDate">접수일자</Label>
-            <Input
-              id="filingDate"
-              type="date"
-              {...register("filingDate")}
-            />
+            <Input id="filingDate" type="date" {...register("filingDate")} />
           </div>
-
-          {/* Submit Button */}
-          <div className="flex gap-4">
-            <Button type="submit" disabled={isPending}>
+          <div className="flex gap-3 sm:gap-4">
+            <Button type="submit" disabled={isPending} className="flex-1 sm:flex-none">
               {isPending ? "저장 중..." : "저장"}
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => router.push("/dashboard")}
-            >
+            <Button type="button" variant="outline" onClick={() => router.push("/dashboard")} className="flex-1 sm:flex-none">
               취소
             </Button>
           </div>

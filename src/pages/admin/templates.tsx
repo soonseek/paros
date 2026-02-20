@@ -9,6 +9,7 @@ import { useRouter } from "next/router";
 import { useState, useEffect } from "react";
 import { api } from "~/utils/api";
 import { useAuth } from "~/contexts/AuthContext";
+import { AppHeader } from "~/components/app-header";
 import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "~/components/ui/card";
@@ -232,14 +233,14 @@ const TemplatesPage: NextPage = () => {
     onError: (error) => toast.error(error.message),
   });
 
-  // Auth check
+  // Auth check - ADMIN 또는 SUPER만 접근 가능
   useEffect(() => {
-    if (user && user.role !== "ADMIN") {
+    if (user && user.role !== "ADMIN" && user.role !== "SUPER") {
       void router.push("/cases");
     }
   }, [user, router]);
 
-  if (!user || user.role !== "ADMIN") {
+  if (!user || (user.role !== "ADMIN" && user.role !== "SUPER")) {
     return (
       <div className="flex items-center justify-center h-screen">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -536,29 +537,21 @@ const TemplatesPage: NextPage = () => {
   };
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => router.back()}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              뒤로
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold">거래내역서 템플릿 관리</h1>
-              <p className="text-sm text-muted-foreground">
-                은행별 거래내역서 형식을 정의하고 관리합니다
-              </p>
-            </div>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <AppHeader showBack backHref="/admin/settings" />
+      <div className="px-3 sm:px-4 py-4 sm:py-6 max-w-7xl mx-auto">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4 sm:mb-6">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold">거래내역서 템플릿 관리</h1>
+            <p className="text-sm text-muted-foreground">은행별 거래내역서 형식을 정의하고 관리합니다</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setIsTestDialogOpen(true)}>
-              <Play className="h-4 w-4 mr-2" />
+            <Button variant="outline" size="sm" onClick={() => setIsTestDialogOpen(true)}>
+              <Play className="h-4 w-4 mr-1.5" />
               매칭 테스트
             </Button>
-            <Button onClick={openCreateEditor}>
-              <Plus className="h-4 w-4 mr-2" />
+            <Button size="sm" onClick={openCreateEditor}>
+              <Plus className="h-4 w-4 mr-1.5" />
               새 템플릿
             </Button>
           </div>
@@ -566,23 +559,23 @@ const TemplatesPage: NextPage = () => {
 
         {/* Stats */}
         {statsQuery.data && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
             <Card>
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold">{statsQuery.data.totalTemplates}</div>
-                <div className="text-sm text-muted-foreground">전체 템플릿</div>
+              <CardContent className="pt-4 sm:pt-6 px-3 sm:px-6">
+                <div className="text-lg sm:text-2xl font-bold">{statsQuery.data.totalTemplates}</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">전체 템플릿</div>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold text-green-600">{statsQuery.data.activeTemplates}</div>
-                <div className="text-sm text-muted-foreground">활성 템플릿</div>
+              <CardContent className="pt-4 sm:pt-6 px-3 sm:px-6">
+                <div className="text-lg sm:text-2xl font-bold text-green-600">{statsQuery.data.activeTemplates}</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">활성 템플릿</div>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold text-blue-600">{statsQuery.data.totalMatches}</div>
-                <div className="text-sm text-muted-foreground">총 매칭 횟수</div>
+              <CardContent className="pt-4 sm:pt-6 px-3 sm:px-6">
+                <div className="text-lg sm:text-2xl font-bold text-blue-600">{statsQuery.data.totalMatches}</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">총 매칭 횟수</div>
               </CardContent>
             </Card>
           </div>
@@ -590,13 +583,13 @@ const TemplatesPage: NextPage = () => {
 
         {/* Template List */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+          <CardHeader className="px-3 sm:px-6">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
               <FileSpreadsheet className="h-5 w-5" />
               템플릿 목록
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-3 sm:px-6">
             {templatesQuery.isLoading ? (
               <div className="flex justify-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin" />

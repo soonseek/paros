@@ -20,11 +20,24 @@ import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
  */
 
 /**
+ * Helper: 현재 사용자의 role을 가져오기
+ */
+async function getUserRole(db: PrismaClient, userId: string): Promise<Role | null> {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { role: true },
+  });
+  return user?.role ?? null;
+}
+
+/**
  * Helper function to verify case ownership and existence
+ * SUPER and ADMIN can access any case
  *
  * @param db - Prisma client instance
  * @param caseId - Case ID to verify
  * @param userId - User ID to check ownership against
+ * @param userRole - User role for RBAC bypass
  * @returns The case if found and owned by user
  * @throws TRPCError with NOT_FOUND if case doesn't exist
  * @throws TRPCError with FORBIDDEN if user doesn't own the case
@@ -32,7 +45,8 @@ import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 async function verifyCaseOwnership(
   db: PrismaClient,
   caseId: string,
-  userId: string
+  userId: string,
+  userRole?: Role
 ): Promise<Case> {
   const existingCase = await db.case.findUnique({
     where: { id: caseId },
@@ -43,6 +57,11 @@ async function verifyCaseOwnership(
       code: "NOT_FOUND",
       message: "사건을 찾을 수 없습니다",
     });
+  }
+
+  // SUPER can access any case
+  if (userRole === Role.SUPER || userRole === Role.ADMIN) {
+    return existingCase;
   }
 
   if (existingCase.lawyerId !== userId) {
@@ -101,7 +120,7 @@ export const caseRouter = createTRPCRouter({
         select: { role: true },
       });
 
-      if (!user || (user.role !== Role.LAWYER && user.role !== Role.ADMIN)) {
+      if (!user || (user.role !== Role.LAWYER && user.role !== Role.ADMIN && user.role !== Role.SUPER)) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "사건을 생성할 권한이 없습니다",
@@ -193,10 +212,17 @@ export const caseRouter = createTRPCRouter({
       const pageSize = 20;
       const skip = (page - 1) * pageSize;
 
+      // SUPER 권한 확인
+      const currentUser = await ctx.db.user.findUnique({
+        where: { id: ctx.userId },
+        select: { role: true },
+      });
+      const isSuperOrAdmin = currentUser?.role === Role.SUPER || currentUser?.role === Role.ADMIN;
+
       // Build where clause with RBAC enforcement
       const where: {
-        lawyerId: string;
-        isArchived?: boolean; // Changed from hardcoded to conditional
+        lawyerId?: string;
+        isArchived?: boolean;
         OR?: Array<{
           caseNumber?: { contains: string; mode: 'insensitive' };
           debtorName?: { contains: string; mode: 'insensitive' };
@@ -204,10 +230,9 @@ export const caseRouter = createTRPCRouter({
         courtName?: string;
         filingDate?: { gte?: Date; lte?: Date };
       } = {
-        lawyerId: ctx.userId, // ✅ CRITICAL: RBAC enforcement - only user's own cases
-        // ✅ CRITICAL: Default to active cases only, show archived when explicitly requested
+        // SUPER/ADMIN: 모든 사건 조회, 그 외: 본인 사건만
+        ...(isSuperOrAdmin ? {} : { lawyerId: ctx.userId }),
         ...(showArchived !== undefined && { isArchived: showArchived }),
-        // If showArchived is not provided, default to false (active cases only)
         ...(showArchived === undefined && { isArchived: false }),
       };
 
@@ -236,6 +261,7 @@ export const caseRouter = createTRPCRouter({
       }
 
       // Fetch cases with pagination and sorting
+      // SUPER/ADMIN: 변호사 정보 포함
       const cases = await ctx.db.case.findMany({
         where,
         orderBy: {
@@ -243,6 +269,17 @@ export const caseRouter = createTRPCRouter({
         },
         take: pageSize,
         skip,
+        ...(isSuperOrAdmin && {
+          include: {
+            lawyer: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        }),
       });
 
       // Get total count for pagination
@@ -308,8 +345,12 @@ export const caseRouter = createTRPCRouter({
         });
       }
 
-      // RBAC: Verify user owns this case
-      if (caseItem.lawyerId !== ctx.userId) {
+      // RBAC: Verify user owns this case (SUPER/ADMIN can view any case)
+      const viewer = await ctx.db.user.findUnique({
+        where: { id: ctx.userId },
+        select: { role: true },
+      });
+      if (caseItem.lawyerId !== ctx.userId && viewer?.role !== Role.SUPER && viewer?.role !== Role.ADMIN) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "권한이 없습니다",
@@ -369,7 +410,8 @@ export const caseRouter = createTRPCRouter({
       const { id, debtorName, courtName, filingDate, status } = input;
 
       // RBAC: Verify user owns this case (using helper function)
-      await verifyCaseOwnership(ctx.db, id, ctx.userId);
+      const userRole390 = await getUserRole(ctx.db, ctx.userId);
+      await verifyCaseOwnership(ctx.db, id, ctx.userId, userRole390 ?? undefined);
 
       // Update case
       const updatedCase = await ctx.db.case.update({
@@ -417,7 +459,8 @@ export const caseRouter = createTRPCRouter({
       const { id } = input;
 
       // RBAC: Verify user owns this case (using helper function)
-      const existingCase = await verifyCaseOwnership(ctx.db, id, ctx.userId);
+      const userRoleArchive = await getUserRole(ctx.db, ctx.userId);
+      const existingCase = await verifyCaseOwnership(ctx.db, id, ctx.userId, userRoleArchive ?? undefined);
 
       // Check if case is already archived
       if (existingCase.isArchived) {
@@ -467,7 +510,8 @@ export const caseRouter = createTRPCRouter({
       const { id } = input;
 
       // RBAC: Verify user owns this case (using helper function)
-      const existingCase = await verifyCaseOwnership(ctx.db, id, ctx.userId);
+      const userRoleUnarchive = await getUserRole(ctx.db, ctx.userId);
+      const existingCase = await verifyCaseOwnership(ctx.db, id, ctx.userId, userRoleUnarchive ?? undefined);
 
       // Check if case is already active (not archived)
       if (!existingCase.isArchived) {

@@ -12,6 +12,7 @@ import { Label } from "~/components/ui/label";
 import { Card } from "~/components/ui/card";
 import { api } from "~/utils/api";
 import { useAuth } from "~/contexts/AuthContext";
+import { AppHeader } from "~/components/app-header";
 
 /**
  * Case Edit Page
@@ -113,40 +114,25 @@ const CaseEditPage: NextPage = () => {
   // Prevent SSR hydration mismatch
   if (!mounted) {
     return (
-      <div className="container mx-auto py-8 px-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-center py-12 bg-gray-50 rounded-lg">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3" />
-            <p className="text-gray-600">로딩 중...</p>
-          </div>
-        </div>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <AppHeader showBack />
+        <div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3" /><p className="text-gray-600 dark:text-gray-400">로딩 중...</p></div>
       </div>
     );
   }
 
-  // Skip rendering if redirecting
-  if (!user) {
-    return null;
-  }
+  if (!user) { return null; }
 
-  // Loading state
   if (isPending) {
     return (
-      <div className="container mx-auto py-8 px-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-center py-12 bg-gray-50 rounded-lg">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3" />
-            <p className="text-gray-600">로딩 중...</p>
-          </div>
-        </div>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <AppHeader showBack />
+        <div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3" /><p className="text-gray-600 dark:text-gray-400">로딩 중...</p></div>
       </div>
     );
   }
 
-  // No case data (shouldn't happen due to error handling in getCaseById)
-  if (!caseItem) {
-    return null;
-  }
+  if (!caseItem) { return null; }
 
   const onSubmit = (data: UpdateCaseInput) => {
     updateMutation.mutate({
@@ -167,17 +153,16 @@ const CaseEditPage: NextPage = () => {
   };
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold">사건 정보 수정</h1>
-          <p className="text-gray-600 mt-2">사건 기본 정보를 수정합니다</p>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <AppHeader showBack backHref={`/cases/${id as string}`} />
+      <div className="px-3 sm:px-4 py-4 sm:py-8 max-w-4xl mx-auto">
+        <div className="mb-4 sm:mb-6">
+          <h1 className="text-xl sm:text-3xl font-bold dark:text-gray-100">사건 정보 수정</h1>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">사건 기본 정보를 수정합니다</p>
         </div>
 
-        {/* Edit Form */}
-        <Card className="p-6">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <Card className="p-3 sm:p-6">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
             {/* Case Number (READONLY) */}
             <div>
               <Label htmlFor="caseNumber">사건번호</Label>

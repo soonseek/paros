@@ -1,197 +1,218 @@
 <analysis>**original_problem_statement:**
-The user wants to enhance a cloned GitHub repository (). The primary goal is to build a robust, template-based data extraction system for bank and credit card statements.
+사용자가 새로운  권한을 요청했습니다. 이 권한을 가진 사용자는 시스템에 있는 모든 회원의 사건 내역을 조회할 수 있어야 합니다. 또한, 이전 요청에서 제기되었던 다음과 같은 문제들도 해결되었습니다:
+- Nginx 요청 본문 크기 제한을 1GB로 상향 조정.
+- S3 설정 관련 버그 수정 (리전 오타 문제, 암호화 키 복호화 실패 문제).
+- 전체 애플리케이션에 대한 모바일 최적화 및 모든 페이지에 '도움말' 링크가 표시되도록 수정.
+- GNB(전역 네비게이션 바) UI 개선 (햄버거 메뉴, 관리자용 '템플릿 관리' 버튼 추가, 브랜딩 텍스트 변경).
 
-PRODUCT REQUIREMENTS:
-1.  **Template-Based Parsing:**
-    *   An admin page to manage Transaction Templates.
-    *   Templates define identifiers and a column schema for data extraction.
-    *   The system must match uploaded PDFs to templates or fall back to a general LLM analysis.
-2.  **AI-Assisted Template Creation:**
-    *   A feature to create a template draft by uploading a sample PDF/screenshot.
-3.  **New Quick Action Features (Case Detail Page):**
-    *   **Loan Fund Usage Report:** A modal to trace how loan funds were used and generate an Excel report. This has been significantly overhauled into a multi-step process.
-    *   **Amount Filter Report:** A modal to filter transactions by an amount threshold and export to Excel.
-4.  **Enhanced Upload Flow:**
-    *   Show a modal for manual template selection on a match fail.
-    *   Implement chunking for large files.
-    *   Perform a quick pre-analysis for user confirmation, showing matched template and parsed data preview.
-    *   **New:** Allow re-parsing the sample data with a different template directly from the confirmation modal.
-5.  **LLM Chat Enhancement:**
-    *   The AI chat assistant was hitting token limits by processing all transactions. It needs to be refactored to query the database intelligently instead of receiving the entire dataset in the prompt.
-6.  **Bug Fixes & UX Improvements:**
-    *   Resolve duplicate row parsing.
-    *   Fix transaction count discrepancies.
-    *   Improve Delete by Document to be atomic.
-    *   Fix various UI issues (modal widths, table columns, scrollability).
-    *   **New:** Implement account transfer detection where funds moved between accounts are not counted as used but as moved.
-
-**User's preferred language**: Korean (한국어)
+**User's preferred language**:
+Korean (한국어). 다음 에이전트는 반드시 한국어로 응답해야 합니다.
 
 **what currently exists?**
-The application is a full-stack Next.js/tRPC/Prisma app for financial statement analysis. This session introduced several major features and refactors:
--   **AI Chat with Function Calling:** The AI chat assistant (, ) was completely refactored. Instead of receiving all transaction data and hitting token limits, it now uses OpenAI's Function Calling feature. The LLM is provided with function definitions (, , etc.) and summary statistics, allowing it to generate database queries on the fly to answer user questions. Support for gpt-5 (mapped to  model) was also added.
--   **Comprehensive Loan Tracking Modal:** The Loan Fund Usage Report feature was overhauled into a multi-step modal ().
-    -   **Step 1:** Users can either auto-detect suspected loan deposits or search for them by keyword.
-    -   **Step 2:** A list of potential loan deposits is presented with a confidence score, and users can select the correct ones via checkbox.
-    -   **Step 3:** A tabbed interface shows a detailed fund usage report for each selected loan, with individual Excel export buttons.
--   **Account Transfer Detection:** The loan tracking logic in  now identifies inter-account transfers. If a withdrawal from one account matches an deposit in another account on the same day for the same amount, it's marked as an 이동 (Move) and does not decrease the remaining loan balance.
--   **Template Sample File Storage:** The  schema was extended to store a sample file (, , ). The template admin page now requires a file to be analyzed for creating new templates, and this file is stored in S3. The template matching modal now shows a preview of this sample file.
--   **Live Re-Parsing in Modal:** The template matching confirmation modal () now has a Retry Parsing button. If the initial template match is incorrect, the user can select another template and re-run the parsing on the sample data to see an updated preview without re-uploading.
--   **UI/UX Fixes:** Several UI bugs were fixed, including scrollability issues in modals, incorrect Excel downloads, and refining the sorting logic for transaction tables.
+Next.js와 tRPC, Prisma(PostgreSQL) 기반의 풀스택 애플리케이션입니다. 사용자 역할은 와 이 있으며, 사건 관리, 사용자 인증, 관리자 설정 등의 기능이 구현되어 있습니다.  역할을 추가하는 작업이 진행 중입니다.
 
 **Last working item**:
--   **Last item agent was working:** The user requested a feature to re-parse the initial 3-page analysis with a different template directly within the template match confirmation modal. The agent added a 결과 파싱 재시도 (Retry Parsing Result) button and a new backend tRPC endpoint () to support this.
--   **Status:** USER VERIFICATION PENDING
--   **Agent Testing Done:** N
--   **Which testing method agent to use?** Frontend testing agent. The test should involve:
-    1.  Uploading a file to trigger the .
-    2.  Ensuring it shows an initial (potentially incorrect) parsing result.
-    3.  Switching to the Select Other Template view.
-    4.  Selecting a different template from the list.
-    5.  Clicking the 결과 파싱 재시도 button.
-    6.  Verifying the sample data table updates with new results based on the selected template.
--   **User Testing Done:** N
+- **Last item agent was working:**  사용자 역할을 구현하던 중이었습니다. Prisma 스키마를 수정하고, tRPC 라우터의 권한 로직을 변경하는 과정에서 관련 없는 파일(, )의 JSX 태그 불일치로 인한 린트(lint) 에러를 수정하고 있었습니다.
+- **Status:** IN PROGRESS
+- **Agent Testing Done:** N
+- **Which testing method agent to use?** backend testing agent. 핵심 변경 사항이 백엔드 API 권한 로직에 있으므로, 테스트 에이전트를 사용하여  역할의 데이터 접근 권한을 검증해야 합니다.
+- **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Incorrect parsing due to template configuration (P0)**
--   **Issue 2: Incorrect Excel file downloaded from Loan Tracking Modal (P1)**
--   **Issue 3: Persistent complex/nested table parsing failures (P1)**
--   **Issue 4: Un-applied database schema migration (P2)**
+- **Issue 1:**  파일의 JSX 태그 불일치 오류 (P0)
+- **Issue 2:**  역할에 대한 백엔드 권한 로직 불완전 구현 (P1)
+- **Issue 3:**  사용자를 위한 프론트엔드 UI 변경 미완료 (P2)
 
 **Issues Detail:**
--   **Issue 1:**
-    -   **Description**: The user reported that a transaction ( - withdrawal) was being incorrectly classified as a deposit. Through logging, the agent determined the cause was an incorrect template configuration. The user's template pointed to the wrong column index for .
-    -   **Attempted fixes**: The agent added extensive logging to the parsing logic. This helped diagnose the issue as a data problem, not a code bug. The agent explained to the user that they need to correct the column index in their template settings (from index  to ).
-    -   **Next debug checklist**: This is pending user action. The next step is for the user to modify their template configuration as advised.
-    -   **Why fix this issue?** This is a critical blocker for reliable data extraction for that specific template.
-    -   **Status**: BLOCKED (Pending user action)
-    -   **Is recurring issue?** Y
-    -   **Should Test frontend/backend/both after fix?** Backend (data integrity).
--   **Issue 2:**
-    -   **Description**: In the loan tracking modal (Step 3), the user reported that clicking the Excel Download button for a specific tab was downloading the results from the Amount Filter modal instead.
-    -   **Attempted fixes**: The agent reviewed the code, found no obvious function name collisions, and suspected a potential browser caching issue. The agent advised the user to perform a hard refresh (Ctrl+Shift+R).
-    -   **Next debug checklist**:
-        1.  Ask the user to confirm if a hard refresh solved the issue.
-        2.  If not, add unique  attributes to both download buttons.
-        3.  Use the frontend testing agent to specifically click the correct button and verify the downloaded file's name/content.
-    -   **Why fix this issue?** The export feature is unusable if it downloads the wrong data.
-    -   **Status**: USER VERIFICATION PENDING
-    -   **Is recurring issue?** N
-    -   **Should Test frontend/backend/both after fix?** Frontend.
--   **Issue 3:**
-    -   **Description**: The application still struggles with certain complex PDF table structures (/, multi-line rows).
-    -   **Attempted fixes**: Previous work included heuristics to find the main header row, which helps. No new work was done on this in the current session.
-    -   **Next debug checklist**: No immediate action is needed until a new, failing PDF format is provided by the user.
-    -   **Why fix this issue?** It's fundamental to the app's ability to handle diverse document formats.
-    -   **Status**: NOT STARTED
-    -   **Is recurring issue?** Y
-    -   **Should Test frontend/backend/both after fix?** Backend.
--   **Issue 4:**
-    -   **Description**: The  file has been modified (added , etc. to  and  constraint in a previous session), but the changes have not been applied to the database.
-    -   **Attempted fixes**: The agent correctly identified that this requires a command to be run in the user's local environment.
-    -   **Next debug checklist**: The agent must remind the user to run Prisma schema loaded from prisma/schema.prisma
-Datasource "db": PostgreSQL database "paros", schema "public" at "127.0.0.1:5432" in their local terminal to synchronize the database schema. This is a blocking action for new template features to work correctly.
-    -   **Why fix this issue?** Ensures data integrity and enables the new sample file storage feature.
-    -   **Status**: BLOCKED (Pending user action)
-    -   **Is recurring issue?** N
-    -   **Should Test frontend/backend/both after fix?** Backend.
+- **Issue 1:**
+  - **Description:**  파일에 닫는 태그가 잘못되어 린트 에러가 발생하고 있습니다. 이 문제가 해결되어야 다른 작업을 진행할 수 있습니다.
+  - **Attempted fixes:** 에이전트가 파일의 열고 닫는 태그 수를 세면서 구조를 파악하려 했으나, 수정 중에 작업이 중단되었습니다.
+  - **Next debug checklist:**  파일의 JSX 구조를 다시 분석하고, 최상위 부터 시작하여 태그 쌍이 올바르게 닫히도록 수정해야 합니다.
+  - **Why fix this issue and what will be achieved with the fix?** 이 린트 에러는 애플리케이션 빌드를 실패하게 만들므로 반드시 해결해야 합니다.
+  - **Status:** IN PROGRESS
+  - **Is recurring issue?** N
+  - **Should Test frontend/backend/both after fix?** frontend (린트 통과 확인)
+  - **Blocked on other issue:** None
+
+- **Issue 2:**
+  - **Description:**  역할이 모든 사건을 조회할 수 있도록 백엔드 로직을 수정하는 작업이 완료되지 않았습니다.  유틸리티를 수정했지만, 각 tRPC 라우터에서  필터링이  역할에 대해 올바르게 제거되었는지 전체적으로 검증해야 합니다.
+  - **Attempted fixes:**  파일을 수정하여 를 관리자급으로 취급하도록 하고, 여러 라우터 파일에 를 사용하여 권한 체크 로직을 변경했습니다.
+  - **Next debug checklist:**
+    1.  의  프로시저에서  조건이  역할일 때 완전히 제거되는지 확인합니다.
+    2.  다른 모든 tRPC 라우터(,  등)에서도  역할에 대한 권한 분기 처리가 정확한지 다시 검토합니다.
+  - **Why fix this issue and what will be achieved with the fix?**  역할의 핵심 기능인 '모든 사건 조회'를 구현할 수 있습니다.
+  - **Status:** IN PROGRESS
+  - **Is recurring issue?** N
+  - **Should Test frontend/backend/both after fix?** backend
+  - **Blocked on other issue:** Issue 1
+
+- **Issue 3:**
+  - **Description:**  사용자가 여러 변호사의 사건을 볼 때, 각 사건이 누구의 것인지 구분할 수 있도록 UI가 변경되어야 합니다. 백엔드에서는 변호사 정보를 포함하도록 쿼리를 수정했지만, 프론트엔드에서는 이를 표시하는 로직이 구현되지 않았습니다.
+  - **Attempted fixes:**  라우터의 에서  정보를  하도록 수정했습니다.
+  - **Next debug checklist:**  파일에서 사건 목록을 렌더링하는 부분을 수정하여, 로그인한 사용자가  역할일 경우 각 사건 항목에 담당 변호사의 이름을 표시하도록 합니다.
+  - **Why fix this issue and what will be achieved with the fix?**  역할의 사용성을 크게 향상시킵니다.
+  - **Status:** NOT STARTED
+  - **Is recurring issue?** N
+  - **Should Test frontend/backend/both after fix?** frontend
+  - **Blocked on other issue:** Issue 1, Issue 2
 
 **In progress Task List**:
--   None.
+- **Task 1:**  사용자 역할 구현 완료 (P0)
+  - **Where to resume:** 먼저 의 JSX 린트 에러를 해결합니다. 그 후, 백엔드 tRPC 라우터와 프론트엔드 UI 변경 작업을 재개합니다.
+  - **What will be achieved with this?** 사용자가 요청한  역할이 완벽하게 동작하는 애플리케이션.
+  - **Status:** IN PROGRESS
+  - **Should Test frontend/backend/both after fix?** both
+  - **Blocked on something:** Issue 1 (JSX lint error)
 
 **Upcoming and Future Tasks**
--   **Upcoming Tasks:**
-    -   **(P1)** Enhance Transaction Table UI: Add  /  prefixes to the amount values in the transaction table.
--   **Future Tasks:**
-    -   **(P2)** Full Mobile Optimization.
-    -   **(P2)** Scheduled Batch Jobs ().
-    -   **(P2)** Template Success Rate Tracking: Implement logic to automatically track and display how often each template successfully parses a document.
+- **Upcoming Tasks:**
+  - (P1)  역할 구현 완료 후, 데이터베이스에  사용자를 생성하고 로그인하여 기능이 올바르게 작동하는지 종합적으로 테스트해야 합니다.
+  - (P2) 도움말 페이지()에  역할에 대한 설명이 정확하게 추가되었는지 확인합니다.
 
 **Completed work in this session**
--   **AI Chat Refactor**: Re-architected the AI chat to use OpenAI Function Calling, eliminating token limit errors and enabling database queries.
--   **Loan Tracking Modal Overhaul**: Rebuilt the loan tracking feature into a 3-step guided workflow with auto-detection, manual selection, and a tabbed results view.
--   **Account Transfer Logic**: Implemented backend logic to detect and correctly handle inter-account fund transfers, preventing them from being counted as used funds.
--   **Template Sample Storage**: Extended the Prisma schema and backend APIs to allow storing and previewing a sample file for each template.
--   **Live Re-Parsing Feature**: Added a Retry Parsing button to the upload confirmation modal, allowing users to test different templates on the fly.
--   **Bug Fix: S3 Upload**: Fixed a bug where the  function was called with incorrect parameters in the template router, causing S3 uploads to fail.
--   **Bug Fix: List Refresh**: Fixed a bug where deleting a document did not refresh the document list dropdown by invalidating the correct tRPC query ().
--   **Bug Fix: Loan Detection & Sorting**: Improved the confidence scoring for loan detection and updated the sorting logic to place Move transactions first within the same day.
--   **UI/UX Fixes**:
-    -   Resolved multiple table scrollability issues in modals.
-    -   Added Korean labels for column roles in previews.
-    -   Improved parsing for templates using separate  and  columns.
-    -   Added the  Shadcn component and its dependencies.
+- **Nginx 요청 크기 제한 상향:** 를 1GB로 설정하여 대용량 파일 업로드 문제를 해결했습니다.
+- **S3 연동 버그 수정:**
+  - AWS 리전 설정 UI를 텍스트 입력에서 드롭다운으로 변경하여 오타를 방지했습니다.
+  - 암호화된 S3 키가 복호화되지 않는 버그를 수정하고, 설정 변경 시 S3 클라이언트 캐시가 자동으로 초기화되도록 개선했습니다.
+- **모바일 최적화 및 UI 일관성 확보:**
+  - 공통 헤더 컴포넌트()를 생성하여 모든 페이지에 적용하고, 반응형 레이아웃을 구현했습니다.
+  - 모든 페이지에서 '도움말' 링크가 일관되게 표시되도록 수정했습니다.
+- **GNB(네비게이션 바) UI 개선:**
+  - 우측 하단의 플로팅 버튼을 GNB의 햄버거 메뉴로 변경했습니다.
+  - 관리자 및  사용자를 위해 GNB에 '템플릿 관리' 버튼을 추가했습니다.
+  - 로고 브랜딩을 pros bmad에서 법무법인 파로스로 변경했습니다.
 
 **Earlier issues found/mentioned but not fixed**
--   **Issue 1: Incorrect Excel Download:** As described in the , the user reported the loan tracking modal downloads the wrong Excel file. The agent's suggestion to clear cache has not been verified.
+- 없음.
 
 **Known issue recurrence from previous fork**
--   **Issue recurrence in previous fork:** Incorrect 'memo' (비고) parsing.
--   **Recurrence count:** High.
--   **Status:** BLOCKED. The agent diagnosed it as a user-side template configuration error and provided the solution (correct the column index). Awaiting user action.
+- 없음.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Frameworks**: Next.js, tRPC, Prisma, Tailwind CSS
--   **Database**: PostgreSQL
--   **AI**: OpenAI Function Calling, Upstage Solar OCR
--   **PDF Processing**:  for chunking
+- **Framework:** Next.js
+- **Backend API:** tRPC
+- **Database:** PostgreSQL with Prisma ORM
+- **Authentication:** JWT 기반 역할 기반 접근 제어(RBAC)
+- **Styling:** Tailwind CSS
 
 **key DB schema**
--   :
-    -   Added , , .
-    -   The  constraint and the new fields **have not been applied to the database**. User action (Prisma schema loaded from prisma/schema.prisma
-Datasource "db": PostgreSQL database "paros", schema "public" at "127.0.0.1:5432") is required.
+- **User:** 
+- **Case:** 
+- **Setting:** 
+
+**changes in tech stack**
+- 없음.
 
 **All files of reference**
--   : The new Function Calling implementation for the AI assistant.
--   : The completely redesigned UI for loan tracking.
--   : Contains the new backend logic for loan detection, tracking, and inter-account transfers.
--   : The UI for the new re-parsing feature.
--   : The  endpoint.
--   : Contains the schema changes that need to be pushed to the DB.
+*수정/생성된 주요 파일:*
+- :  enum에  추가.
+- :  역할의 사건 조회 로직 수정 (진행 중).
+- : 를 관리자급 권한으로 포함하도록 수정.
+- :  역할도 관리자 메뉴에 접근할 수 있도록 수정.
+- : **현재 린트 에러가 발생하여 수정이 시급한 파일.**
+- :  사용자를 위해 변호사 이름을 표시하도록 수정 필요.
+- : S3 키 복호화 로직 개선.
+- : S3 설정 변경 시 캐시 초기화 로직 추가.
+- :  설정 추가.
+
+**Areas that need refactoring**:
+- RBAC(역할 기반 접근 제어) 로직이 여러 tRPC 라우터에 분산되어 있습니다. 와 같은 유틸리티를 사용하는 것보다, tRPC 미들웨어를 활용하여 케이스 소유권이나 역할을 확인하는 중앙화된 인증 로직을 구현하면 코드 중복을 줄이고 유지보수성을 높일 수 있습니다.
+
+**key api endpoints**
+- :  역할일 때 모든 사건을 반환하도록 로직 수정 중.
+- :  역할이 모든 사건 상세 정보에 접근할 수 있도록 허용.
+- , , , declare -x DEBIAN_FRONTEND="noninteractive"
+declare -x ENABLE_RELOAD="true"
+declare -x GPG_KEY="A035C8C19219BA821ECEA86B64E628F8D684696D"
+declare -x HOME="/root"
+declare -x HOSTNAME="agent-env-1dac797e-57e7-4dab-b589-30f592bca054"
+declare -x KUBERNETES_PORT="tcp://34.118.224.1:443"
+declare -x KUBERNETES_PORT_443_TCP="tcp://34.118.224.1:443"
+declare -x KUBERNETES_PORT_443_TCP_ADDR="34.118.224.1"
+declare -x KUBERNETES_PORT_443_TCP_PORT="443"
+declare -x KUBERNETES_PORT_443_TCP_PROTO="tcp"
+declare -x KUBERNETES_SERVICE_HOST="34.118.224.1"
+declare -x KUBERNETES_SERVICE_PORT="443"
+declare -x KUBERNETES_SERVICE_PORT_HTTPS="443"
+declare -x LANG="C.UTF-8"
+declare -x NEXT_TELEMETRY_DISABLED="1"
+declare -x NODE_VERSION="20"
+declare -x OLDPWD
+declare -x PATH="/root/.venv/bin:/opt/plugins-venv/bin:/opt/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+declare -x PIP_NO_INPUT="1"
+declare -x PLAYWRIGHT_BROWSERS_PATH="/pw-browsers"
+declare -x PLUGIN_VENV_PATH="/opt/plugins-venv"
+declare -x PWD="/app"
+declare -x PYTHONUNBUFFERED="1"
+declare -x PYTHON_SHA256="8d3ed8ec5c88c1c95f5e558612a725450d2452813ddad5e58fdb1a53b1209b78"
+declare -x PYTHON_VERSION="3.11.14"
+declare -x SHLVL="1"
+declare -x STRIPE_API_KEY="sk_test_emergent"
+declare -x UV_COMPILE_BYTECODE="1"
+declare -x VIRTUAL_ENV="/root/.venv"
+declare -x base_url="https://demobackend.emergentagent.com"
+declare -x code_server_password="ad3a5bc6"
+declare -x integration_proxy_url="https://integrations.emergentagent.com"
+declare -x monitor_polling_interval="1"
+declare -x preview_endpoint="https://case-access-control.preview.emergentagent.com"
+declare -x run_id="1dac797e-57e7-4dab-b589-30f592bca054" 라우터의 여러 프로시저에  역할에 대한 권한 검사 로직이 추가되었습니다.
 
 **Critical Info for New Agent**
--   **DB Migration Required:** The user **must** run Prisma schema loaded from prisma/schema.prisma
-Datasource "db": PostgreSQL database "paros", schema "public" at "127.0.0.1:5432" in their local environment. The database schema is out of sync with . New features related to template sample files will not work without this.
--   **AI Chat Architecture:** The AI chat no longer accepts the full transaction list. It uses tRPC Function Calling via . Do not try to pass large data payloads to it.
--   **User Environment:** The user has stated that the agent cannot log in or use screenshot testing, as the project runs exclusively in their local environment. All verification must be done by asking the user to test and report back.
--   **S3 Access:** The user has confirmed that S3 access works from their local environment. Any S3 errors are likely code bugs (like the incorrect function signature that was fixed), not environment configuration issues.
+- **즉시 해결 과제:**  파일의 JSX 문법 오류가 빌드를 막고 있으므로 가장 먼저 해결해야 합니다.
+- **Prisma Generate 필요:**  파일이 수정되었으므로, Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+
+✔ Generated Prisma Client (v6.6.0) to ./node_modules/@prisma/client in 258ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Want to react to database changes in your app as they happen? Discover how with Pulse: https://pris.ly/tip-1-pulse 명령을 실행하여 Prisma 클라이언트를 업데이트해야 합니다. 이 단계를 건너뛰면 타입 에러가 발생합니다.
+- **DB 마이그레이션:** 로컬 환경에 PostgreSQL이 설치되지 않아 Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "paros", schema "public" at "localhost:5432"가 실행되지 않았습니다.  역할이 DB에 반영되려면 이 명령을 실행해야 합니다.
+-  역할의 핵심은 Prisma 쿼리에서  필터를 제거하는 것입니다. 현재 구현이 모든 관련 API에서 일관되게 적용되었는지 반드시 검증해야 합니다.
 
 **documents and test reports created in this job**
--   None.
+-  (주기적으로 업데이트됨)
 
 **Last 10 User Messages and any pending HUMAN messages**
-10. **User**: The loan tracking modal needs an overhaul: auto-detect loans, let me select them, then show results in tabs. **(Status: COMPLETED)**
-9.  **User**: Also add a keyword search for loans as an option. **(Status: COMPLETED)**
-8.  **User**: The loan tracking results table (step 2) doesn't scroll. **(Status: COMPLETED)**
-7.  **User**: Add the memo to the tab titles in the loan tracking results (step 3). **(Status: COMPLETED)**
-6.  **User**: Critical: Fund transfers between my own accounts should not be counted as used loan funds. They should be marked as a Move. **(Status: COMPLETED)**
-5.  **User**: Loan selection (step 2) still doesn't scroll. Also, sort the results by confidence and improve the confidence scoring. **(Status: COMPLETED)**
-4.  **User**: The Excel download in the loan tracking results (step 3) downloads the wrong file. Also, don't limit the table to 10 rows. And sort Move transactions to the top for the same day. **(Status: IN PROGRESS - Excel issue pending verification, others complete)**
-3.  **User**: When I select a different template in the upload confirmation modal, I want a button to re-parse the sample data and see the new result immediately. **(Status: COMPLETED, PENDING USER VERIFICATION)**
-2.  **User**: A transaction is being incorrectly parsed as a deposit when it's a withdrawal. **(Status: BLOCKED - Diagnosed as template config issue, awaiting user action)**
-1.  **User**: The AI chat is hitting a 429 rate limit error. Can we use GPT-5? **(Status: COMPLETED)**
+1.  ** 역할 추가 요청:** 모든 회원의 사건 내역 조회 권한. (IN PROGRESS)
+2.  **nginx 요청 크기 1GB로 증가 요청.** (DONE)
+3.  **배포 서버에서 nginx 설정 적용 방법 문의.** (DONE - 가이드 제공)
+4.  **S3  에러 발생.** (DONE - 원인(리전 오타) 파악 및 UI 개선으로 해결)
+5.  **S3  에러 발생:** 암호화된 키가 그대로 전송되는 문제. (DONE - 복호화 로직 버그 수정)
+6.  **모바일 최적화 미비 문제 제기.** (DONE)
+7.  **상세 페이지에서 '도움말' 링크가 사라지는 문제.** (DONE - 공통 헤더로 해결)
+8.  **'템플릿 관리' 버튼이 대시보드에 나와야 한다는 요청.** (DONE)
+9.  **플로팅 버튼을 GNB 햄버거 메뉴로 변경 요청.** (DONE)
+10. **GNB 브랜딩을 법무법인 파로스로 변경 요청.** (DONE)
 
 **Project Health Check:**
--   **Broken**: The database schema is out of sync with . This is a critical blocker for template-related features and must be resolved by the user.
+- **Broken:**  파일의 JSX 에러로 인해 프로젝트가 빌드되지 않는 상태입니다.  역할 기능도 미완성입니다.
+- **Mocked:** 없음.
 
 **3rd Party Integrations**
--   **OpenAI**: GPT-4o-mini and GPT-5 () via Function Calling for AI Chat.
--   **Upstage Solar**: For core PDF OCR and layout analysis.
--   **pdf-lib**: Used for splitting large PDF files.
+- **AWS S3:** 파일 저장소로 사용. 사용자의 , , , 이 필요합니다.
 
 **Testing status**
--   **Testing agent used after significant changes:** NO
--   **Troubleshoot agent used after agent stuck in loop:** NO
--   **Test files created**: []
--   **Known regressions**: None.
+- Testing agent used after significant changes: YES
+- Troubleshoot agent used after agent stuck in loop: NO
+- Test files created: 없음
+- Known regressions: 없음
 
 **Credentials to test flow:**
--   **Agent cannot test.** The user has explicitly stated that login and screenshot testing are not possible as the application runs in a local-only environment. All functionality must be verified by the user.
+- 제공되지 않았습니다.  역할 테스트를 위해 데이터베이스에 직접 테스트 사용자를 생성해야 합니다.
 
 **What agent forgot to execute**
--   The agent did not (and could not) run the database migration (Prisma schema loaded from prisma/schema.prisma
-Datasource "db": PostgreSQL database "paros", schema "public" at "127.0.0.1:5432"). It correctly identified this as a user-side action and must remind the user to perform it.</analysis>
+-  파일 수정 후 Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+
+✔ Generated Prisma Client (v6.6.0) to ./node_modules/@prisma/client in 208ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Need your database queries to be 1000x faster? Accelerate offers you that and more: https://pris.ly/tip-2-accelerate 명령을 실행하지 않았습니다. 이로 인해 Prisma 클라이언트가 새로운  enum 값을 인식하지 못해 타입 에러가 발생할 수 있습니다.
+-  사용자를 위해 사건 목록에 변호사 이름을 표시하는 백엔드 로직은 추가했으나, 이를 실제로 보여주는 프론트엔드 UI() 수정은 누락되었습니다.</analysis>

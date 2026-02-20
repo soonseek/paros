@@ -83,7 +83,7 @@ export const findingsRouter = createTRPCRouter({
       }
 
       // Case lawyer가 아니고 Admin도 아닌 경우 거부
-      if (caseData.lawyerId !== userId && user.role !== "ADMIN") {
+      if (caseData.lawyerId !== userId && user.role !== "ADMIN" && user.role !== "SUPER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "Finding 조회 권한이 없습니다.",
@@ -165,7 +165,7 @@ export const findingsRouter = createTRPCRouter({
       }
 
       // Case lawyer가 아니고 Admin도 아닌 경우 거부
-      if (caseData.lawyerId !== userId && user.role !== "ADMIN") {
+      if (caseData.lawyerId !== userId && user.role !== "ADMIN" && user.role !== "SUPER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "발견사항 분석 권한이 없습니다.",
@@ -238,7 +238,7 @@ export const findingsRouter = createTRPCRouter({
       }
 
       // Case lawyer가 아니고 Admin도 아닌 경우 거부
-      if (finding.case.lawyerId !== userId && user.role !== "ADMIN") {
+      if (finding.case.lawyerId !== userId && user.role !== "ADMIN" && user.role !== "SUPER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "Finding 해결 권한이 없습니다.",
@@ -318,7 +318,7 @@ export const findingsRouter = createTRPCRouter({
       }
 
       // Case lawyer가 아니고 Admin도 아닌 경우 거부
-      if (finding.case.lawyerId !== userId && user.role !== "ADMIN") {
+      if (finding.case.lawyerId !== userId && user.role !== "ADMIN" && user.role !== "SUPER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "Finding 상태 변경 권한이 없습니다.",
@@ -395,7 +395,7 @@ export const findingsRouter = createTRPCRouter({
       }
 
       // Case lawyer가 아니고 Admin도 아닌 경우 거부
-      if (caseData.lawyerId !== userId && user.role !== "ADMIN") {
+      if (caseData.lawyerId !== userId && user.role !== "ADMIN" && user.role !== "SUPER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "Finding 통계 조회 권한이 없습니다.",
@@ -625,7 +625,7 @@ export const findingsRouter = createTRPCRouter({
         });
       }
 
-      if (finding.case.lawyerId !== userId && user.role !== "ADMIN") {
+      if (finding.case.lawyerId !== userId && user.role !== "ADMIN" && user.role !== "SUPER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "메모 조회 권한이 없습니다.",
@@ -718,7 +718,7 @@ export const findingsRouter = createTRPCRouter({
         });
       }
 
-      if (caseData.lawyerId !== userId && user.role !== "ADMIN") {
+      if (caseData.lawyerId !== userId && user.role !== "ADMIN" && user.role !== "SUPER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "채권자 목록 조회 권한이 없습니다.",
@@ -796,7 +796,7 @@ export const findingsRouter = createTRPCRouter({
         });
       }
 
-      if (finding.case.lawyerId !== userId && user.role !== "ADMIN") {
+      if (finding.case.lawyerId !== userId && user.role !== "ADMIN" && user.role !== "SUPER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "Finding 중요도 수정 권한이 없습니다.",
@@ -877,7 +877,7 @@ export const findingsRouter = createTRPCRouter({
         });
       }
 
-      if (finding.case.lawyerId !== userId && user.role !== "ADMIN") {
+      if (finding.case.lawyerId !== userId && user.role !== "ADMIN" && user.role !== "SUPER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "Finding 중요도 재설정 권한이 없습니다.",

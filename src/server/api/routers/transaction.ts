@@ -88,7 +88,7 @@ export const transactionRouter = createTRPCRouter({
       }
 
       // Case lawyer가 아니고 Admin도 아닌 경우 거부
-      if (document.case.lawyerId !== userId && user.role !== "ADMIN") {
+      if (document.case.lawyerId !== userId && user.role !== "ADMIN" && user.role !== "SUPER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "거래 분류를 수행할 권한이 없습니다.",
@@ -370,7 +370,7 @@ export const transactionRouter = createTRPCRouter({
         });
       }
 
-      if (document.case.lawyerId !== userId && user.role !== "ADMIN") {
+      if (document.case.lawyerId !== userId && user.role !== "ADMIN" && user.role !== "SUPER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "거래 조회 권한이 없습니다.",
@@ -1021,7 +1021,7 @@ export const transactionRouter = createTRPCRouter({
         select: { role: true },
       });
 
-      if (!user || user.role !== "ADMIN") {
+      if (!user || user.role !== "ADMIN" && user.role !== "SUPER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "분류 오류 조회는 관리자만 가능합니다.",
@@ -1108,7 +1108,7 @@ export const transactionRouter = createTRPCRouter({
         select: { role: true },
       });
 
-      if (!user || user.role !== "ADMIN") {
+      if (!user || user.role !== "ADMIN" && user.role !== "SUPER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "오류 해결은 관리자만 가능합니다.",
@@ -1406,7 +1406,7 @@ export const transactionRouter = createTRPCRouter({
         select: { role: true },
       });
 
-      if (document.case.lawyerId !== userId && user?.role !== "ADMIN") {
+      if (document.case.lawyerId !== userId && user?.role !== "ADMIN" && user?.role !== "SUPER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "이 문서의 거래내역을 삭제할 권한이 없습니다",
@@ -1506,6 +1506,9 @@ export const transactionRouter = createTRPCRouter({
       });
 
       // 2. DB에서 직접 필터링 (금액 >= minAmount)
+      // 디버깅 로그
+      console.log(`[filterByAmount] 시작 - caseId: ${caseId}, minAmount: ${minAmount}, documentId: ${documentId || 'all'}`);
+
       const whereClause: Record<string, unknown> = {
         caseId,
         OR: [
@@ -1537,26 +1540,85 @@ export const transactionRouter = createTRPCRouter({
         orderBy: { transactionDate: "asc" },
       });
 
-      // 3. 통계 계산
-      const depositCount = transactions.filter(tx => 
-        tx.depositAmount && Number(tx.depositAmount) >= minAmount
-      ).length;
-      const withdrawalCount = transactions.filter(tx => 
-        tx.withdrawalAmount && Number(tx.withdrawalAmount) >= minAmount
-      ).length;
+      console.log(`[filterByAmount] DB 조회 결과: ${transactions.length}건`);
 
-      return {
-        transactions: transactions.map(tx => ({
+      // 3. 통계 계산 (수정: 금액 비교 시 정확한 타입 변환)
+      // 입금건: depositAmount가 minAmount 이상이고, 실제로 입금액이 있는 경우
+      const depositCount = transactions.filter(tx => {
+        const depositAmt = tx.depositAmount ? Number(tx.depositAmount) : 0;
+        return depositAmt >= minAmount && depositAmt > 0;
+      }).length;
+
+      // 출금건: withdrawalAmount가 minAmount 이상이고, 실제로 출금액이 있는 경우
+      const withdrawalCount = transactions.filter(tx => {
+        const withdrawalAmt = tx.withdrawalAmount ? Number(tx.withdrawalAmount) : 0;
+        return withdrawalAmt >= minAmount && withdrawalAmt > 0;
+      }).length;
+
+      console.log(`[filterByAmount] 통계 - 입금: ${depositCount}건, 출금: ${withdrawalCount}건`);
+
+      // 4. 거래 유형 판별 로직 (수정: 정확한 금액 비교)
+      const mappedTransactions = transactions.map(tx => {
+        const depositAmt = tx.depositAmount ? Number(tx.depositAmount) : 0;
+        const withdrawalAmt = tx.withdrawalAmount ? Number(tx.withdrawalAmount) : 0;
+        
+        // 입금건 판별: 입금액이 minAmount 이상이고 0보다 큼
+        // 출금건 판별: 출금액이 minAmount 이상이고 0보다 큼
+        // 둘 다 해당되면 금액이 더 큰 쪽으로 결정
+        let type: "입금" | "출금";
+        let amount: number;
+
+        const isDeposit = depositAmt >= minAmount && depositAmt > 0;
+        const isWithdrawal = withdrawalAmt >= minAmount && withdrawalAmt > 0;
+
+        if (isDeposit && isWithdrawal) {
+          // 둘 다 조건 만족하면 금액이 큰 쪽 선택
+          if (depositAmt >= withdrawalAmt) {
+            type = "입금";
+            amount = depositAmt;
+          } else {
+            type = "출금";
+            amount = withdrawalAmt;
+          }
+        } else if (isDeposit) {
+          type = "입금";
+          amount = depositAmt;
+        } else if (isWithdrawal) {
+          type = "출금";
+          amount = withdrawalAmt;
+        } else {
+          // 어느 쪽도 minAmount 이상이 아님 (이론상 여기 오면 안됨 - OR 쿼리 결과이므로)
+          // 하지만 안전을 위해 0이 아닌 쪽 선택
+          console.warn(`[filterByAmount] 경고: 거래 ${tx.id}가 조건에 맞지 않음 - deposit: ${depositAmt}, withdrawal: ${withdrawalAmt}, minAmount: ${minAmount}`);
+          if (depositAmt > 0) {
+            type = "입금";
+            amount = depositAmt;
+          } else {
+            type = "출금";
+            amount = withdrawalAmt;
+          }
+        }
+
+        // 디버깅: 각 거래의 원본 데이터 로그 (처음 5건만)
+        if (transactions.indexOf(tx) < 5) {
+          console.log(`[filterByAmount] 거래 상세 - id: ${tx.id.slice(0,8)}, depositAmount: ${depositAmt}, withdrawalAmount: ${withdrawalAmt}, type: ${type}, amount: ${amount}`);
+        }
+
+        return {
           id: tx.id,
           transactionDate: tx.transactionDate.toISOString(),
-          type: tx.depositAmount && Number(tx.depositAmount) > 0 ? "입금" as const : "출금" as const,
-          amount: tx.depositAmount && Number(tx.depositAmount) > 0 
-            ? Number(tx.depositAmount) 
-            : Number(tx.withdrawalAmount),
+          type,
+          amount,
           balance: Number(tx.balance) || 0,
           memo: tx.memo || "",
           documentName: tx.document?.originalFileName || "",
-        })),
+        };
+      });
+
+      console.log(`[filterByAmount] 완료 - 총 ${mappedTransactions.length}건 반환`);
+
+      return {
+        transactions: mappedTransactions,
         summary: {
           total: transactions.length,
           depositCount,

@@ -37,6 +37,7 @@ import { FileUploadZone } from "~/components/upload-zone";
 import { ExportOptionsModal } from "~/components/export/export-options-modal";
 import { api } from "~/utils/api";
 import { useAuth } from "~/contexts/AuthContext";
+import { AppHeader } from "~/components/app-header";
 import { toast } from "sonner";
 import { useI18n } from "~/lib/i18n/index";
 
@@ -528,12 +529,11 @@ const CaseDetailPage: NextPage = () => {
   // Prevent SSR hydration mismatch
   if (!mounted) {
     return (
-      <div className="container mx-auto py-8 px-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-center py-12 bg-gray-50 rounded-lg">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3" />
-            <p className="text-gray-600">로딩 중...</p>
-          </div>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <AppHeader showBack backHref="/cases" />
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3" />
+          <p className="text-gray-600 dark:text-gray-400">로딩 중...</p>
         </div>
       </div>
     );
@@ -547,12 +547,11 @@ const CaseDetailPage: NextPage = () => {
   // Loading state
   if (isPending) {
     return (
-      <div className="container mx-auto py-8 px-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-center py-12 bg-gray-50 rounded-lg">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3" />
-            <p className="text-gray-600">로딩 중...</p>
-          </div>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <AppHeader showBack backHref="/cases" />
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3" />
+          <p className="text-gray-600 dark:text-gray-400">로딩 중...</p>
         </div>
       </div>
     );
@@ -564,17 +563,18 @@ const CaseDetailPage: NextPage = () => {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="max-w-[1920px] mx-auto">
-        {/* Header with navigation - 간소화된 버튼 구성 */}
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">사건 상세</h1>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => void router.push("/cases")}>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <AppHeader showBack backHref="/cases" />
+      <div className="px-2 sm:px-4 py-3 sm:py-6 max-w-[1920px] mx-auto">
+        {/* Header with navigation */}
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-4 sm:mb-6">
+          <h1 className="text-xl sm:text-3xl font-bold dark:text-gray-100">사건 상세</h1>
+          <div className="flex gap-1.5 sm:gap-2 flex-wrap">
+            <Button variant="outline" size="sm" onClick={() => void router.push("/cases")}>
               목록
             </Button>
 
-            {/* Upload Button - 핵심 기능 */}
+            {/* Upload Button */}
             <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
               <DialogTrigger asChild>
                 <Button variant="default">
@@ -628,18 +628,18 @@ const CaseDetailPage: NextPage = () => {
         </div>
 
         {/* 메인 영역: 거래내역(좌) + AI 어시스턴트(우) 2열 배치 */}
-        <div className="grid grid-cols-1 xl:grid-cols-5 gap-6 mb-6">
+        <div className="grid grid-cols-1 xl:grid-cols-5 gap-3 sm:gap-6 mb-3 sm:mb-6">
           {/* 왼쪽 60%: 거래내역 테이블 */}
           <div className="xl:col-span-3">
-            <Card className="p-6 h-full">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">거래내역</h2>
+            <Card className="p-3 sm:p-6 h-full">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-3 sm:mb-4">
+                <h2 className="text-lg sm:text-xl font-bold dark:text-gray-100">거래내역</h2>
                 {documents && documents.length > 0 && (
                   <div className="flex gap-2 items-center">
                     <select
                       value={selectedDocumentId ?? "all"}
                       onChange={(e) => setSelectedDocumentId(e.target.value === "all" ? null : e.target.value)}
-                      className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                      className="px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md text-xs sm:text-sm max-w-[200px] truncate"
                     >
                       <option value="all">전체 파일</option>
                       {documents.map((doc) => (
@@ -718,12 +718,12 @@ const CaseDetailPage: NextPage = () => {
           </div>
         </div>
 
-        {/* Story 6.2: Split View Layout - 왼쪽 40% 발견사항, 오른쪽 60% 사건 정보 */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        {/* Story 6.2: Split View Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 sm:gap-6">
           {/* 왼쪽 40%: 발견사항 목록 */}
           <div className="lg:col-span-2">
-            <Card className="p-6">
-              <h2 className="text-xl font-bold mb-4">발견사항</h2>
+            <Card className="p-3 sm:p-6">
+              <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4 dark:text-gray-100">발견사항</h2>
               {findings && findings.length > 0 ? (
                 <FindingList
                   findings={findings as Finding[]}
@@ -742,12 +742,12 @@ const CaseDetailPage: NextPage = () => {
           </div>
 
           {/* 오른쪽 60%: 사건 정보 및 메모 */}
-          <div className="lg:col-span-3 space-y-6">
+          <div className="lg:col-span-3 space-y-3 sm:space-y-6">
             {/* Case Details Card */}
-            <Card className="p-6">
-              <div className="space-y-6">
+            <Card className="p-3 sm:p-6">
+              <div className="space-y-4 sm:space-y-6">
                 {/* Case Number */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                   <div>
                     <h3 className="text-sm font-medium text-gray-500">사건번호</h3>
                     <p className="mt-1 text-lg font-semibold text-gray-900">

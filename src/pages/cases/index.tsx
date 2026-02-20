@@ -7,6 +7,7 @@ import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { api } from "~/utils/api";
 import { useAuth } from "~/contexts/AuthContext";
+import { AppHeader } from "~/components/app-header";
 import { toast } from "sonner";
 
 /**
@@ -36,9 +37,30 @@ const statusLabels: Record<string, string> = {
 // Korean status labels for display
 const getStatusLabel = (status: string) => statusLabels[status] || status;
 
+// SUPER/ADMIN용 변호사 정보 타입
+interface LawyerInfo {
+  id: string;
+  name: string | null;
+  email: string;
+}
+
+// 변호사 정보를 안전하게 가져오는 헬퍼 함수
+const getLawyerName = (caseItem: unknown): string | null => {
+  if (typeof caseItem === 'object' && caseItem !== null && 'lawyer' in caseItem) {
+    const lawyer = (caseItem as { lawyer?: LawyerInfo }).lawyer;
+    if (lawyer) {
+      return lawyer.name || lawyer.email;
+    }
+  }
+  return null;
+};
+
 const CasesIndexPage: NextPage = () => {
   const router = useRouter();
   const { user } = useAuth();
+
+  // SUPER/ADMIN은 모든 사건을 조회할 수 있음
+  const isSuperOrAdmin = user?.role === "SUPER" || user?.role === "ADMIN";
 
   // Filter state
   const [search, setSearch] = useState("");
@@ -105,21 +127,22 @@ const CasesIndexPage: NextPage = () => {
   };
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <AppHeader showBack backHref="/dashboard" />
+      <div className="px-3 sm:px-4 py-4 sm:py-8 max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">
+        <div className="flex justify-between items-center mb-4 sm:mb-6">
+          <h1 className="text-xl sm:text-3xl font-bold">
             {showArchived ? "아카이브된 사건" : "사건 목록"}
           </h1>
-          <Button onClick={() => router.push("/cases/new")}>
+          <Button size="sm" onClick={() => router.push("/cases/new")}>
             새 사건 등록
           </Button>
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-3 sm:p-6 mb-4 sm:mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {/* Search */}
             <div>
               <Label htmlFor="search">검색</Label>
@@ -216,95 +239,89 @@ const CasesIndexPage: NextPage = () => {
         {data && !isPending && !error && (
           <>
             {data.cases.length === 0 ? (
-              /* Empty State */
-              <div className="text-center py-12 bg-gray-50 rounded-lg">
-                <p className="text-gray-600 mb-4">등록된 사건이 없습니다</p>
+              <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <p className="text-gray-600 dark:text-gray-400 mb-4">등록된 사건이 없습니다</p>
                 <Button onClick={() => router.push("/cases/new")}>
                   새 사건 등록하기
                 </Button>
               </div>
             ) : (
               <>
-                {/* Table */}
-                <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                {/* Mobile Card View */}
+                <div className="sm:hidden space-y-3">
+                  {data.cases.map((caseItem) => (
+                    <div
+                      key={caseItem.id}
+                      className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 cursor-pointer active:bg-gray-50 dark:active:bg-gray-700 border dark:border-gray-700"
+                      onClick={() => handleRowClick(caseItem.id)}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">{caseItem.debtorName}</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">{caseItem.caseNumber}</p>
+                          {/* SUPER/ADMIN: 변호사 이름 표시 */}
+                          {isSuperOrAdmin && getLawyerName(caseItem) && (
+                            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                              담당: {getLawyerName(caseItem)}
+                            </p>
+                          )}
+                        </div>
+                        <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full flex-shrink-0 ${statusColors[caseItem.status] || "bg-gray-100 text-gray-800"}`}>
+                          {getStatusLabel(caseItem.status)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                        <span>{caseItem.courtName || "-"}</span>
+                        <span>{caseItem.filingDate ? new Date(caseItem.filingDate).toLocaleDateString("ko-KR") : "-"}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Desktop Table */}
+                <div className="hidden sm:block bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full">
-                      <thead className="bg-gray-50 border-b">
+                      <thead className="bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
                         <tr>
-                          <th
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                            onClick={() => handleSort("caseNumber")}
-                          >
-                            사건번호
-                            {sortBy === "caseNumber" && (
-                              <span>{sortOrder === "asc" ? " ↑" : " ↓"}</span>
-                            )}
+                          <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600" onClick={() => handleSort("caseNumber")}>
+                            사건번호 {sortBy === "caseNumber" && <span>{sortOrder === "asc" ? "↑" : "↓"}</span>}
                           </th>
-                          <th
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                            onClick={() => handleSort("debtorName")}
-                          >
-                            채무자명
-                            {sortBy === "debtorName" && (
-                              <span>{sortOrder === "asc" ? " ↑" : " ↓"}</span>
-                            )}
+                          <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600" onClick={() => handleSort("debtorName")}>
+                            채무자명 {sortBy === "debtorName" && <span>{sortOrder === "asc" ? "↑" : "↓"}</span>}
                           </th>
-                          <th
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                            onClick={() => handleSort("courtName")}
-                          >
-                            법원명
-                            {sortBy === "courtName" && (
-                              <span>{sortOrder === "asc" ? " ↑" : " ↓"}</span>
-                            )}
+                          {/* SUPER/ADMIN: 담당 변호사 컬럼 */}
+                          {isSuperOrAdmin && (
+                            <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                              담당 변호사
+                            </th>
+                          )}
+                          <th className="hidden md:table-cell px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600" onClick={() => handleSort("courtName")}>
+                            법원명 {sortBy === "courtName" && <span>{sortOrder === "asc" ? "↑" : "↓"}</span>}
                           </th>
-                          <th
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                            onClick={() => handleSort("filingDate")}
-                          >
-                            접수일자
-                            {sortBy === "filingDate" && (
-                              <span>{sortOrder === "asc" ? " ↑" : " ↓"}</span>
-                            )}
+                          <th className="hidden lg:table-cell px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600" onClick={() => handleSort("filingDate")}>
+                            접수일자 {sortBy === "filingDate" && <span>{sortOrder === "asc" ? "↑" : "↓"}</span>}
                           </th>
-                          <th
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                            onClick={() => handleSort("status")}
-                          >
-                            상태
-                            {sortBy === "status" && (
-                              <span>{sortOrder === "asc" ? " ↑" : " ↓"}</span>
-                            )}
+                          <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600" onClick={() => handleSort("status")}>
+                            상태 {sortBy === "status" && <span>{sortOrder === "asc" ? "↑" : "↓"}</span>}
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                      <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                         {data.cases.map((caseItem) => (
-                          <tr
-                            key={caseItem.id}
-                            className="hover:bg-gray-50 cursor-pointer"
-                            onClick={() => handleRowClick(caseItem.id)}
-                          >
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              {caseItem.caseNumber}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {caseItem.debtorName}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {caseItem.courtName || "-"}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {caseItem.filingDate
-                                ? new Date(caseItem.filingDate).toLocaleDateString("ko-KR")
-                                : "-"}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span
-                                className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                  statusColors[caseItem.status] || "bg-gray-100 text-gray-800"
-                                }`}
-                              >
+                          <tr key={caseItem.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer" onClick={() => handleRowClick(caseItem.id)}>
+                            <td className="px-4 lg:px-6 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">{caseItem.caseNumber}</td>
+                            <td className="px-4 lg:px-6 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{caseItem.debtorName}</td>
+                            {/* SUPER/ADMIN: 변호사 이름 표시 */}
+                            {isSuperOrAdmin && (
+                              <td className="px-4 lg:px-6 py-3 whitespace-nowrap text-sm text-blue-600 dark:text-blue-400">
+                                {getLawyerName(caseItem) || "-"}
+                              </td>
+                            )}
+                            <td className="hidden md:table-cell px-4 lg:px-6 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{caseItem.courtName || "-"}</td>
+                            <td className="hidden lg:table-cell px-4 lg:px-6 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{caseItem.filingDate ? new Date(caseItem.filingDate).toLocaleDateString("ko-KR") : "-"}</td>
+                            <td className="px-4 lg:px-6 py-3 whitespace-nowrap">
+                              <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[caseItem.status] || "bg-gray-100 text-gray-800"}`}>
                                 {getStatusLabel(caseItem.status)}
                               </span>
                             </td>
@@ -316,30 +333,14 @@ const CasesIndexPage: NextPage = () => {
                 </div>
 
                 {/* Pagination */}
-                <div className="flex items-center justify-between mt-6">
-                  <div className="text-sm text-gray-700">
-                    총 {data.total}건 중 {(currentPage - 1) * data.pageSize + 1}-
-                    {Math.min(currentPage * data.pageSize, data.total)}건 표시
+                <div className="flex flex-col sm:flex-row items-center justify-between mt-4 sm:mt-6 gap-3">
+                  <div className="text-sm text-gray-700 dark:text-gray-400">
+                    총 {data.total}건 중 {(currentPage - 1) * data.pageSize + 1}-{Math.min(currentPage * data.pageSize, data.total)}건
                   </div>
-
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => setCurrentPage((prev) => prev - 1)}
-                      disabled={!data.hasPrevPage || isPending}
-                    >
-                      이전
-                    </Button>
-                    <span className="flex items-center px-4">
-                      페이지 {currentPage} / {data.totalPages}
-                    </span>
-                    <Button
-                      variant="outline"
-                      onClick={() => setCurrentPage((prev) => prev + 1)}
-                      disabled={!data.hasNextPage || isPending}
-                    >
-                      다음
-                    </Button>
+                  <div className="flex gap-2 items-center">
+                    <Button variant="outline" size="sm" onClick={() => setCurrentPage((prev) => prev - 1)} disabled={!data.hasPrevPage || isPending}>이전</Button>
+                    <span className="text-sm px-2">{currentPage} / {data.totalPages}</span>
+                    <Button variant="outline" size="sm" onClick={() => setCurrentPage((prev) => prev + 1)} disabled={!data.hasNextPage || isPending}>다음</Button>
                   </div>
                 </div>
               </>
