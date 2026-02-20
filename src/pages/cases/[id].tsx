@@ -718,12 +718,12 @@ const CaseDetailPage: NextPage = () => {
           </div>
         </div>
 
-        {/* Story 6.2: Split View Layout - 왼쪽 40% 발견사항, 오른쪽 60% 사건 정보 */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        {/* Story 6.2: Split View Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 sm:gap-6">
           {/* 왼쪽 40%: 발견사항 목록 */}
           <div className="lg:col-span-2">
-            <Card className="p-6">
-              <h2 className="text-xl font-bold mb-4">발견사항</h2>
+            <Card className="p-3 sm:p-6">
+              <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4 dark:text-gray-100">발견사항</h2>
               {findings && findings.length > 0 ? (
                 <FindingList
                   findings={findings as Finding[]}
