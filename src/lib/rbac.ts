@@ -140,9 +140,9 @@ export async function canManageCaseNote(
     return false;
   }
 
-  // For adding new notes, LAWYER, PARALEGAL, SUPPORT can add notes to cases they can access
+  // For adding new notes, LAWYER, PARALEGAL, SUPPORT, SUPER can add notes to cases they can access
   if (!noteAuthorId) {
-    return user.role === "LAWYER" || user.role === "PARALEGAL" || user.role === "SUPPORT";
+    return user.role === "LAWYER" || user.role === "PARALEGAL" || user.role === "SUPPORT" || user.role === "SUPER";
   }
 
   // For modifying/deleting notes, only the note author can modify their own notes
