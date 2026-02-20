@@ -2446,6 +2446,8 @@ export const transactionRouter = createTRPCRouter({
           });
 
           // 출금 내역 추적
+          console.log(`[trackMultipleLoans] 출금 내역 수: ${withdrawals.length}건`);
+          
           for (const tx of withdrawals) {
             const withdrawal = Math.abs(Number(tx.withdrawalAmount)); // 절대값 사용
             const memo = tx.memo || "";
@@ -2455,6 +2457,11 @@ export const transactionRouter = createTRPCRouter({
             // 동일 일자 + 동일 금액의 입금이 다른 계좌에 있는지 확인 (이동 매칭)
             const matchedDeposit = depositMatchMap.get(matchKey);
             const isTransferToOtherAccount = matchedDeposit && !usedDepositKeys.has(matchKey);
+            
+            // 디버깅: 처음 5건 출금에 대해 매칭 시도 로그
+            if (trackedItems.length < 6) {
+              console.log(`[trackMultipleLoans] 출금 매칭 시도: ${dateStr}, ${withdrawal.toLocaleString()}원, key=${matchKey}, matched=${!!matchedDeposit}, isTransfer=${isTransferToOtherAccount}`);
+            }
 
             if (isTransferToOtherAccount) {
               // 이동: 대출금 잔여액에서 차감하지 않음 (상쇄)
