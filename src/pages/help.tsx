@@ -239,6 +239,11 @@ function GuideContent({ sectionId }: { sectionId: string }) {
                 <td className="px-4 py-3 text-gray-600 dark:text-gray-400">모든 권한 + AI 설정, 템플릿 관리, S3 설정</td>
               </tr>
               <tr className="bg-white dark:bg-gray-900">
+                <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">슈퍼 관리자 (SUPER)</td>
+                <td className="px-4 py-3 text-gray-600 dark:text-gray-400">최고 관리자</td>
+                <td className="px-4 py-3 text-gray-600 dark:text-gray-400">모든 회원의 사건 조회/수정 + 관리자 설정 + 모든 기능</td>
+              </tr>
+              <tr className="bg-white dark:bg-gray-900">
                 <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">지원팀 (SUPPORT)</td>
                 <td className="px-4 py-3 text-gray-600 dark:text-gray-400">기술 지원 인력</td>
                 <td className="px-4 py-3 text-gray-600 dark:text-gray-400">제한된 조회 권한</td>
