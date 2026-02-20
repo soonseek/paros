@@ -1434,18 +1434,29 @@ export default function HelpPage() {
       {/* 상단 헤더 */}
       <header className="border-b bg-white dark:bg-gray-800 dark:border-gray-700 sticky top-0 z-30">
         <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <Link href={isAuthenticated ? "/dashboard" : "/login"} className="flex items-center gap-2 group" data-testid="help-home-link">
-              <ArrowLeft className="h-4 w-4 text-gray-500 dark:text-gray-400 group-hover:text-blue-600 transition-colors" />
-              <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">법무법인 파로스</h1>
-            </Link>
+          <div className="flex items-center gap-3">
+            {/* 햄버거 메뉴 (모바일 + 데스크톱 공통) */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-1.5 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-200 transition-colors lg:hidden"
+              data-testid="help-hamburger-menu"
+            >
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+            <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">법무법인 파로스</h1>
             <span className="text-gray-300 dark:text-gray-600">|</span>
             <div className="flex items-center gap-1.5">
               <HelpCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">도움말</span>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            {isAuthenticated && user?.role === "ADMIN" && (
+              <Button variant="outline" size="sm" onClick={() => router.push("/admin/templates")} data-testid="help-templates-link">
+                <FileSpreadsheet className="h-4 w-4 mr-1.5" />
+                <span className="hidden sm:inline">템플릿 관리</span>
+              </Button>
+            )}
             <ThemeToggleButton />
             {isAuthenticated ? (
               <Button variant="outline" size="sm" onClick={() => router.push("/dashboard")} data-testid="help-dashboard-link">
