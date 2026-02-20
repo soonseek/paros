@@ -21,10 +21,12 @@ import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 
 /**
  * Helper function to verify case ownership and existence
+ * SUPER and ADMIN can access any case
  *
  * @param db - Prisma client instance
  * @param caseId - Case ID to verify
  * @param userId - User ID to check ownership against
+ * @param userRole - User role for RBAC bypass
  * @returns The case if found and owned by user
  * @throws TRPCError with NOT_FOUND if case doesn't exist
  * @throws TRPCError with FORBIDDEN if user doesn't own the case
@@ -32,7 +34,8 @@ import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 async function verifyCaseOwnership(
   db: PrismaClient,
   caseId: string,
-  userId: string
+  userId: string,
+  userRole?: Role
 ): Promise<Case> {
   const existingCase = await db.case.findUnique({
     where: { id: caseId },
@@ -43,6 +46,11 @@ async function verifyCaseOwnership(
       code: "NOT_FOUND",
       message: "사건을 찾을 수 없습니다",
     });
+  }
+
+  // SUPER can access any case
+  if (userRole === Role.SUPER || userRole === Role.ADMIN) {
+    return existingCase;
   }
 
   if (existingCase.lawyerId !== userId) {
