@@ -233,14 +233,14 @@ const TemplatesPage: NextPage = () => {
     onError: (error) => toast.error(error.message),
   });
 
-  // Auth check
+  // Auth check - ADMIN 또는 SUPER만 접근 가능
   useEffect(() => {
-    if (user && user.role !== "ADMIN") {
+    if (user && user.role !== "ADMIN" && user.role !== "SUPER") {
       void router.push("/cases");
     }
   }, [user, router]);
 
-  if (!user || user.role !== "ADMIN") {
+  if (!user || (user.role !== "ADMIN" && user.role !== "SUPER")) {
     return (
       <div className="flex items-center justify-center h-screen">
         <Loader2 className="h-8 w-8 animate-spin" />
