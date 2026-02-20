@@ -45,8 +45,15 @@ export default function DashboardPage() {
       {/* Header */}
       <header className="border-b bg-white dark:bg-gray-800 dark:border-gray-700">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center flex-wrap gap-4">
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">paros BMAD</h1>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">법무법인 파로스</h1>
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.push("/help")}
+              className="text-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium"
+              data-testid="help-nav-link"
+            >
+              도움말
+            </button>
             <ThemeToggleButton />
             {user?.role === 'ADMIN' && (
               <Button

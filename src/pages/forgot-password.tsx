@@ -111,6 +111,17 @@ export default function ForgotPasswordPage() {
                 로그인 페이지로 돌아가기
               </a>
             </div>
+
+            {/* Help Link */}
+            <div className="text-center text-sm">
+              <a
+                href="/help"
+                className="font-medium text-gray-500 hover:text-blue-600 transition-colors"
+                data-testid="help-nav-link"
+              >
+                도움말
+              </a>
+            </div>
           </form>
         </CardContent>
       </Card>

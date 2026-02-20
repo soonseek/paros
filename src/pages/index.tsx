@@ -19,7 +19,7 @@ export default function Home() {
   return (
     <div className="flex min-h-screen items-center justify-center">
       <div className="text-center">
-        <h1 className="text-2xl font-bold">paros</h1>
+        <h1 className="text-2xl font-bold">법무법인 파로스</h1>
         <p className="mt-2 text-gray-600">로딩 중...</p>
       </div>
     </div>
