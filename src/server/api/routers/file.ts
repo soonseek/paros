@@ -270,7 +270,7 @@ export const fileRouter = createTRPCRouter({
       });
 
       // Only Case lawyer or Admin can upload files
-      if (targetCase.lawyerId !== userId && user?.role !== "ADMIN") {
+      if (targetCase.lawyerId !== userId && user?.role !== "ADMIN" && user?.role !== "SUPER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "이 사건에 파일을 업로드할 권한이 없습니다",
@@ -513,7 +513,7 @@ export const fileRouter = createTRPCRouter({
         select: { role: true },
       });
 
-      if (document.case.lawyerId !== userId && user?.role !== "ADMIN") {
+      if (document.case.lawyerId !== userId && user?.role !== "ADMIN" && user?.role !== "SUPER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "이 문서를 분석할 권한이 없습니다",
@@ -701,7 +701,7 @@ export const fileRouter = createTRPCRouter({
         select: { role: true },
       });
 
-      if (document.case.lawyerId !== userId && user?.role !== "ADMIN") {
+      if (document.case.lawyerId !== userId && user?.role !== "ADMIN" && user?.role !== "SUPER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "이 문서의 분석 결과를 조회할 권한이 없습니다",
@@ -801,7 +801,7 @@ export const fileRouter = createTRPCRouter({
         select: { role: true },
       });
 
-      if (document.case.lawyerId !== userId && user?.role !== "ADMIN") {
+      if (document.case.lawyerId !== userId && user?.role !== "ADMIN" && user?.role !== "SUPER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "이 문서의 데이터를 추출할 권한이 없습니다",
@@ -1048,7 +1048,7 @@ export const fileRouter = createTRPCRouter({
         select: { role: true },
       });
 
-      if (document.case.lawyerId !== userId && user?.role !== "ADMIN") {
+      if (document.case.lawyerId !== userId && user?.role !== "ADMIN" && user?.role !== "SUPER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "이 문서를 조회할 권한이 없습니다",
@@ -1141,7 +1141,7 @@ export const fileRouter = createTRPCRouter({
         select: { role: true },
       });
 
-      if (document.case.lawyerId !== userId && user?.role !== "ADMIN") {
+      if (document.case.lawyerId !== userId && user?.role !== "ADMIN" && user?.role !== "SUPER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "이 문서를 삭제할 권한이 없습니다",
@@ -1235,7 +1235,7 @@ export const fileRouter = createTRPCRouter({
         select: { role: true },
       });
 
-      if (document.case.lawyerId !== userId && user?.role !== "ADMIN") {
+      if (document.case.lawyerId !== userId && user?.role !== "ADMIN" && user?.role !== "SUPER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "이 문서를 분석할 권한이 없습니다",
@@ -1729,7 +1729,7 @@ export const fileRouter = createTRPCRouter({
         select: { role: true },
       });
 
-      if (document.case.lawyerId !== userId && user?.role !== "ADMIN") {
+      if (document.case.lawyerId !== userId && user?.role !== "ADMIN" && user?.role !== "SUPER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "이 문서를 분석할 권한이 없습니다",
@@ -1893,7 +1893,7 @@ export const fileRouter = createTRPCRouter({
         });
       }
 
-      if (caseRecord.lawyerId !== userId && user?.role !== "ADMIN") {
+      if (caseRecord.lawyerId !== userId && user?.role !== "ADMIN" && user?.role !== "SUPER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "이 사건의 문서를 조회할 권한이 없습니다",

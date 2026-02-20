@@ -88,7 +88,7 @@ export const transactionRouter = createTRPCRouter({
       }
 
       // Case lawyer가 아니고 Admin도 아닌 경우 거부
-      if (document.case.lawyerId !== userId && user.role !== "ADMIN") {
+      if (document.case.lawyerId !== userId && user.role !== "ADMIN" && user.role !== "SUPER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "거래 분류를 수행할 권한이 없습니다.",
@@ -370,7 +370,7 @@ export const transactionRouter = createTRPCRouter({
         });
       }
 
-      if (document.case.lawyerId !== userId && user.role !== "ADMIN") {
+      if (document.case.lawyerId !== userId && user.role !== "ADMIN" && user.role !== "SUPER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "거래 조회 권한이 없습니다.",
@@ -1021,7 +1021,7 @@ export const transactionRouter = createTRPCRouter({
         select: { role: true },
       });
 
-      if (!user || user.role !== "ADMIN") {
+      if (!user || user.role !== "ADMIN" && user.role !== "SUPER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "분류 오류 조회는 관리자만 가능합니다.",
@@ -1108,7 +1108,7 @@ export const transactionRouter = createTRPCRouter({
         select: { role: true },
       });
 
-      if (!user || user.role !== "ADMIN") {
+      if (!user || user.role !== "ADMIN" && user.role !== "SUPER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "오류 해결은 관리자만 가능합니다.",
@@ -1406,7 +1406,7 @@ export const transactionRouter = createTRPCRouter({
         select: { role: true },
       });
 
-      if (document.case.lawyerId !== userId && user?.role !== "ADMIN") {
+      if (document.case.lawyerId !== userId && user?.role !== "ADMIN" && user?.role !== "SUPER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "이 문서의 거래내역을 삭제할 권한이 없습니다",

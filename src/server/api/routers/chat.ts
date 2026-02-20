@@ -133,7 +133,7 @@ export const chatRouter = createTRPCRouter({
         select: { role: true },
       });
 
-      if (caseRecord.lawyerId !== userId && user?.role !== "ADMIN") {
+      if (caseRecord.lawyerId !== userId && user?.role !== "ADMIN" && user?.role !== "SUPER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "이 사건에 접근할 권한이 없습니다.",

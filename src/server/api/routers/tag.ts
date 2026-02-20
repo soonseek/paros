@@ -531,7 +531,7 @@ export const tagRouter = createTRPCRouter({
         });
       }
 
-      if (caseRecord.lawyerId !== userId && user.role !== "ADMIN") {
+      if (caseRecord.lawyerId !== userId && user.role !== "ADMIN" && user.role !== "SUPER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "태그 목록 조회 권한이 없습니다.",
