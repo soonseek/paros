@@ -129,8 +129,8 @@ export async function canManageCaseNote(
     return false;
   }
 
-  // ADMIN can manage all notes
-  if (user.role === "ADMIN") {
+  // ADMIN/SUPER can manage all notes
+  if (user.role === "ADMIN" || user.role === "SUPER") {
     return true;
   }
 
