@@ -197,7 +197,7 @@ function GuideContent({ sectionId }: { sectionId: string }) {
           </p>
         </div>
         <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-6">주요 기능</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {[
             { title: "사건 관리", desc: "파산 사건을 등록하고, 상태를 추적하며, 관련 정보를 체계적으로 관리합니다." },
             { title: "거래내역 분석", desc: "엑셀, CSV, PDF 형식의 거래내역서를 업로드하면 AI가 자동으로 파싱하고 분류합니다." },
