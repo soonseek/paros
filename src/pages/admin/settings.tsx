@@ -176,38 +176,23 @@ export default function AdminSettings() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        {/* 헤더 */}
-        <div className="mb-8">
-          <Button
-            variant="outline"
-            onClick={() => router.back()}
-            className="mb-4"
-            data-testid="back-button"
-          >
-            ← 뒤로 가기
-          </Button>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-            관리자 설정
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
-            시스템 설정 및 AI API 키를 관리합니다.
-          </p>
+      <AppHeader showBack backHref="/dashboard" />
+      <div className="px-3 sm:px-4 py-4 sm:py-8 max-w-4xl mx-auto">
+        <div className="mb-4 sm:mb-8">
+          <h1 className="text-xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">관리자 설정</h1>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">시스템 설정 및 AI API 키를 관리합니다.</p>
         </div>
 
         {/* AI 설정 */}
-        <Card className="p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">
-            AI 분류 설정
-          </h2>
+        <Card className="p-3 sm:p-6 mb-4 sm:mb-6">
+          <h2 className="text-lg sm:text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">AI 분류 설정</h2>
 
           {/* 템플릿 관리 바로가기 */}
-          <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-            <div className="flex items-center justify-between">
+          <div className="mb-6 p-3 sm:p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div>
                 <h3 className="font-medium text-blue-800 dark:text-blue-200">거래내역서 템플릿 관리</h3>
-                <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
-                  은행별 거래내역서 형식을 정의하여 파싱 정확도를 높입니다
+                <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">은행별 거래내역서 형식을 정의하여 파싱 정확도를 높입니다</p>
                 </p>
               </div>
               <Button
