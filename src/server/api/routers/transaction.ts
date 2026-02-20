@@ -2550,7 +2550,6 @@ export const transactionRouter = createTRPCRouter({
 
           console.log(`[trackMultipleLoans] 추적 완료: ${iterations}회 반복, 잔여 대출금=${remainingLoan.toLocaleString()}원`);
 
-          const totalUsed = loanAmount - Math.max(0, remainingLoan);
           const transferCount = trackedItems.filter(t => t.type === "이동").length;
 
           // 정렬: 날짜순, 동일 날짜 내에서는 대출실행 > 이동 > 출금 순서
@@ -2564,6 +2563,22 @@ export const transactionRouter = createTRPCRouter({
             // 동일 날짜: 대출실행 > 이동 > 출금
             return (typeOrder[a.type] ?? 99) - (typeOrder[b.type] ?? 99);
           });
+
+          // 정렬 후 잔여액 다시 계산 (정확한 순서로)
+          let recalculatedRemaining = loanAmount;
+          for (const item of trackedItems) {
+            if (item.type === "대출실행") {
+              item.remainingLoan = recalculatedRemaining;
+            } else if (item.type === "이동") {
+              // 이동은 잔여액 변동 없음
+              item.remainingLoan = recalculatedRemaining;
+            } else if (item.type === "출금") {
+              recalculatedRemaining -= item.amount;
+              item.remainingLoan = Math.max(0, recalculatedRemaining);
+            }
+          }
+
+          const totalUsed = loanAmount - Math.max(0, recalculatedRemaining);
 
           return {
             loanId: loan.id,
