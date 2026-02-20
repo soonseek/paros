@@ -114,40 +114,25 @@ const CaseEditPage: NextPage = () => {
   // Prevent SSR hydration mismatch
   if (!mounted) {
     return (
-      <div className="container mx-auto py-8 px-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-center py-12 bg-gray-50 rounded-lg">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3" />
-            <p className="text-gray-600">로딩 중...</p>
-          </div>
-        </div>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <AppHeader showBack />
+        <div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3" /><p className="text-gray-600 dark:text-gray-400">로딩 중...</p></div>
       </div>
     );
   }
 
-  // Skip rendering if redirecting
-  if (!user) {
-    return null;
-  }
+  if (!user) { return null; }
 
-  // Loading state
   if (isPending) {
     return (
-      <div className="container mx-auto py-8 px-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-center py-12 bg-gray-50 rounded-lg">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3" />
-            <p className="text-gray-600">로딩 중...</p>
-          </div>
-        </div>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <AppHeader showBack />
+        <div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3" /><p className="text-gray-600 dark:text-gray-400">로딩 중...</p></div>
       </div>
     );
   }
 
-  // No case data (shouldn't happen due to error handling in getCaseById)
-  if (!caseItem) {
-    return null;
-  }
+  if (!caseItem) { return null; }
 
   const onSubmit = (data: UpdateCaseInput) => {
     updateMutation.mutate({
