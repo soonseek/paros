@@ -82,6 +82,30 @@ export function LoanTrackingModal({ isOpen, onClose, caseId }: LoanTrackingModal
     { enabled: trackingTriggered && selectedLoanIdsArray.length > 0, refetchOnWindowFocus: false }
   );
 
+  // 디버깅: 추적 결과 로그
+  useEffect(() => {
+    if (trackingQuery.data) {
+      console.log("[대출추적] ========== API 응답 ==========");
+      console.log("[대출추적] success:", trackingQuery.data.success);
+      console.log("[대출추적] message:", trackingQuery.data.message);
+      
+      trackingQuery.data.results?.forEach((result, idx) => {
+        console.log(`[대출추적] [대출 ${idx + 1}] ${result.loanDocumentName}`);
+        console.log(`[대출추적]   대출금: ${result.loanAmount?.toLocaleString()}원`);
+        console.log(`[대출추적]   추적건: ${result.trackedItems?.length || 0}건`);
+        console.log(`[대출추적]   사용액: ${result.summary?.totalUsed?.toLocaleString()}원`);
+        console.log(`[대출추적]   이동건수: ${result.summary?.transferCount || 0}건`);
+        console.log(`[대출추적]   잔여액: ${result.summary?.remainingLoan?.toLocaleString()}원`);
+        
+        // 처음 10건 상세 로그
+        result.trackedItems?.slice(0, 10).forEach((item, i) => {
+          const transferInfo = item.transferTo ? ` → ${item.transferTo}` : '';
+          console.log(`[대출추적]   [${i}] ${item.date?.slice(0,10)} | ${item.type} | ${item.amount?.toLocaleString()}원${transferInfo}`);
+        });
+      });
+    }
+  }, [trackingQuery.data]);
+
   // 현재 검색 결과 (방법에 따라)
   const searchResults = useMemo(() => {
     if (searchMethod === "auto") {
