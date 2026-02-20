@@ -41,6 +41,9 @@ const CasesIndexPage: NextPage = () => {
   const router = useRouter();
   const { user } = useAuth();
 
+  // SUPER/ADMIN은 모든 사건을 조회할 수 있음
+  const isSuperOrAdmin = user?.role === "SUPER" || user?.role === "ADMIN";
+
   // Filter state
   const [search, setSearch] = useState("");
   const [courtName, setCourtName] = useState("");
