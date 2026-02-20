@@ -2393,7 +2393,7 @@ export const transactionRouter = createTRPCRouter({
 
           for (const dep of otherDeposits) {
             const dateStr = dep.transactionDate.toISOString().split('T')[0]; // YYYY-MM-DD
-            const amount = Number(dep.depositAmount);
+            const amount = Math.abs(Number(dep.depositAmount)); // 절대값으로 매칭
             const key = `${dateStr}_${amount}`;
             
             // 아직 매칭되지 않은 경우에만 추가
