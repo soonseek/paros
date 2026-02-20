@@ -2327,40 +2327,25 @@ export const transactionRouter = createTRPCRouter({
           const loanAmount = Number(loan.depositAmount);
           const loanDocumentId = loan.document?.id;
 
-          // 대출 실행 이후의 출금 내역 조회
-          const withdrawals = await ctx.db.transaction.findMany({
-            where: {
-              caseId,
-              transactionDate: { gte: loan.transactionDate },
-              withdrawalAmount: { gt: 0 },
-              id: { not: loan.id },
-            },
-            orderBy: { transactionDate: "asc" },
-            take: 500, // 최대 500건
-            select: {
-              id: true,
-              transactionDate: true,
-              withdrawalAmount: true,
-              balance: true,
-              memo: true,
-              document: {
-                select: {
-                  id: true,
-                  originalFileName: true,
-                },
-              },
-            },
-          });
-
           // 동일 사건의 다른 계좌(문서)에서의 입금 내역 조회 (이동 매칭용)
           // 대출 계좌가 아닌 다른 문서의 입금 내역
+          // 주의: 입금 금액이 양수 또는 음수로 저장될 수 있음
+          const otherDepositWhereClause: Record<string, unknown> = {
+            caseId,
+            transactionDate: { gte: loan.transactionDate },
+            OR: [
+              { depositAmount: { gt: 0 } },
+              { depositAmount: { lt: 0 } }, // 음수 입금도 포함 (오분류된 경우)
+            ],
+          };
+          
+          // loanDocumentId가 있을 때만 해당 문서 제외 (없으면 모든 문서 포함)
+          if (loanDocumentId) {
+            otherDepositWhereClause.documentId = { not: loanDocumentId };
+          }
+          
           const otherDeposits = await ctx.db.transaction.findMany({
-            where: {
-              caseId,
-              transactionDate: { gte: loan.transactionDate },
-              depositAmount: { gt: 0 },
-              documentId: { not: loanDocumentId }, // 대출 계좌가 아닌 다른 문서
-            },
+            where: otherDepositWhereClause,
             select: {
               id: true,
               transactionDate: true,
@@ -2383,10 +2368,18 @@ export const transactionRouter = createTRPCRouter({
             depositMemo: string;
           }>();
 
+          console.log(`[trackMultipleLoans] 대출 ID: ${loan.id.slice(0,8)}, 문서: ${loan.document?.originalFileName}`);
+          console.log(`[trackMultipleLoans] 다른 계좌 입금건 수: ${otherDeposits.length}건`);
+
           for (const dep of otherDeposits) {
             const dateStr = dep.transactionDate.toISOString().split('T')[0]; // YYYY-MM-DD
-            const amount = Number(dep.depositAmount);
+            const amount = Math.abs(Number(dep.depositAmount)); // 절대값으로 매칭
             const key = `${dateStr}_${amount}`;
+            
+            // 처음 5건 로그
+            if (depositMatchMap.size < 5) {
+              console.log(`[trackMultipleLoans] 입금 후보: ${dateStr}, ${amount.toLocaleString()}원, ${dep.document?.originalFileName}, ${dep.memo?.slice(0,20)}`);
+            }
             
             // 아직 매칭되지 않은 경우에만 추가
             if (!depositMatchMap.has(key)) {
@@ -2397,6 +2390,8 @@ export const transactionRouter = createTRPCRouter({
               });
             }
           }
+          
+          console.log(`[trackMultipleLoans] 매칭 가능한 입금 키 수: ${depositMatchMap.size}개`);
 
           // 추적 결과 생성
           interface TrackedItem {
@@ -2414,6 +2409,7 @@ export const transactionRouter = createTRPCRouter({
 
           const trackedItems: TrackedItem[] = [];
           let remainingLoan = loanAmount;
+          const usedTransactionIds = new Set<string>(); // 이미 추적한 거래 ID
           const usedDepositKeys = new Set<string>(); // 이미 매칭된 이동건 추적
 
           // 대출 실행건 추가
@@ -2426,52 +2422,134 @@ export const transactionRouter = createTRPCRouter({
             remainingLoan: remainingLoan,
             documentName: loan.document?.originalFileName || "",
           });
+          usedTransactionIds.add(loan.id);
 
-          // 출금 내역 추적
-          for (const tx of withdrawals) {
-            const withdrawal = Number(tx.withdrawalAmount);
-            const memo = tx.memo || "";
-            const dateStr = tx.transactionDate.toISOString().split('T')[0];
-            const matchKey = `${dateStr}_${withdrawal}`;
+          // 다단계 추적을 위한 큐: (문서ID, 시작날짜, 추적금액)
+          // 처음에는 대출 발생 문서에서 시작
+          interface TrackingQueue {
+            documentId: string | null;
+            documentName: string;
+            startDate: Date;
+            trackAmount: number; // 해당 계좌에서 추적할 금액
+          }
+          
+          const trackingQueue: TrackingQueue[] = [{
+            documentId: loanDocumentId || null,
+            documentName: loan.document?.originalFileName || "",
+            startDate: loan.transactionDate,
+            trackAmount: loanAmount,
+          }];
 
-            // 동일 일자 + 동일 금액의 입금이 다른 계좌에 있는지 확인 (이동 매칭)
-            const matchedDeposit = depositMatchMap.get(matchKey);
-            const isTransferToOtherAccount = matchedDeposit && !usedDepositKeys.has(matchKey);
+          // BFS 방식으로 이동을 따라가며 추적
+          const MAX_ITERATIONS = 10; // 무한 루프 방지
+          let iterations = 0;
 
-            if (isTransferToOtherAccount) {
-              // 이동: 대출금 잔여액에서 차감하지 않음 (상쇄)
-              usedDepositKeys.add(matchKey); // 중복 매칭 방지
+          while (trackingQueue.length > 0 && iterations < MAX_ITERATIONS && remainingLoan > 0) {
+            iterations++;
+            const current = trackingQueue.shift()!;
+            
+            console.log(`[trackMultipleLoans] 추적 반복 ${iterations}: 문서=${current.documentName}, 시작일=${current.startDate.toISOString().slice(0,10)}, 추적금액=${current.trackAmount.toLocaleString()}원`);
 
-              trackedItems.push({
-                date: tx.transactionDate.toISOString(),
-                type: "이동",
-                amount: withdrawal,
-                balance: Number(tx.balance) || 0,
-                memo,
-                remainingLoan: remainingLoan, // 잔여액 변동 없음
-                documentName: tx.document?.originalFileName || "",
-                transferTo: matchedDeposit.depositDocumentName,
-                transferMemo: matchedDeposit.depositMemo,
-              });
-            } else {
-              // 실제 사용: 대출금 잔여액에서 차감
-              remainingLoan -= withdrawal;
+            // 해당 문서에서 시작일 이후의 출금 내역 조회
+            const docWithdrawalWhere: Record<string, unknown> = {
+              caseId,
+              transactionDate: { gte: current.startDate },
+              OR: [
+                { withdrawalAmount: { gt: 0 } },
+                { withdrawalAmount: { lt: 0 } },
+              ],
+              id: { notIn: Array.from(usedTransactionIds) },
+            };
+            
+            // 특정 문서로 제한 (대출 발생 문서 또는 이동 대상 문서)
+            if (current.documentId) {
+              docWithdrawalWhere.documentId = current.documentId;
+            }
 
-              trackedItems.push({
-                date: tx.transactionDate.toISOString(),
-                type: "출금",
-                amount: withdrawal,
-                balance: Number(tx.balance) || 0,
-                memo,
-                remainingLoan: Math.max(0, remainingLoan),
-                documentName: tx.document?.originalFileName || "",
-              });
+            const docWithdrawals = await ctx.db.transaction.findMany({
+              where: docWithdrawalWhere,
+              orderBy: { transactionDate: "asc" },
+              take: 200, // 각 문서당 최대 200건
+              select: {
+                id: true,
+                transactionDate: true,
+                withdrawalAmount: true,
+                balance: true,
+                memo: true,
+                document: {
+                  select: {
+                    id: true,
+                    originalFileName: true,
+                  },
+                },
+              },
+            });
 
+            console.log(`[trackMultipleLoans] 문서 ${current.documentName}에서 출금 ${docWithdrawals.length}건 조회`);
+
+            // 출금 내역 추적
+            for (const tx of docWithdrawals) {
               if (remainingLoan <= 0) break;
+              if (usedTransactionIds.has(tx.id)) continue;
+              
+              const withdrawal = Math.abs(Number(tx.withdrawalAmount));
+              const memo = tx.memo || "";
+              const dateStr = tx.transactionDate.toISOString().split('T')[0];
+              const matchKey = `${dateStr}_${withdrawal}`;
+
+              // 동일 일자 + 동일 금액의 입금이 다른 계좌에 있는지 확인 (이동 매칭)
+              const matchedDeposit = depositMatchMap.get(matchKey);
+              const isTransferToOtherAccount = matchedDeposit && !usedDepositKeys.has(matchKey);
+
+              usedTransactionIds.add(tx.id);
+
+              if (isTransferToOtherAccount) {
+                // 이동: 대출금 잔여액 유지, 이동 대상 계좌를 추적 큐에 추가
+                usedDepositKeys.add(matchKey);
+
+                trackedItems.push({
+                  date: tx.transactionDate.toISOString(),
+                  type: "이동",
+                  amount: withdrawal,
+                  balance: Number(tx.balance) || 0,
+                  memo,
+                  remainingLoan: remainingLoan, // 잔여액 변동 없음
+                  documentName: tx.document?.originalFileName || "",
+                  transferTo: matchedDeposit.depositDocumentName,
+                  transferMemo: matchedDeposit.depositMemo,
+                });
+
+                // 이동 대상 문서를 추적 큐에 추가 (해당 문서에서 추가 추적)
+                // 이동 대상 문서의 ID를 찾아야 함
+                const targetDocId = otherDeposits.find(d => d.id === matchedDeposit.depositId)?.document?.id;
+                if (targetDocId && targetDocId !== current.documentId) {
+                  trackingQueue.push({
+                    documentId: targetDocId,
+                    documentName: matchedDeposit.depositDocumentName,
+                    startDate: tx.transactionDate,
+                    trackAmount: withdrawal,
+                  });
+                  console.log(`[trackMultipleLoans] 이동 감지: ${current.documentName} → ${matchedDeposit.depositDocumentName}, ${withdrawal.toLocaleString()}원`);
+                }
+              } else {
+                // 실제 사용: 대출금 잔여액에서 차감
+                remainingLoan -= withdrawal;
+
+                trackedItems.push({
+                  date: tx.transactionDate.toISOString(),
+                  type: "출금",
+                  amount: withdrawal,
+                  balance: Number(tx.balance) || 0,
+                  memo,
+                  remainingLoan: Math.max(0, remainingLoan),
+                  documentName: tx.document?.originalFileName || "",
+                });
+              }
             }
           }
 
-          const totalUsed = loanAmount - Math.max(0, remainingLoan);
+          console.log(`[trackMultipleLoans] 추적 완료: ${iterations}회 반복, 잔여 대출금=${remainingLoan.toLocaleString()}원`);
+
           const transferCount = trackedItems.filter(t => t.type === "이동").length;
 
           // 정렬: 날짜순, 동일 날짜 내에서는 대출실행 > 이동 > 출금 순서
@@ -2486,6 +2564,22 @@ export const transactionRouter = createTRPCRouter({
             return (typeOrder[a.type] ?? 99) - (typeOrder[b.type] ?? 99);
           });
 
+          // 정렬 후 잔여액 다시 계산 (정확한 순서로)
+          let recalculatedRemaining = loanAmount;
+          for (const item of trackedItems) {
+            if (item.type === "대출실행") {
+              item.remainingLoan = recalculatedRemaining;
+            } else if (item.type === "이동") {
+              // 이동은 잔여액 변동 없음
+              item.remainingLoan = recalculatedRemaining;
+            } else if (item.type === "출금") {
+              recalculatedRemaining -= item.amount;
+              item.remainingLoan = Math.max(0, recalculatedRemaining);
+            }
+          }
+
+          const totalUsed = loanAmount - Math.max(0, recalculatedRemaining);
+
           return {
             loanId: loan.id,
             loanDate: loan.transactionDate.toISOString(),
@@ -2497,9 +2591,9 @@ export const transactionRouter = createTRPCRouter({
               loanAmount,
               totalUsed,
               usageCount: trackedItems.filter(t => t.type === "출금").length,
-              transferCount, // 이동 건수 추가
-              remainingLoan: Math.max(0, remainingLoan),
-              exhausted: remainingLoan <= 0,
+              transferCount,
+              remainingLoan: Math.max(0, recalculatedRemaining),
+              exhausted: recalculatedRemaining <= 0,
             },
           };
         })
