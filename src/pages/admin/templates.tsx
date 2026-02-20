@@ -1243,6 +1243,8 @@ const TemplatesPage: NextPage = () => {
         </Dialog>
       </div>
     </div>
+    </div>
+    </div>
   );
 };
 
