@@ -2437,7 +2437,7 @@ export const transactionRouter = createTRPCRouter({
 
           // 출금 내역 추적
           for (const tx of withdrawals) {
-            const withdrawal = Number(tx.withdrawalAmount);
+            const withdrawal = Math.abs(Number(tx.withdrawalAmount)); // 절대값 사용
             const memo = tx.memo || "";
             const dateStr = tx.transactionDate.toISOString().split('T')[0];
             const matchKey = `${dateStr}_${withdrawal}`;
