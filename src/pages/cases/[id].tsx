@@ -628,18 +628,18 @@ const CaseDetailPage: NextPage = () => {
         </div>
 
         {/* 메인 영역: 거래내역(좌) + AI 어시스턴트(우) 2열 배치 */}
-        <div className="grid grid-cols-1 xl:grid-cols-5 gap-6 mb-6">
+        <div className="grid grid-cols-1 xl:grid-cols-5 gap-3 sm:gap-6 mb-3 sm:mb-6">
           {/* 왼쪽 60%: 거래내역 테이블 */}
           <div className="xl:col-span-3">
-            <Card className="p-6 h-full">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">거래내역</h2>
+            <Card className="p-3 sm:p-6 h-full">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-3 sm:mb-4">
+                <h2 className="text-lg sm:text-xl font-bold dark:text-gray-100">거래내역</h2>
                 {documents && documents.length > 0 && (
                   <div className="flex gap-2 items-center">
                     <select
                       value={selectedDocumentId ?? "all"}
                       onChange={(e) => setSelectedDocumentId(e.target.value === "all" ? null : e.target.value)}
-                      className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                      className="px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md text-xs sm:text-sm max-w-[200px] truncate"
                     >
                       <option value="all">전체 파일</option>
                       {documents.map((doc) => (
