@@ -103,6 +103,7 @@ export function checkTransactionAccess(params: TransactionAccessParams): RBACRes
  * Checks if a user has read-only access to a transaction.
  *
  * Role Permissions (Read):
+ * - SUPER: Can read any transaction (슈퍼 관리자)
  * - ADMIN: Can read any transaction
  * - LAWYER: Can read own cases
  * - PARALEGAL: Can read any case (for support/documentation purposes)
@@ -115,6 +116,11 @@ export function checkTransactionReadAccess(
   params: TransactionAccessParams
 ): RBACResult {
   const { userId, userRole, caseLawyerId } = params;
+
+  // SUPER: Full read access (슈퍼 관리자)
+  if (userRole === "SUPER") {
+    return { allowed: true };
+  }
 
   // ADMIN: Full read access
   if (userRole === "ADMIN") {
