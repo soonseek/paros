@@ -2327,35 +2327,6 @@ export const transactionRouter = createTRPCRouter({
           const loanAmount = Number(loan.depositAmount);
           const loanDocumentId = loan.document?.id;
 
-          // 대출 실행 이후의 출금 내역 조회
-          // 주의: 출금 금액이 양수 또는 음수로 저장될 수 있음
-          const withdrawals = await ctx.db.transaction.findMany({
-            where: {
-              caseId,
-              transactionDate: { gte: loan.transactionDate },
-              OR: [
-                { withdrawalAmount: { gt: 0 } },
-                { withdrawalAmount: { lt: 0 } }, // 음수 출금도 포함
-              ],
-              id: { not: loan.id },
-            },
-            orderBy: { transactionDate: "asc" },
-            take: 500, // 최대 500건
-            select: {
-              id: true,
-              transactionDate: true,
-              withdrawalAmount: true,
-              balance: true,
-              memo: true,
-              document: {
-                select: {
-                  id: true,
-                  originalFileName: true,
-                },
-              },
-            },
-          });
-
           // 동일 사건의 다른 계좌(문서)에서의 입금 내역 조회 (이동 매칭용)
           // 대출 계좌가 아닌 다른 문서의 입금 내역
           // 주의: 입금 금액이 양수 또는 음수로 저장될 수 있음
