@@ -119,6 +119,131 @@ function mergePairedRows(rows: string[][]): string[][] {
 }
 
 /**
+ * 잔액 기반 입금/출금 자동 교정 인터페이스
+ */
+interface CorrectionRecord {
+  rowNumber: number;
+  originalType: "입금" | "출금";
+  correctedType: "입금" | "출금";
+  amount: number;
+  reason: string;
+}
+
+/**
+ * 잔액 기반 입금/출금 자동 교정
+ * 
+ * OCR 파싱 오류로 인해 입금이 출금으로, 출금이 입금으로 잘못 분류된 경우를 감지하고 교정합니다.
+ * 
+ * 검증 로직:
+ * 1. 각 거래의 이전 잔액과 현재 잔액의 차이 계산
+ * 2. 입금인 경우: 이전 잔액 + 입금액 ≈ 현재 잔액
+ * 3. 출금인 경우: 이전 잔액 - 출금액 ≈ 현재 잔액
+ * 4. 불일치 시: 반대 케이스로 검증 → 일치하면 교정
+ * 
+ * @param transactions - 저장 전 거래 데이터 배열
+ * @returns 교정된 거래 데이터와 교정 내역
+ */
+function validateAndCorrectTransactions(
+  transactions: Prisma.TransactionCreateManyInput[]
+): { correctedTransactions: Prisma.TransactionCreateManyInput[]; corrections: CorrectionRecord[] } {
+  const corrections: CorrectionRecord[] = [];
+  
+  // 날짜순 정렬 (같은 날짜 내에서는 원래 순서 유지)
+  const sortedTransactions = [...transactions].sort((a, b) => {
+    const dateA = a.transactionDate instanceof Date ? a.transactionDate.getTime() : new Date(a.transactionDate).getTime();
+    const dateB = b.transactionDate instanceof Date ? b.transactionDate.getTime() : new Date(b.transactionDate).getTime();
+    return dateA - dateB;
+  });
+  
+  // 교정된 거래 목록
+  const correctedTransactions: Prisma.TransactionCreateManyInput[] = [];
+  
+  // 허용 오차 (잔액 계산 시 소수점 오차 등)
+  const TOLERANCE = 10; // 10원 이내 오차 허용
+  
+  for (let i = 0; i < sortedTransactions.length; i++) {
+    const tx = sortedTransactions[i];
+    if (!tx) continue;
+    
+    const currentBalance = tx.balance ? Number(tx.balance) : null;
+    const depositAmount = tx.depositAmount ? Math.abs(Number(tx.depositAmount)) : 0;
+    const withdrawalAmount = tx.withdrawalAmount ? Math.abs(Number(tx.withdrawalAmount)) : 0;
+    
+    // 잔액이 없으면 검증 불가 → 그대로 통과
+    if (currentBalance === null) {
+      correctedTransactions.push(tx);
+      continue;
+    }
+    
+    // 이전 거래의 잔액 가져오기
+    let prevBalance: number | null = null;
+    if (i > 0) {
+      const prevTx = sortedTransactions[i - 1];
+      prevBalance = prevTx?.balance ? Number(prevTx.balance) : null;
+    }
+    
+    // 이전 잔액이 없으면 검증 불가 → 그대로 통과 (첫 거래 등)
+    if (prevBalance === null) {
+      correctedTransactions.push(tx);
+      continue;
+    }
+    
+    // 실제 잔액 변동
+    const actualChange = currentBalance - prevBalance;
+    
+    // 현재 분류된 타입에 따른 예상 잔액 변동
+    let isDeposit = depositAmount > 0 && withdrawalAmount === 0;
+    let isWithdrawal = withdrawalAmount > 0 && depositAmount === 0;
+    
+    // 단일 금액인 경우 (둘 다 0이 아닌 경우는 복잡하므로 스킵)
+    if (!isDeposit && !isWithdrawal) {
+      correctedTransactions.push(tx);
+      continue;
+    }
+    
+    const amount = isDeposit ? depositAmount : withdrawalAmount;
+    const expectedChange = isDeposit ? amount : -amount;
+    
+    // 예상 변동과 실제 변동 비교
+    const isMatch = Math.abs(actualChange - expectedChange) <= TOLERANCE;
+    
+    if (!isMatch) {
+      // 반대 케이스로 검증
+      const oppositeExpectedChange = isDeposit ? -amount : amount;
+      const isOppositeMatch = Math.abs(actualChange - oppositeExpectedChange) <= TOLERANCE;
+      
+      if (isOppositeMatch) {
+        // 교정 필요: 입금 ↔ 출금 전환
+        const rowNumber = (tx.rawMetadata as { rowNumber?: number })?.rowNumber || i + 1;
+        
+        corrections.push({
+          rowNumber,
+          originalType: isDeposit ? "입금" : "출금",
+          correctedType: isDeposit ? "출금" : "입금",
+          amount,
+          reason: `잔액 불일치 (이전: ${prevBalance.toLocaleString()}, 현재: ${currentBalance.toLocaleString()}, 차이: ${actualChange >= 0 ? '+' : ''}${actualChange.toLocaleString()})`,
+        });
+        
+        // 교정된 거래 생성
+        const correctedTx: Prisma.TransactionCreateManyInput = {
+          ...tx,
+          depositAmount: isDeposit ? null : amount, // 입금→출금: depositAmount 제거, 출금→입금: depositAmount 추가
+          withdrawalAmount: isDeposit ? amount : null, // 입금→출금: withdrawalAmount 추가, 출금→입금: withdrawalAmount 제거
+        };
+        
+        correctedTransactions.push(correctedTx);
+        continue;
+      }
+    }
+    
+    // 일치하거나 교정 불가 → 그대로 통과
+    correctedTransactions.push(tx);
+  }
+  
+  return { correctedTransactions, corrections };
+}
+
+/**
  * Parse date from multiple formats
  *
  * Supports:
@@ -515,8 +640,19 @@ export async function extractAndSaveTransactions(
   // Bulk insert using Prisma createMany (performance optimization)
   let success = 0;
   try {
+    // [잔액 기반 자동 교정] 저장 전에 입금/출금 오류 검증 및 교정
+    const { correctedTransactions, corrections } = validateAndCorrectTransactions(transactions);
+    
+    if (corrections.length > 0) {
+      console.log(`[Balance Validator] ========== 입금/출금 자동 교정 ==========`);
+      console.log(`[Balance Validator] 총 ${corrections.length}건 교정됨`);
+      corrections.forEach((c, idx) => {
+        console.log(`[Balance Validator] [${idx + 1}] Row ${c.rowNumber}: ${c.originalType} → ${c.correctedType} (${c.amount.toLocaleString()}원) - ${c.reason}`);
+      });
+    }
+    
     const result = await tx.transaction.createMany({
-      data: transactions,
+      data: correctedTransactions,
       skipDuplicates: true, // CRITICAL-1 FIX: Skip duplicates based on unique constraint
     });
 
