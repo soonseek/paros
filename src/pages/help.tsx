@@ -22,7 +22,6 @@ import {
   Database,
   ChevronRight,
   ChevronDown,
-  ArrowLeft,
   HelpCircle,
   AlertTriangle,
   Sparkles,
@@ -34,6 +33,8 @@ import {
   Plus,
   Lock,
   Mail,
+  Menu,
+  X,
 } from "lucide-react";
 
 /* ───────────── 사이드바 메뉴 구조 ───────────── */
