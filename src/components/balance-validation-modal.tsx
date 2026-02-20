@@ -11,7 +11,6 @@ import { Button } from "~/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Badge } from "~/components/ui/badge";
-import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { api } from "~/utils/api";
 import { toast } from "sonner";
 
