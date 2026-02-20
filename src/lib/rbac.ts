@@ -78,12 +78,12 @@ export async function canModifyCase(
     return false;
   }
 
-  // ADMIN can modify all cases
-  if (user.role === "ADMIN") {
+  // ADMIN/SUPER can modify all cases
+  if (user.role === "ADMIN" || user.role === "SUPER") {
     return true;
   }
 
-  // Only LAWYER can modify their own cases
+  // Only LAWYER or SUPER can modify their own cases
   if (user.role !== "LAWYER") {
     return false;
   }
