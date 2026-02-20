@@ -127,7 +127,7 @@ export function AppHeader({ title = "법무법인 파로스", showBack = false, 
                   >
                     <User className="h-4 w-4" /> 내 프로필
                   </button>
-                  {user.role === "ADMIN" && (
+                  {(user.role === "ADMIN" || user.role === "SUPER") && (
                     <>
                       <button
                         onClick={() => { setMenuOpen(false); void router.push("/admin/settings"); }}
