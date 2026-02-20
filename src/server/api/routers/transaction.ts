@@ -2438,6 +2438,7 @@ export const transactionRouter = createTRPCRouter({
 
           const trackedItems: TrackedItem[] = [];
           let remainingLoan = loanAmount;
+          const usedTransactionIds = new Set<string>(); // 이미 추적한 거래 ID
           const usedDepositKeys = new Set<string>(); // 이미 매칭된 이동건 추적
 
           // 대출 실행건 추가
@@ -2450,57 +2451,133 @@ export const transactionRouter = createTRPCRouter({
             remainingLoan: remainingLoan,
             documentName: loan.document?.originalFileName || "",
           });
+          usedTransactionIds.add(loan.id);
 
-          // 출금 내역 추적
-          console.log(`[trackMultipleLoans] 출금 내역 수: ${withdrawals.length}건`);
+          // 다단계 추적을 위한 큐: (문서ID, 시작날짜, 추적금액)
+          // 처음에는 대출 발생 문서에서 시작
+          interface TrackingQueue {
+            documentId: string | null;
+            documentName: string;
+            startDate: Date;
+            trackAmount: number; // 해당 계좌에서 추적할 금액
+          }
           
-          for (const tx of withdrawals) {
-            const withdrawal = Math.abs(Number(tx.withdrawalAmount)); // 절대값 사용
-            const memo = tx.memo || "";
-            const dateStr = tx.transactionDate.toISOString().split('T')[0];
-            const matchKey = `${dateStr}_${withdrawal}`;
+          const trackingQueue: TrackingQueue[] = [{
+            documentId: loanDocumentId || null,
+            documentName: loan.document?.originalFileName || "",
+            startDate: loan.transactionDate,
+            trackAmount: loanAmount,
+          }];
 
-            // 동일 일자 + 동일 금액의 입금이 다른 계좌에 있는지 확인 (이동 매칭)
-            const matchedDeposit = depositMatchMap.get(matchKey);
-            const isTransferToOtherAccount = matchedDeposit && !usedDepositKeys.has(matchKey);
+          // BFS 방식으로 이동을 따라가며 추적
+          const MAX_ITERATIONS = 10; // 무한 루프 방지
+          let iterations = 0;
+
+          while (trackingQueue.length > 0 && iterations < MAX_ITERATIONS && remainingLoan > 0) {
+            iterations++;
+            const current = trackingQueue.shift()!;
             
-            // 디버깅: 처음 5건 출금에 대해 매칭 시도 로그
-            if (trackedItems.length < 6) {
-              console.log(`[trackMultipleLoans] 출금 매칭 시도: ${dateStr}, ${withdrawal.toLocaleString()}원, key=${matchKey}, matched=${!!matchedDeposit}, isTransfer=${isTransferToOtherAccount}`);
+            console.log(`[trackMultipleLoans] 추적 반복 ${iterations}: 문서=${current.documentName}, 시작일=${current.startDate.toISOString().slice(0,10)}, 추적금액=${current.trackAmount.toLocaleString()}원`);
+
+            // 해당 문서에서 시작일 이후의 출금 내역 조회
+            const docWithdrawalWhere: Record<string, unknown> = {
+              caseId,
+              transactionDate: { gte: current.startDate },
+              OR: [
+                { withdrawalAmount: { gt: 0 } },
+                { withdrawalAmount: { lt: 0 } },
+              ],
+              id: { notIn: Array.from(usedTransactionIds) },
+            };
+            
+            // 특정 문서로 제한 (대출 발생 문서 또는 이동 대상 문서)
+            if (current.documentId) {
+              docWithdrawalWhere.documentId = current.documentId;
             }
 
-            if (isTransferToOtherAccount) {
-              // 이동: 대출금 잔여액에서 차감하지 않음 (상쇄)
-              usedDepositKeys.add(matchKey); // 중복 매칭 방지
+            const docWithdrawals = await ctx.db.transaction.findMany({
+              where: docWithdrawalWhere,
+              orderBy: { transactionDate: "asc" },
+              take: 200, // 각 문서당 최대 200건
+              select: {
+                id: true,
+                transactionDate: true,
+                withdrawalAmount: true,
+                balance: true,
+                memo: true,
+                document: {
+                  select: {
+                    id: true,
+                    originalFileName: true,
+                  },
+                },
+              },
+            });
 
-              trackedItems.push({
-                date: tx.transactionDate.toISOString(),
-                type: "이동",
-                amount: withdrawal,
-                balance: Number(tx.balance) || 0,
-                memo,
-                remainingLoan: remainingLoan, // 잔여액 변동 없음
-                documentName: tx.document?.originalFileName || "",
-                transferTo: matchedDeposit.depositDocumentName,
-                transferMemo: matchedDeposit.depositMemo,
-              });
-            } else {
-              // 실제 사용: 대출금 잔여액에서 차감
-              remainingLoan -= withdrawal;
+            console.log(`[trackMultipleLoans] 문서 ${current.documentName}에서 출금 ${docWithdrawals.length}건 조회`);
 
-              trackedItems.push({
-                date: tx.transactionDate.toISOString(),
-                type: "출금",
-                amount: withdrawal,
-                balance: Number(tx.balance) || 0,
-                memo,
-                remainingLoan: Math.max(0, remainingLoan),
-                documentName: tx.document?.originalFileName || "",
-              });
-
+            // 출금 내역 추적
+            for (const tx of docWithdrawals) {
               if (remainingLoan <= 0) break;
+              if (usedTransactionIds.has(tx.id)) continue;
+              
+              const withdrawal = Math.abs(Number(tx.withdrawalAmount));
+              const memo = tx.memo || "";
+              const dateStr = tx.transactionDate.toISOString().split('T')[0];
+              const matchKey = `${dateStr}_${withdrawal}`;
+
+              // 동일 일자 + 동일 금액의 입금이 다른 계좌에 있는지 확인 (이동 매칭)
+              const matchedDeposit = depositMatchMap.get(matchKey);
+              const isTransferToOtherAccount = matchedDeposit && !usedDepositKeys.has(matchKey);
+
+              usedTransactionIds.add(tx.id);
+
+              if (isTransferToOtherAccount) {
+                // 이동: 대출금 잔여액 유지, 이동 대상 계좌를 추적 큐에 추가
+                usedDepositKeys.add(matchKey);
+
+                trackedItems.push({
+                  date: tx.transactionDate.toISOString(),
+                  type: "이동",
+                  amount: withdrawal,
+                  balance: Number(tx.balance) || 0,
+                  memo,
+                  remainingLoan: remainingLoan, // 잔여액 변동 없음
+                  documentName: tx.document?.originalFileName || "",
+                  transferTo: matchedDeposit.depositDocumentName,
+                  transferMemo: matchedDeposit.depositMemo,
+                });
+
+                // 이동 대상 문서를 추적 큐에 추가 (해당 문서에서 추가 추적)
+                // 이동 대상 문서의 ID를 찾아야 함
+                const targetDocId = otherDeposits.find(d => d.id === matchedDeposit.depositId)?.document?.id;
+                if (targetDocId && targetDocId !== current.documentId) {
+                  trackingQueue.push({
+                    documentId: targetDocId,
+                    documentName: matchedDeposit.depositDocumentName,
+                    startDate: tx.transactionDate,
+                    trackAmount: withdrawal,
+                  });
+                  console.log(`[trackMultipleLoans] 이동 감지: ${current.documentName} → ${matchedDeposit.depositDocumentName}, ${withdrawal.toLocaleString()}원`);
+                }
+              } else {
+                // 실제 사용: 대출금 잔여액에서 차감
+                remainingLoan -= withdrawal;
+
+                trackedItems.push({
+                  date: tx.transactionDate.toISOString(),
+                  type: "출금",
+                  amount: withdrawal,
+                  balance: Number(tx.balance) || 0,
+                  memo,
+                  remainingLoan: Math.max(0, remainingLoan),
+                  documentName: tx.document?.originalFileName || "",
+                });
+              }
             }
           }
+
+          console.log(`[trackMultipleLoans] 추적 완료: ${iterations}회 반복, 잔여 대출금=${remainingLoan.toLocaleString()}원`);
 
           const totalUsed = loanAmount - Math.max(0, remainingLoan);
           const transferCount = trackedItems.filter(t => t.type === "이동").length;
