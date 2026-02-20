@@ -447,7 +447,8 @@ export const caseRouter = createTRPCRouter({
       const { id } = input;
 
       // RBAC: Verify user owns this case (using helper function)
-      const existingCase = await verifyCaseOwnership(ctx.db, id, ctx.userId);
+      const userRoleArchive = await getUserRole(ctx.db, ctx.userId);
+      const existingCase = await verifyCaseOwnership(ctx.db, id, ctx.userId, userRoleArchive ?? undefined);
 
       // Check if case is already archived
       if (existingCase.isArchived) {
