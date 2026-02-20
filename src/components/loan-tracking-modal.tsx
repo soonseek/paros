@@ -7,7 +7,7 @@
  * 3. 추적 시작 → 각 대출건별 탭 UI + 개별 엑셀 다운로드
  */
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { 
   Download, 
   Loader2, 
