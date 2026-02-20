@@ -1795,7 +1795,7 @@ export const transactionRouter = createTRPCRouter({
         if (!isMatch) {
           // 반대 케이스로 검증
           const oppositeExpectedChange = isDeposit ? -amount : amount;
-          const isOppositeMatch = Math.abs(actualChange - oppositeExpectedChange) <= TOLERANCE;
+          const isOppositeMatch = Math.abs(actualChange - oppositeExpectedChange) <= tolerance;
 
           if (isOppositeMatch) {
             // 오분류 감지!
