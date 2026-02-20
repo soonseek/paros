@@ -34,8 +34,8 @@ export async function canAccessCase(
     return false;
   }
 
-  // ADMIN can access all cases
-  if (user.role === "ADMIN") {
+  // ADMIN/SUPER can access all cases
+  if (user.role === "ADMIN" || user.role === "SUPER") {
     return true;
   }
 
