@@ -12,6 +12,7 @@ import { Label } from "~/components/ui/label";
 import { Card } from "~/components/ui/card";
 import { api } from "~/utils/api";
 import { useAuth } from "~/contexts/AuthContext";
+import { AppHeader } from "~/components/app-header";
 
 /**
  * Case Edit Page
