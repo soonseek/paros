@@ -5,6 +5,17 @@
 
 ## 구현 완료
 
+### 2026-02-20: SUPER 역할 구현 + 금액 필터 버그 수정
+- [x] Prisma schema에 SUPER 역할 추가 (Role enum)
+- [x] RBAC 파일(`/app/src/server/lib/rbac.ts`)에 SUPER 권한 추가
+- [x] `case.ts` 라우터: SUPER 사용자 모든 사건 조회 + 변호사 정보 포함
+- [x] `templates.tsx`: SUPER 사용자 템플릿 관리 접근 허용
+- [x] `cases/index.tsx`: SUPER 사용자에게 담당 변호사 이름 표시
+- [x] **금액 필터 버그 수정**: 출금건이 정상적으로 뽑히지 않던 문제 해결
+  - 입금/출금 타입 판별 로직 개선 (minAmount 기준 정확한 비교)
+  - 통계 계산 로직 수정
+  - 디버깅용 콘솔 로그 추가 (`[filterByAmount]` 접두어)
+
 ### 2026-02-20: 도움말 페이지 + 브랜딩 변경
 - [x] `/help` 페이지 생성 (사용자 12개 + 관리자 4개 카테고리)
 - [x] GNB 브랜딩 "paros BMAD" → "법무법인 파로스"
@@ -22,6 +33,12 @@
 - [x] S3 설정 암호화 버그 안전장치 추가
 - [x] AWS Region 드롭다운 변경
 - [x] 테스트 100% 통과 (iteration 2~4)
+
+## SUPER 역할 설정 방법
+PostgreSQL에서 직접 설정:
+```sql
+UPDATE users SET role = 'SUPER' WHERE email = '원하는이메일@example.com';
+```
 
 ## 백로그
 - P1: 도움말 검색 기능
