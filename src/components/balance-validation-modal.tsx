@@ -46,7 +46,7 @@ export function BalanceValidationModal({ isOpen, onClose, caseId }: BalanceValid
     onSuccess: (data) => {
       toast.success(`${data.correctionsMade}건이 교정되었습니다.`);
       // 거래 목록 갱신
-      void utils.transaction.getTransactionsForCase.invalidate({ caseId });
+      void utils.transaction.getPaginatedTransactions.invalidate();
       onClose();
     },
     onError: (error) => {
