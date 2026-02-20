@@ -5,7 +5,7 @@
 
 ## 구현 완료
 
-### 2026-02-20: SUPER 역할 구현 + 금액 필터 버그 수정
+### 2026-02-20: SUPER 역할 구현 + 금액 필터 버그 수정 + 잔액 기반 OCR 검증
 - [x] Prisma schema에 SUPER 역할 추가 (Role enum)
 - [x] RBAC 파일(`/app/src/server/lib/rbac.ts`)에 SUPER 권한 추가
 - [x] `case.ts` 라우터: SUPER 사용자 모든 사건 조회 + 변호사 정보 포함
@@ -19,6 +19,18 @@
   - **디버깅 로그 추가**:
     - 서버: `[filterByAmount]` 접두어로 콘솔 로그 (caseId, minAmount, 조회 결과, 각 거래 상세)
     - 클라이언트: `[금액필터]` 접두어로 브라우저 콘솔 로그 (검색 조건, 응답 요약, 거래 목록)
+- [x] **잔액 기반 OCR 파싱 오류 자동 감지/교정**:
+  - **문제**: OCR에서 입금/출금이 반대로 파싱되는 경우 (예: 대출 입금이 출금으로 기록)
+  - **해결 1**: 데이터 저장 시 자동 교정 (`/app/src/lib/data-extractor.ts`)
+    - `validateAndCorrectTransactions()` 함수로 잔액 역산 검증
+    - 불일치 시 입금↔출금 자동 교정
+    - 서버 로그: `[Balance Validator]` 접두어
+  - **해결 2**: 기존 데이터 검증 API (`transaction.validateBalanceAndCorrect`)
+    - `dryRun=true`: 검증만 수행 (교정 안함)
+    - `dryRun=false`: 실제 DB 교정 수행
+  - **UI**: 사건 상세 페이지에 "입출금 오류 검증" 버튼 추가
+    - `/app/src/components/balance-validation-modal.tsx`
+    - 오분류 목록 표시 및 일괄 교정 기능
 
 ### 2026-02-20: 도움말 페이지 + 브랜딩 변경
 - [x] `/help` 페이지 생성 (사용자 12개 + 관리자 4개 카테고리)
