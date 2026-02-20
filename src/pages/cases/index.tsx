@@ -241,6 +241,12 @@ const CasesIndexPage: NextPage = () => {
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">{caseItem.debtorName}</p>
                           <p className="text-sm text-gray-500 dark:text-gray-400">{caseItem.caseNumber}</p>
+                          {/* SUPER/ADMIN: 변호사 이름 표시 */}
+                          {isSuperOrAdmin && 'lawyer' in caseItem && caseItem.lawyer && (
+                            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                              담당: {caseItem.lawyer.name || caseItem.lawyer.email}
+                            </p>
+                          )}
                         </div>
                         <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full flex-shrink-0 ${statusColors[caseItem.status] || "bg-gray-100 text-gray-800"}`}>
                           {getStatusLabel(caseItem.status)}
