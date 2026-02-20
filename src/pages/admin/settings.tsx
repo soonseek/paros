@@ -381,21 +381,9 @@ export default function AdminSettings() {
         </Card>
 
         {/* 저장 버튼 */}
-        <div className="flex justify-end gap-4">
-          <Button
-            variant="outline"
-            onClick={() => router.back()}
-            data-testid="cancel-button"
-          >
-            취소
-          </Button>
-          <Button
-            onClick={handleSave}
-            disabled={isSaving}
-            data-testid="save-button"
-          >
-            {isSaving ? '저장 중...' : '저장'}
-          </Button>
+        <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 sm:gap-4">
+          <Button variant="outline" onClick={() => router.back()} data-testid="cancel-button" className="w-full sm:w-auto">취소</Button>
+          <Button onClick={handleSave} disabled={isSaving} data-testid="save-button" className="w-full sm:w-auto">{isSaving ? '저장 중...' : '저장'}</Button>
         </div>
       </div>
     </div>
