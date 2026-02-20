@@ -515,8 +515,19 @@ export async function extractAndSaveTransactions(
   // Bulk insert using Prisma createMany (performance optimization)
   let success = 0;
   try {
+    // [잔액 기반 자동 교정] 저장 전에 입금/출금 오류 검증 및 교정
+    const { correctedTransactions, corrections } = validateAndCorrectTransactions(transactions);
+    
+    if (corrections.length > 0) {
+      console.log(`[Balance Validator] ========== 입금/출금 자동 교정 ==========`);
+      console.log(`[Balance Validator] 총 ${corrections.length}건 교정됨`);
+      corrections.forEach((c, idx) => {
+        console.log(`[Balance Validator] [${idx + 1}] Row ${c.rowNumber}: ${c.originalType} → ${c.correctedType} (${c.amount.toLocaleString()}원) - ${c.reason}`);
+      });
+    }
+    
     const result = await tx.transaction.createMany({
-      data: transactions,
+      data: correctedTransactions,
       skipDuplicates: true, // CRITICAL-1 FIX: Skip duplicates based on unique constraint
     });
 
