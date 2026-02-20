@@ -1785,9 +1785,12 @@ export const transactionRouter = createTRPCRouter({
         const amount = isDeposit ? depositAmount : withdrawalAmount;
         const expectedChange = isDeposit ? amount : -amount;
         const expectedBalance = prevBalance + expectedChange;
+        
+        // 허용 오차 계산 (금액의 0.1% 또는 최소 100원)
+        const tolerance = getToleranceForAmount(amount);
 
         // 예상 변동과 실제 변동 비교
-        const isMatch = Math.abs(actualChange - expectedChange) <= TOLERANCE;
+        const isMatch = Math.abs(actualChange - expectedChange) <= tolerance;
 
         if (!isMatch) {
           // 반대 케이스로 검증
