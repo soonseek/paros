@@ -1646,6 +1646,196 @@ export const transactionRouter = createTRPCRouter({
     }),
 
   /**
+   * 잔액 기반 입금/출금 검증 및 교정
+   * 
+   * 기존에 저장된 거래 데이터에서 OCR 파싱 오류로 인한 
+   * 입금/출금 오분류를 감지하고 교정합니다.
+   * 
+   * @param caseId - 사건 ID
+   * @param documentId - 특정 문서로 제한 (선택)
+   * @param dryRun - true: 검증만 수행 (실제 수정 안함), false: 실제 교정
+   * @returns 검증/교정 결과
+   */
+  validateBalanceAndCorrect: protectedProcedure
+    .input(
+      z.object({
+        caseId: z.string().min(1, "사건 ID는 필수 항목입니다"),
+        documentId: z.string().optional(),
+        dryRun: z.boolean().default(true),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { caseId, documentId, dryRun } = input;
+      const userId = ctx.userId;
+
+      console.log(`[validateBalance] ========== 시작 ==========`);
+      console.log(`[validateBalance] caseId: ${caseId}, documentId: ${documentId || 'all'}, dryRun: ${dryRun}`);
+
+      // 1. RBAC 검증
+      const user = await ctx.db.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
+
+      if (!user) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "사용자를 찾을 수 없습니다.",
+        });
+      }
+
+      const caseData = await ctx.db.case.findUnique({
+        where: { id: caseId },
+        select: { lawyerId: true },
+      });
+
+      if (!caseData) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "사건을 찾을 수 없습니다.",
+        });
+      }
+
+      assertTransactionAccess({
+        userId,
+        userRole: user.role,
+        caseLawyerId: caseData.lawyerId,
+      });
+
+      // 2. 거래 데이터 조회
+      const whereClause: Record<string, unknown> = { caseId };
+      if (documentId) {
+        whereClause.documentId = documentId;
+      }
+
+      const transactions = await ctx.db.transaction.findMany({
+        where: whereClause,
+        select: {
+          id: true,
+          transactionDate: true,
+          depositAmount: true,
+          withdrawalAmount: true,
+          balance: true,
+          memo: true,
+          documentId: true,
+          document: {
+            select: {
+              originalFileName: true,
+            },
+          },
+        },
+        orderBy: { transactionDate: "asc" },
+      });
+
+      console.log(`[validateBalance] 총 거래 수: ${transactions.length}건`);
+
+      // 3. 잔액 기반 검증
+      const TOLERANCE = 10; // 10원 이내 오차 허용
+      const issues: Array<{
+        id: string;
+        transactionDate: string;
+        currentType: "입금" | "출금";
+        suggestedType: "입금" | "출금";
+        amount: number;
+        prevBalance: number;
+        currentBalance: number;
+        expectedBalance: number;
+        actualChange: number;
+        memo: string;
+        documentName: string;
+      }> = [];
+
+      const corrections: Array<{
+        id: string;
+        corrected: boolean;
+      }> = [];
+
+      for (let i = 0; i < transactions.length; i++) {
+        const tx = transactions[i];
+        if (!tx) continue;
+
+        const currentBalance = tx.balance ? Number(tx.balance) : null;
+        const depositAmount = tx.depositAmount ? Math.abs(Number(tx.depositAmount)) : 0;
+        const withdrawalAmount = tx.withdrawalAmount ? Math.abs(Number(tx.withdrawalAmount)) : 0;
+
+        // 잔액이 없으면 검증 불가
+        if (currentBalance === null) continue;
+
+        // 이전 거래의 잔액
+        let prevBalance: number | null = null;
+        if (i > 0) {
+          const prevTx = transactions[i - 1];
+          prevBalance = prevTx?.balance ? Number(prevTx.balance) : null;
+        }
+
+        // 이전 잔액이 없으면 검증 불가
+        if (prevBalance === null) continue;
+
+        // 실제 잔액 변동
+        const actualChange = currentBalance - prevBalance;
+
+        // 현재 분류 확인
+        const isDeposit = depositAmount > 0 && withdrawalAmount === 0;
+        const isWithdrawal = withdrawalAmount > 0 && depositAmount === 0;
+
+        if (!isDeposit && !isWithdrawal) continue;
+
+        const amount = isDeposit ? depositAmount : withdrawalAmount;
+        const expectedChange = isDeposit ? amount : -amount;
+        const expectedBalance = prevBalance + expectedChange;
+
+        // 예상 변동과 실제 변동 비교
+        const isMatch = Math.abs(actualChange - expectedChange) <= TOLERANCE;
+
+        if (!isMatch) {
+          // 반대 케이스로 검증
+          const oppositeExpectedChange = isDeposit ? -amount : amount;
+          const isOppositeMatch = Math.abs(actualChange - oppositeExpectedChange) <= TOLERANCE;
+
+          if (isOppositeMatch) {
+            // 오분류 감지!
+            issues.push({
+              id: tx.id,
+              transactionDate: tx.transactionDate.toISOString(),
+              currentType: isDeposit ? "입금" : "출금",
+              suggestedType: isDeposit ? "출금" : "입금",
+              amount,
+              prevBalance,
+              currentBalance,
+              expectedBalance,
+              actualChange,
+              memo: tx.memo || "",
+              documentName: tx.document?.originalFileName || "",
+            });
+
+            // 실제 교정 수행 (dryRun=false 일 때만)
+            if (!dryRun) {
+              await ctx.db.transaction.update({
+                where: { id: tx.id },
+                data: {
+                  depositAmount: isDeposit ? null : amount,
+                  withdrawalAmount: isDeposit ? amount : null,
+                },
+              });
+              corrections.push({ id: tx.id, corrected: true });
+              console.log(`[validateBalance] 교정됨: ${tx.id} (${isDeposit ? "입금→출금" : "출금→입금"})`);
+            }
+          }
+        }
+      }
+
+      console.log(`[validateBalance] 완료 - 감지된 오류: ${issues.length}건, 교정: ${corrections.length}건`);
+
+      return {
+        totalTransactions: transactions.length,
+        issuesFound: issues.length,
+        correctionsMade: corrections.length,
+        dryRun,
+        issues,
+      };
+    }),
+
+  /**
    * 대출금 사용 추적 (서버 사이드)
    * 
    * 키워드로 대출 입금건을 찾고, 이후 출금 내역을 추적
