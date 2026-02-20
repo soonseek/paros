@@ -33,10 +33,33 @@ export class SettingsService {
     // 암호화된 값이면 복호화
     if (setting.isEncrypted) {
       try {
-        return decrypt(setting.value);
+        const decrypted = decrypt(setting.value);
+        if (!decrypted) {
+          console.error(`[SettingsService] 복호화 결과가 비어있음: ${key}`);
+          return null;
+        }
+        return decrypted;
       } catch (error) {
         console.error(`[SettingsService] 복호화 실패: ${key}`, error);
         return null;
+      }
+    }
+
+    // 안전장치: isEncrypted가 false인데 값이 CryptoJS 암호문 형태인 경우 복호화 시도
+    if (setting.value.startsWith('U2FsdGVk')) {
+      console.warn(`[SettingsService] ${key}: isEncrypted=false이지만 암호화된 값 감지, 복호화 시도`);
+      try {
+        const decrypted = decrypt(setting.value);
+        if (decrypted) {
+          // DB의 isEncrypted 플래그도 수정
+          await this.db.systemSetting.update({
+            where: { key },
+            data: { isEncrypted: true },
+          });
+          return decrypted;
+        }
+      } catch {
+        // 복호화 실패 시 원래 값 반환
       }
     }
 
