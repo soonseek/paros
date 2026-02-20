@@ -1730,7 +1730,9 @@ export const transactionRouter = createTRPCRouter({
       console.log(`[validateBalance] 총 거래 수: ${transactions.length}건`);
 
       // 3. 잔액 기반 검증
-      const TOLERANCE = 10; // 10원 이내 오차 허용
+      // 허용 오차: 잔액 계산 시 소수점 오차, 이자 등을 고려하여 0.1% 또는 최소 100원
+      const getToleranceForAmount = (amount: number) => Math.max(100, Math.abs(amount) * 0.001);
+      
       const issues: Array<{
         id: string;
         transactionDate: string;
