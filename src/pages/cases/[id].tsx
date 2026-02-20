@@ -134,6 +134,7 @@ const CaseDetailPage: NextPage = () => {
   // 퀵 버튼 모달 상태
   const [isLoanTrackingOpen, setIsLoanTrackingOpen] = useState(false);
   const [isAmountFilterOpen, setIsAmountFilterOpen] = useState(false);
+  const [isBalanceValidationOpen, setIsBalanceValidationOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
