@@ -398,7 +398,8 @@ export const caseRouter = createTRPCRouter({
       const { id, debtorName, courtName, filingDate, status } = input;
 
       // RBAC: Verify user owns this case (using helper function)
-      await verifyCaseOwnership(ctx.db, id, ctx.userId);
+      const userRole390 = await getUserRole(ctx.db, ctx.userId);
+      await verifyCaseOwnership(ctx.db, id, ctx.userId, userRole390 ?? undefined);
 
       // Update case
       const updatedCase = await ctx.db.case.update({
