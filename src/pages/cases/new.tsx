@@ -10,6 +10,7 @@ import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { api } from "~/utils/api";
 import { useAuth } from "~/contexts/AuthContext";
+import { AppHeader } from "~/components/app-header";
 
 const createCaseSchema = z.object({
   caseNumber: z.string().optional(), // 사건번호 선택 사항
