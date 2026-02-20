@@ -315,9 +315,7 @@ const CasesIndexPage: NextPage = () => {
                             {/* SUPER/ADMIN: 변호사 이름 표시 */}
                             {isSuperOrAdmin && (
                               <td className="px-4 lg:px-6 py-3 whitespace-nowrap text-sm text-blue-600 dark:text-blue-400">
-                                {'lawyer' in caseItem && caseItem.lawyer 
-                                  ? (caseItem.lawyer.name || caseItem.lawyer.email)
-                                  : "-"}
+                                {getLawyerName(caseItem) || "-"}
                               </td>
                             )}
                             <td className="hidden md:table-cell px-4 lg:px-6 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{caseItem.courtName || "-"}</td>
