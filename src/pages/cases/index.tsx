@@ -7,6 +7,7 @@ import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { api } from "~/utils/api";
 import { useAuth } from "~/contexts/AuthContext";
+import { AppHeader } from "~/components/app-header";
 import { toast } from "sonner";
 
 /**
