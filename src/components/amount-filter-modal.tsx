@@ -4,7 +4,7 @@
  * 대용량 데이터 처리를 위해 DB에서 직접 필터링
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Download, Loader2, Filter } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "~/components/ui/dialog";
 import { Button } from "~/components/ui/button";
