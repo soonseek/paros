@@ -105,21 +105,22 @@ const CasesIndexPage: NextPage = () => {
   };
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <AppHeader showBack backHref="/dashboard" />
+      <div className="px-3 sm:px-4 py-4 sm:py-8 max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">
+        <div className="flex justify-between items-center mb-4 sm:mb-6">
+          <h1 className="text-xl sm:text-3xl font-bold">
             {showArchived ? "아카이브된 사건" : "사건 목록"}
           </h1>
-          <Button onClick={() => router.push("/cases/new")}>
+          <Button size="sm" onClick={() => router.push("/cases/new")}>
             새 사건 등록
           </Button>
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-3 sm:p-6 mb-4 sm:mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {/* Search */}
             <div>
               <Label htmlFor="search">검색</Label>
