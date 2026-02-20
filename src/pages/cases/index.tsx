@@ -37,6 +37,24 @@ const statusLabels: Record<string, string> = {
 // Korean status labels for display
 const getStatusLabel = (status: string) => statusLabels[status] || status;
 
+// SUPER/ADMIN용 변호사 정보 타입
+interface LawyerInfo {
+  id: string;
+  name: string | null;
+  email: string;
+}
+
+// 변호사 정보를 안전하게 가져오는 헬퍼 함수
+const getLawyerName = (caseItem: unknown): string | null => {
+  if (typeof caseItem === 'object' && caseItem !== null && 'lawyer' in caseItem) {
+    const lawyer = (caseItem as { lawyer?: LawyerInfo }).lawyer;
+    if (lawyer) {
+      return lawyer.name || lawyer.email;
+    }
+  }
+  return null;
+};
+
 const CasesIndexPage: NextPage = () => {
   const router = useRouter();
   const { user } = useAuth();
