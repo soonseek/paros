@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure } from '~/server/api/trpc';
 import { SettingsService } from '~/server/services/settings-service';
 import { TRPCError } from '@trpc/server';
+import { clearS3Cache } from '~/lib/s3';
 
 export const settingsRouter = createTRPCRouter({
   /**
