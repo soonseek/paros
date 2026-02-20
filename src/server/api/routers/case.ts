@@ -109,7 +109,7 @@ export const caseRouter = createTRPCRouter({
         select: { role: true },
       });
 
-      if (!user || (user.role !== Role.LAWYER && user.role !== Role.ADMIN)) {
+      if (!user || (user.role !== Role.LAWYER && user.role !== Role.ADMIN && user.role !== Role.SUPER)) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "사건을 생성할 권한이 없습니다",
