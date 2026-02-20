@@ -1471,49 +1471,13 @@ export default function HelpPage() {
       </header>
 
       <div className="container mx-auto flex" style={{ height: "calc(100vh - 57px)" }}>
-        {/* 사이드바 - 데스크톱 */}
-        <aside className="hidden lg:block w-72 flex-shrink-0 border-r dark:border-gray-700 bg-white dark:bg-gray-800 overflow-y-auto" data-testid="help-sidebar">
-          {/* 탭 */}
-          <div className="sticky top-0 bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-4 pt-4 pb-2 z-10">
-            <div className="flex gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-              <button
-                onClick={() => { setActiveTab("user"); setActiveSection("overview"); }}
-                className={`flex-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  activeTab === "user"
-                    ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm"
-                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                }`}
-                data-testid="help-tab-user"
-              >
-                사용자 가이드
-              </button>
-              <button
-                onClick={() => { setActiveTab("admin"); setActiveSection("admin-intro"); }}
-                className={`flex-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  activeTab === "admin"
-                    ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm"
-                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                }`}
-                data-testid="help-tab-admin"
-              >
-                관리자 가이드
-              </button>
-            </div>
-          </div>
-          {/* 메뉴 */}
-          <nav className="p-4 space-y-1">
-            {currentMenu.map((item) => (
-              <SidebarItem key={item.id} item={item} activeSection={activeSection} onSelect={handleSelect} />
-            ))}
-          </nav>
-        </aside>
-
-        {/* 모바일 사이드바 오버레이 */}
+        {/* 사이드바 오버레이 (햄버거 버튼으로 토글) */}
         {mobileMenuOpen && (
-          <div className="lg:hidden fixed inset-0 z-40 bg-black/50" onClick={() => setMobileMenuOpen(false)}>
+          <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setMobileMenuOpen(false)}>
             <aside
-              className="absolute left-0 top-0 bottom-0 w-80 bg-white dark:bg-gray-800 overflow-y-auto shadow-xl"
+              className="absolute left-0 top-0 bottom-0 w-80 bg-white dark:bg-gray-800 overflow-y-auto shadow-xl animate-in slide-in-from-left duration-200"
               onClick={(e) => e.stopPropagation()}
+              data-testid="help-sidebar"
             >
               <div className="px-4 pt-4 pb-2 border-b dark:border-gray-700">
                 <div className="flex gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
@@ -1522,8 +1486,9 @@ export default function HelpPage() {
                     className={`flex-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                       activeTab === "user"
                         ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm"
-                        : "text-gray-500 dark:text-gray-400"
+                        : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                     }`}
+                    data-testid="help-tab-user"
                   >
                     사용자 가이드
                   </button>
@@ -1532,8 +1497,9 @@ export default function HelpPage() {
                     className={`flex-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                       activeTab === "admin"
                         ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm"
-                        : "text-gray-500 dark:text-gray-400"
+                        : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                     }`}
+                    data-testid="help-tab-admin"
                   >
                     관리자 가이드
                   </button>
