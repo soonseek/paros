@@ -529,12 +529,11 @@ const CaseDetailPage: NextPage = () => {
   // Prevent SSR hydration mismatch
   if (!mounted) {
     return (
-      <div className="container mx-auto py-8 px-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-center py-12 bg-gray-50 rounded-lg">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3" />
-            <p className="text-gray-600">로딩 중...</p>
-          </div>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <AppHeader showBack backHref="/cases" />
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3" />
+          <p className="text-gray-600 dark:text-gray-400">로딩 중...</p>
         </div>
       </div>
     );
@@ -548,12 +547,11 @@ const CaseDetailPage: NextPage = () => {
   // Loading state
   if (isPending) {
     return (
-      <div className="container mx-auto py-8 px-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-center py-12 bg-gray-50 rounded-lg">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3" />
-            <p className="text-gray-600">로딩 중...</p>
-          </div>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <AppHeader showBack backHref="/cases" />
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3" />
+          <p className="text-gray-600 dark:text-gray-400">로딩 중...</p>
         </div>
       </div>
     );
@@ -565,17 +563,18 @@ const CaseDetailPage: NextPage = () => {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="max-w-[1920px] mx-auto">
-        {/* Header with navigation - 간소화된 버튼 구성 */}
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">사건 상세</h1>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => void router.push("/cases")}>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <AppHeader showBack backHref="/cases" />
+      <div className="px-2 sm:px-4 py-3 sm:py-6 max-w-[1920px] mx-auto">
+        {/* Header with navigation */}
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-4 sm:mb-6">
+          <h1 className="text-xl sm:text-3xl font-bold dark:text-gray-100">사건 상세</h1>
+          <div className="flex gap-1.5 sm:gap-2 flex-wrap">
+            <Button variant="outline" size="sm" onClick={() => void router.push("/cases")}>
               목록
             </Button>
 
-            {/* Upload Button - 핵심 기능 */}
+            {/* Upload Button */}
             <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
               <DialogTrigger asChild>
                 <Button variant="default">
