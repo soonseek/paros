@@ -2328,11 +2328,15 @@ export const transactionRouter = createTRPCRouter({
           const loanDocumentId = loan.document?.id;
 
           // 대출 실행 이후의 출금 내역 조회
+          // 주의: 출금 금액이 양수 또는 음수로 저장될 수 있음
           const withdrawals = await ctx.db.transaction.findMany({
             where: {
               caseId,
               transactionDate: { gte: loan.transactionDate },
-              withdrawalAmount: { gt: 0 },
+              OR: [
+                { withdrawalAmount: { gt: 0 } },
+                { withdrawalAmount: { lt: 0 } }, // 음수 출금도 포함
+              ],
               id: { not: loan.id },
             },
             orderBy: { transactionDate: "asc" },
