@@ -2391,10 +2391,18 @@ export const transactionRouter = createTRPCRouter({
             depositMemo: string;
           }>();
 
+          console.log(`[trackMultipleLoans] 대출 ID: ${loan.id.slice(0,8)}, 문서: ${loan.document?.originalFileName}`);
+          console.log(`[trackMultipleLoans] 다른 계좌 입금건 수: ${otherDeposits.length}건`);
+
           for (const dep of otherDeposits) {
             const dateStr = dep.transactionDate.toISOString().split('T')[0]; // YYYY-MM-DD
             const amount = Math.abs(Number(dep.depositAmount)); // 절대값으로 매칭
             const key = `${dateStr}_${amount}`;
+            
+            // 처음 5건 로그
+            if (depositMatchMap.size < 5) {
+              console.log(`[trackMultipleLoans] 입금 후보: ${dateStr}, ${amount.toLocaleString()}원, ${dep.document?.originalFileName}, ${dep.memo?.slice(0,20)}`);
+            }
             
             // 아직 매칭되지 않은 경우에만 추가
             if (!depositMatchMap.has(key)) {
@@ -2405,6 +2413,8 @@ export const transactionRouter = createTRPCRouter({
               });
             }
           }
+          
+          console.log(`[trackMultipleLoans] 매칭 가능한 입금 키 수: ${depositMatchMap.size}개`);
 
           // 추적 결과 생성
           interface TrackedItem {
