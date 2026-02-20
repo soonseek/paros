@@ -6,6 +6,7 @@
  * - Eliminates code duplication across mutations
  *
  * Role Permissions:
+ * - SUPER: Full access to all resources (슈퍼 관리자)
  * - ADMIN: Full access to all resources
  * - LAWYER: Full access to own cases (lawyerId === userId)
  * - PARALEGAL: Read-only access to own cases
@@ -30,6 +31,7 @@ export interface RBACResult {
  * Checks if a user has permission to access/modify a transaction.
  *
  * Role Permissions:
+ * - SUPER: Can access any transaction (슈퍼 관리자)
  * - ADMIN: Can access any transaction
  * - LAWYER: Can access transactions in own cases
  * - PARALEGAL: Read-only access to own cases (use canReadTransaction for reads)
@@ -53,6 +55,11 @@ export interface RBACResult {
  */
 export function checkTransactionAccess(params: TransactionAccessParams): RBACResult {
   const { userId, userRole, caseLawyerId } = params;
+
+  // SUPER: Full access (슈퍼 관리자)
+  if (userRole === "SUPER") {
+    return { allowed: true };
+  }
 
   // ADMIN: Full access
   if (userRole === "ADMIN") {
