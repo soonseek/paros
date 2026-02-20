@@ -1,8 +1,6 @@
 import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
-import { Settings, FileSpreadsheet } from "lucide-react";
+import { useEffect } from "react";
 
-import { Button } from "~/components/ui/button";
 import {
   Card,
   CardContent,
@@ -12,122 +10,24 @@ import {
 } from "~/components/ui/card";
 import { api } from "~/utils/api";
 import { useAuth } from "~/contexts/AuthContext";
-import { ThemeToggleButton } from "~/components/theme-toggle";
+import { AppHeader } from "~/components/app-header";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, accessToken, clearAuth, isAuthenticated } = useAuth();
-  const [showUserMenu, setShowUserMenu] = useState(false);
+  const { user, accessToken, isAuthenticated } = useAuth();
 
   useEffect(() => {
-    // Check if user is authenticated
     if (!isAuthenticated || !accessToken) {
-      // Redirect to login if not authenticated
       router.push("/login");
     }
   }, [isAuthenticated, accessToken, router]);
 
-  const logoutMutation = api.user.logout.useMutation({
-    onSuccess: () => {
-      // Clear auth state
-      clearAuth();
-      // Redirect to login
-      router.push("/login");
-    },
-  });
-
-  const handleLogout = () => {
-    logoutMutation.mutate();
-  };
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <header className="border-b bg-white dark:bg-gray-800 dark:border-gray-700">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center flex-wrap gap-4">
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">법무법인 파로스</h1>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => router.push("/help")}
-              className="text-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium"
-              data-testid="help-nav-link"
-            >
-              도움말
-            </button>
-            <ThemeToggleButton />
-            {user?.role === 'ADMIN' && (
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => router.push("/admin/settings")}
-                title="관리자 설정"
-                data-testid="admin-settings-button"
-              >
-                <Settings className="h-5 w-5" />
-              </Button>
-            )}
-            {user?.role === 'ADMIN' && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => router.push("/admin/templates")}
-                title="템플릿 관리"
-                data-testid="admin-templates-button"
-              >
-                <FileSpreadsheet className="h-4 w-4 mr-1.5" />
-                템플릿 관리
-              </Button>
-            )}
-            <div className="relative">
-              <Button
-                variant="outline"
-                onClick={() => setShowUserMenu(!showUserMenu)}
-              >
-                {user?.name || user?.email || "사용자 메뉴"}
-              </Button>
-              {showUserMenu && (
-                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-md shadow-lg z-10">
-                  <div className="py-1">
-                    <button
-                      onClick={() => {
-                        router.push("/dashboard/profile");
-                        setShowUserMenu(false);
-                      }}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                    >
-                      내 프로필
-                    </button>
-                    {user?.role === 'ADMIN' && (
-                      <button
-                        onClick={() => {
-                          router.push("/admin/settings");
-                          setShowUserMenu(false);
-                        }}
-                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      >
-                        관리자 설정
-                      </button>
-                    )}
-                    <button
-                      onClick={() => {
-                        handleLogout();
-                        setShowUserMenu(false);
-                      }}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      disabled={logoutMutation.isPending}
-                    >
-                      {logoutMutation.isPending ? "로그아웃 중..." : "로그아웃"}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
+      <AppHeader />
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="px-3 sm:px-4 py-4 sm:py-8 max-w-7xl mx-auto">
         <Card className="dark:bg-gray-800 dark:border-gray-700">
           <CardHeader>
             <CardTitle className="dark:text-gray-100">대시보드</CardTitle>
