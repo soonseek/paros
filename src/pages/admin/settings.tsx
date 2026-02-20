@@ -305,10 +305,8 @@ export default function AdminSettings() {
         </Card>
 
         {/* S3 설정 */}
-        <Card className="p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">
-            AWS S3 설정 (파일 저장소)
-          </h2>
+        <Card className="p-3 sm:p-6 mb-4 sm:mb-6">
+          <h2 className="text-lg sm:text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">AWS S3 설정 (파일 저장소)</h2>
 
           {/* AWS Access Key ID */}
           <div className="mb-6">
