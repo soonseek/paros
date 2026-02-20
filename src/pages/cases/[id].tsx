@@ -712,6 +712,14 @@ const CaseDetailPage: NextPage = () => {
               >
                 금액 이상 입출금건 뽑기
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 text-orange-600 border-orange-300 hover:bg-orange-50"
+                onClick={() => setIsBalanceValidationOpen(true)}
+              >
+                입출금 오류 검증
+              </Button>
             </div>
             
             <AIChatAssistant
