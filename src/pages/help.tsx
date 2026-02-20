@@ -1509,17 +1509,6 @@ export default function HelpPage() {
           </nav>
         </aside>
 
-        {/* 모바일 사이드바 토글 */}
-        <div className="lg:hidden fixed bottom-4 right-4 z-40">
-          <Button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="shadow-lg rounded-full w-12 h-12 p-0"
-            data-testid="help-mobile-menu-toggle"
-          >
-            <BookOpen className="h-5 w-5" />
-          </Button>
-        </div>
-
         {/* 모바일 사이드바 오버레이 */}
         {mobileMenuOpen && (
           <div className="lg:hidden fixed inset-0 z-30 bg-black/50" onClick={() => setMobileMenuOpen(false)}>
