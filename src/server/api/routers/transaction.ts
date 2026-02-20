@@ -2358,11 +2358,15 @@ export const transactionRouter = createTRPCRouter({
 
           // 동일 사건의 다른 계좌(문서)에서의 입금 내역 조회 (이동 매칭용)
           // 대출 계좌가 아닌 다른 문서의 입금 내역
+          // 주의: 입금 금액이 양수 또는 음수로 저장될 수 있음
           const otherDeposits = await ctx.db.transaction.findMany({
             where: {
               caseId,
               transactionDate: { gte: loan.transactionDate },
-              depositAmount: { gt: 0 },
+              OR: [
+                { depositAmount: { gt: 0 } },
+                { depositAmount: { lt: 0 } }, // 음수 입금도 포함 (오분류된 경우)
+              ],
               documentId: { not: loanDocumentId }, // 대출 계좌가 아닌 다른 문서
             },
             select: {
