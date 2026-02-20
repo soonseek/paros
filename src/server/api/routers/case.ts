@@ -322,8 +322,12 @@ export const caseRouter = createTRPCRouter({
         });
       }
 
-      // RBAC: Verify user owns this case
-      if (caseItem.lawyerId !== ctx.userId) {
+      // RBAC: Verify user owns this case (SUPER/ADMIN can view any case)
+      const viewer = await ctx.db.user.findUnique({
+        where: { id: ctx.userId },
+        select: { role: true },
+      });
+      if (caseItem.lawyerId !== ctx.userId && viewer?.role !== Role.SUPER && viewer?.role !== Role.ADMIN) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "권한이 없습니다",
