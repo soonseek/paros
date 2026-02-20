@@ -201,10 +201,17 @@ export const caseRouter = createTRPCRouter({
       const pageSize = 20;
       const skip = (page - 1) * pageSize;
 
+      // SUPER 권한 확인
+      const currentUser = await ctx.db.user.findUnique({
+        where: { id: ctx.userId },
+        select: { role: true },
+      });
+      const isSuperOrAdmin = currentUser?.role === Role.SUPER || currentUser?.role === Role.ADMIN;
+
       // Build where clause with RBAC enforcement
       const where: {
-        lawyerId: string;
-        isArchived?: boolean; // Changed from hardcoded to conditional
+        lawyerId?: string;
+        isArchived?: boolean;
         OR?: Array<{
           caseNumber?: { contains: string; mode: 'insensitive' };
           debtorName?: { contains: string; mode: 'insensitive' };
@@ -212,10 +219,9 @@ export const caseRouter = createTRPCRouter({
         courtName?: string;
         filingDate?: { gte?: Date; lte?: Date };
       } = {
-        lawyerId: ctx.userId, // ✅ CRITICAL: RBAC enforcement - only user's own cases
-        // ✅ CRITICAL: Default to active cases only, show archived when explicitly requested
+        // SUPER/ADMIN: 모든 사건 조회, 그 외: 본인 사건만
+        ...(isSuperOrAdmin ? {} : { lawyerId: ctx.userId }),
         ...(showArchived !== undefined && { isArchived: showArchived }),
-        // If showArchived is not provided, default to false (active cases only)
         ...(showArchived === undefined && { isArchived: false }),
       };
 
