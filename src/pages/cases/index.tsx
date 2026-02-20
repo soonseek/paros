@@ -260,9 +260,9 @@ const CasesIndexPage: NextPage = () => {
                           <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">{caseItem.debtorName}</p>
                           <p className="text-sm text-gray-500 dark:text-gray-400">{caseItem.caseNumber}</p>
                           {/* SUPER/ADMIN: 변호사 이름 표시 */}
-                          {isSuperOrAdmin && 'lawyer' in caseItem && caseItem.lawyer && (
+                          {isSuperOrAdmin && getLawyerName(caseItem) && (
                             <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                              담당: {caseItem.lawyer.name || caseItem.lawyer.email}
+                              담당: {getLawyerName(caseItem)}
                             </p>
                           )}
                         </div>
