@@ -1600,9 +1600,13 @@ export const fileRouter = createTRPCRouter({
         parseRules?: { rowMergePattern?: "pair" | "none" };
       };
 
-      const { columnMapping } = convertSchemaToMapping(templateSchema, headers);
+      console.log(`[ReParse] Template schema columns:`, JSON.stringify(templateSchema.columns));
+      
+      const { columnMapping, memoInAmountColumn } = convertSchemaToMapping(templateSchema, headers);
 
       console.log(`[ReParse] Template: ${template.name}, columnMapping:`, JSON.stringify(columnMapping));
+      console.log(`[ReParse] memoInAmountColumn:`, memoInAmountColumn);
+      console.log(`[ReParse] memo column index:`, columnMapping.memo);
 
       // 샘플 데이터 파싱
       const parsedSampleData: {
@@ -1625,6 +1629,11 @@ export const fileRouter = createTRPCRouter({
         const dateValue = dateIdx !== undefined && dateIdx >= 0 ? String(row[dateIdx] || '') : '';
         const balanceValue = balanceIdx !== undefined && balanceIdx >= 0 ? row[balanceIdx] : '';
         const memoValue = memoIdx !== undefined && memoIdx >= 0 ? String(row[memoIdx] || '') : '';
+        
+        // 첫 번째 행에서 memo 값 로깅
+        if (sampleRows.indexOf(row) === 0) {
+          console.log(`[ReParse] First row memo parsing - memoIdx: ${memoIdx}, row[memoIdx]: ${memoIdx !== undefined && memoIdx >= 0 ? row[memoIdx] : 'N/A'}, memoValue: "${memoValue}"`);
+        }
 
         // 금액 파싱
         const parseAmount = (val: unknown): number => {
