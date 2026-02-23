@@ -72,7 +72,6 @@ class TestTemplateAccessControl:
     """Test template management access for ADMIN and SUPER users"""
     
     @pytest.fixture
-    @pytest.fixture
     def admin_token(self):
         """Get admin access token"""
         response = requests.post(
