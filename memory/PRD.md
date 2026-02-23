@@ -2,8 +2,16 @@
 
 ## 아키텍처
 - Next.js 15.5.9 (Pages Router) + Tailwind CSS + shadcn/ui + tRPC + Prisma + PostgreSQL
+- 역할 기반 접근 제어: LAWYER, ADMIN, SUPER
 
 ## 구현 완료
+
+### 2026-02-23: SUPER 역할 템플릿 권한 확장
+- [x] `adminProcedure`에서 SUPER 역할 허용 (src/server/api/trpc.ts)
+- [x] 템플릿 관리 페이지에서 SUPER 역할 접근 허용 (src/pages/admin/templates.tsx)
+- [x] SUPER 사용자가 템플릿 CRUD(생성/조회/수정/삭제) 기능 사용 가능
+- [x] 비고(memo) 컬럼 파싱 로직 디버그 로깅 추가
+- [x] 테스트 87.5% 백엔드 / 100% 프론트엔드 통과 (iteration 5)
 
 ### 2026-02-20: 도움말 페이지 + 브랜딩 변경
 - [x] `/help` 페이지 생성 (사용자 12개 + 관리자 4개 카테고리)
@@ -23,6 +31,16 @@
 - [x] AWS Region 드롭다운 변경
 - [x] 테스트 100% 통과 (iteration 2~4)
 
+## 사용자 역할
+- **LAWYER**: 자신의 사건만 조회/관리
+- **ADMIN**: 모든 사건 조회 + 시스템 설정 + 템플릿 관리
+- **SUPER**: 모든 사건 조회 + 시스템 설정 + 템플릿 관리 (ADMIN과 동일 권한)
+
+## 테스트 계정
+- admin@test.com / admin123 (ADMIN)
+- super@test.com / admin123 (SUPER)
+
 ## 백로그
+- P0: 비고 컬럼 미리보기 버그 - 실제 파일 업로드 시 재현 테스트 필요 (S3 설정 후)
 - P1: 도움말 검색 기능
 - P2: 동영상 튜토리얼, 다국어 지원
