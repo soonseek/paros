@@ -14,8 +14,8 @@ import requests
 import os
 import json
 
-# Use the public URL for testing
-BASE_URL = os.environ.get('NEXT_PUBLIC_APP_URL', 'https://law-firm-dashboard.preview.emergentagent.com')
+# Use localhost for testing since external URL may have Cloudflare issues
+BASE_URL = "http://localhost:3000"
 
 # Test credentials from review request
 ADMIN_CREDS = {"email": "admin@test.com", "password": "admin123"}
@@ -28,7 +28,7 @@ class TestUserAuthentication:
     def test_admin_user_login(self):
         """Test ADMIN user can login successfully"""
         response = requests.post(
-            f"{BASE_URL}/api/trpc/auth.login",
+            f"{BASE_URL}/api/trpc/user.login",
             headers={"Content-Type": "application/json"},
             json={"json": ADMIN_CREDS}
         )
@@ -49,7 +49,7 @@ class TestUserAuthentication:
     def test_super_user_login(self):
         """Test SUPER user can login successfully"""
         response = requests.post(
-            f"{BASE_URL}/api/trpc/auth.login",
+            f"{BASE_URL}/api/trpc/user.login",
             headers={"Content-Type": "application/json"},
             json={"json": SUPER_CREDS}
         )
@@ -75,7 +75,7 @@ class TestTemplateAccessControl:
     def admin_token(self):
         """Get admin access token"""
         response = requests.post(
-            f"{BASE_URL}/api/trpc/auth.login",
+            f"{BASE_URL}/api/trpc/user.login",
             headers={"Content-Type": "application/json"},
             json={"json": ADMIN_CREDS}
         )
@@ -86,7 +86,7 @@ class TestTemplateAccessControl:
     def super_token(self):
         """Get super access token"""
         response = requests.post(
-            f"{BASE_URL}/api/trpc/auth.login",
+            f"{BASE_URL}/api/trpc/user.login",
             headers={"Content-Type": "application/json"},
             json={"json": SUPER_CREDS}
         )
@@ -167,7 +167,7 @@ class TestMemoColumnHandling:
         """Verify existing template has memo column in columnSchema"""
         # Login as admin
         response = requests.post(
-            f"{BASE_URL}/api/trpc/auth.login",
+            f"{BASE_URL}/api/trpc/user.login",
             headers={"Content-Type": "application/json"},
             json={"json": ADMIN_CREDS}
         )
@@ -217,7 +217,7 @@ class TestTemplateCreateWithMemo:
     def super_token(self):
         """Get super access token"""
         response = requests.post(
-            f"{BASE_URL}/api/trpc/auth.login",
+            f"{BASE_URL}/api/trpc/user.login",
             headers={"Content-Type": "application/json"},
             json={"json": SUPER_CREDS}
         )
@@ -303,7 +303,7 @@ class TestRoleComparison:
         for role, creds in [("ADMIN", ADMIN_CREDS), ("SUPER", SUPER_CREDS)]:
             # Login
             login_resp = requests.post(
-                f"{BASE_URL}/api/trpc/auth.login",
+                f"{BASE_URL}/api/trpc/user.login",
                 headers={"Content-Type": "application/json"},
                 json={"json": creds}
             )
