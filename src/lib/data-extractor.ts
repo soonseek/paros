@@ -626,6 +626,7 @@ export async function extractAndSaveTransactions(
         withdrawalAmount,
         balance,
         memo: memo || undefined,
+        rowNumber: i + 1, // 원본 순서 유지를 위한 행 번호
         rawMetadata: metadata as Prisma.InputJsonValue,
       });
     } catch (error) {

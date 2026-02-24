@@ -394,7 +394,7 @@ export const transactionRouter = createTRPCRouter({
       const [transactions, totalCount] = await Promise.all([
         ctx.db.transaction.findMany({
           where: whereCondition,
-          orderBy: [{ transactionDate: "desc" }],
+          orderBy: [{ transactionDate: "desc" }, { rowNumber: "desc" }],
           skip: (page - 1) * pageSize,
           take: pageSize,
           select: {
@@ -1304,7 +1304,7 @@ export const transactionRouter = createTRPCRouter({
       const [transactions, totalCount] = await Promise.all([
         ctx.db.transaction.findMany({
           where,
-          orderBy: [{ transactionDate: "asc" }], // 기본 정렬: 거래일자 오름차순
+          orderBy: [{ transactionDate: "asc" }, { rowNumber: "asc" }], // 기본 정렬: 거래일자 오름차순, 같은 날짜 내 원본 순서 유지
           skip: (page - 1) * pageSize,
           take: pageSize,
           select: {
@@ -1548,7 +1548,7 @@ export const transactionRouter = createTRPCRouter({
             },
           },
         },
-        orderBy: { transactionDate: "asc" },
+        orderBy: [{ transactionDate: "asc" }, { rowNumber: "asc" }],
       });
 
       console.log(`[filterByAmount] DB 조회 결과: ${transactions.length}건`);
@@ -1910,7 +1910,7 @@ export const transactionRouter = createTRPCRouter({
 
       const loanDeposit = await ctx.db.transaction.findFirst({
         where: loanWhereClause,
-        orderBy: { transactionDate: "asc" },
+        orderBy: [{ transactionDate: "asc" }, { rowNumber: "asc" }],
         select: {
           id: true,
           transactionDate: true,
@@ -1952,7 +1952,7 @@ export const transactionRouter = createTRPCRouter({
 
       const withdrawals = await ctx.db.transaction.findMany({
         where: withdrawalWhereClause,
-        orderBy: { transactionDate: "asc" },
+        orderBy: [{ transactionDate: "asc" }, { rowNumber: "asc" }],
         select: {
           id: true,
           transactionDate: true,
@@ -2215,7 +2215,7 @@ export const transactionRouter = createTRPCRouter({
           depositAmount: { gt: 0 },
           memo: { contains: keyword, mode: "insensitive" },
         },
-        orderBy: { transactionDate: "asc" },
+        orderBy: [{ transactionDate: "asc" }, { rowNumber: "asc" }],
         take: 50,
         select: {
           id: true,
@@ -2297,7 +2297,7 @@ export const transactionRouter = createTRPCRouter({
           caseId,
           depositAmount: { gt: 0 },
         },
-        orderBy: { transactionDate: "asc" },
+        orderBy: [{ transactionDate: "asc" }, { rowNumber: "asc" }],
         select: {
           id: true,
           transactionDate: true,
@@ -2326,6 +2326,31 @@ export const transactionRouter = createTRPCRouter({
         loanDeposits.map(async (loan) => {
           const loanAmount = Number(loan.depositAmount);
           const loanDocumentId = loan.document?.id;
+
+          // 대출 실행 이후의 출금 내역 조회
+          const withdrawals = await ctx.db.transaction.findMany({
+            where: {
+              caseId,
+              transactionDate: { gte: loan.transactionDate },
+              withdrawalAmount: { gt: 0 },
+              id: { not: loan.id },
+            },
+            orderBy: [{ transactionDate: "asc" }, { rowNumber: "asc" }],
+            take: 500, // 최대 500건
+            select: {
+              id: true,
+              transactionDate: true,
+              withdrawalAmount: true,
+              balance: true,
+              memo: true,
+              document: {
+                select: {
+                  id: true,
+                  originalFileName: true,
+                },
+              },
+            },
+          });
 
           // 동일 사건의 다른 계좌(문서)에서의 입금 내역 조회 (이동 매칭용)
           // 대출 계좌가 아닌 다른 문서의 입금 내역
