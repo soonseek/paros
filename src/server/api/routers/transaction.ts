@@ -1534,7 +1534,7 @@ export const transactionRouter = createTRPCRouter({
             },
           },
         },
-        orderBy: { transactionDate: "asc" },
+        orderBy: [{ transactionDate: "asc" }, { rowNumber: "asc" }],
       });
 
       // 3. 통계 계산
@@ -1636,7 +1636,7 @@ export const transactionRouter = createTRPCRouter({
 
       const loanDeposit = await ctx.db.transaction.findFirst({
         where: loanWhereClause,
-        orderBy: { transactionDate: "asc" },
+        orderBy: [{ transactionDate: "asc" }, { rowNumber: "asc" }],
         select: {
           id: true,
           transactionDate: true,
@@ -1678,7 +1678,7 @@ export const transactionRouter = createTRPCRouter({
 
       const withdrawals = await ctx.db.transaction.findMany({
         where: withdrawalWhereClause,
-        orderBy: { transactionDate: "asc" },
+        orderBy: [{ transactionDate: "asc" }, { rowNumber: "asc" }],
         select: {
           id: true,
           transactionDate: true,
@@ -1941,7 +1941,7 @@ export const transactionRouter = createTRPCRouter({
           depositAmount: { gt: 0 },
           memo: { contains: keyword, mode: "insensitive" },
         },
-        orderBy: { transactionDate: "asc" },
+        orderBy: [{ transactionDate: "asc" }, { rowNumber: "asc" }],
         take: 50,
         select: {
           id: true,
@@ -2023,7 +2023,7 @@ export const transactionRouter = createTRPCRouter({
           caseId,
           depositAmount: { gt: 0 },
         },
-        orderBy: { transactionDate: "asc" },
+        orderBy: [{ transactionDate: "asc" }, { rowNumber: "asc" }],
         select: {
           id: true,
           transactionDate: true,
@@ -2061,7 +2061,7 @@ export const transactionRouter = createTRPCRouter({
               withdrawalAmount: { gt: 0 },
               id: { not: loan.id },
             },
-            orderBy: { transactionDate: "asc" },
+            orderBy: [{ transactionDate: "asc" }, { rowNumber: "asc" }],
             take: 500, // 최대 500건
             select: {
               id: true,
