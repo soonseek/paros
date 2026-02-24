@@ -335,6 +335,10 @@ export async function extractAndSaveTransactions(
     console.log(`[Data Extractor] 병합 후: ${processRows.length}개 거래`);
   }
 
+  // 잔액 검증을 위한 이전 잔액 추적
+  let previousBalance: number | null = null;
+  let balanceValidationWarnings: string[] = [];
+
   for (let i = 0; i < processRows.length; i++) {
     const row = processRows[i];
 
