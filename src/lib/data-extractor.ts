@@ -509,6 +509,42 @@ export async function extractAndSaveTransactions(
         continue; // Skip this row
       }
 
+      // 잔액 검증: 이전 잔액과 현재 잔액을 비교하여 입금/출금 방향 확인
+      if (previousBalance !== null && balance !== null) {
+        const expectedChange = (depositAmount ?? 0) - (withdrawalAmount ?? 0);
+        const actualChange = balance - previousBalance;
+        
+        // 허용 오차 (소수점 반올림 등으로 인한 미세한 차이 허용)
+        const tolerance = 1;
+        
+        if (Math.abs(expectedChange - actualChange) > tolerance) {
+          // 입금/출금이 반대로 되어 있는지 확인
+          const reverseChange = -(depositAmount ?? 0) + (withdrawalAmount ?? 0);
+          
+          if (Math.abs(reverseChange - actualChange) <= tolerance) {
+            // 입금/출금이 반대로 되어 있음 - 자동 수정
+            console.log(`[Data Extractor] Row ${i + 1}: 입금/출금 반전 감지, 자동 수정`);
+            const tempDeposit = depositAmount;
+            depositAmount = withdrawalAmount;
+            withdrawalAmount = tempDeposit;
+            
+            balanceValidationWarnings.push(
+              `Row ${i + 1}: 입금/출금 반전 자동 수정 (이전잔액: ${previousBalance}, 현재잔액: ${balance})`
+            );
+          } else {
+            // 잔액 불일치 경고 (수정하지 않음 - 데이터 손실 방지)
+            balanceValidationWarnings.push(
+              `Row ${i + 1}: 잔액 불일치 (예상: ${previousBalance + expectedChange}, 실제: ${balance})`
+            );
+          }
+        }
+      }
+      
+      // 현재 잔액을 이전 잔액으로 저장
+      if (balance !== null) {
+        previousBalance = balance;
+      }
+
       // Create transaction record
       transactions.push({
         caseId,
