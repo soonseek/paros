@@ -6,18 +6,19 @@
 
 ## 구현 완료
 
-### 2026-02-23: 거래 정렬 순서 버그 수정
+### 2026-02-23: 거래 정렬 및 파싱 버그 수정
 - [x] 같은 날짜 내 거래 순서 뒤섞임 버그 수정
-- [x] 모든 거래 조회 쿼리에 `rowNumber` 보조 정렬 키 추가 (8곳)
-- [x] 거래 저장 시 `rowNumber` 필드 설정 추가 (`data-extractor.ts`)
+- [x] `transactionDate` 시간 정보 보존 (스키마에서 `@db.Date` 제거)
+- [x] 정렬 순서 최신순(DESC)으로 변경
+- [x] 금액 부호 기반 입금/출금 자동 판단 (양수=입금, 음수=출금)
+- [x] 잔액 검증 로직 추가 (입금/출금 반전 자동 수정)
+- [x] unique constraint에 `rowNumber` 추가
 - [x] 기존 데이터 마이그레이션 스크립트 생성 (`scripts/migrate-row-numbers.ts`)
 
 ### 2026-02-23: SUPER 역할 템플릿 권한 확장
 - [x] `adminProcedure`에서 SUPER 역할 허용 (src/server/api/trpc.ts)
 - [x] 템플릿 관리 페이지에서 SUPER 역할 접근 허용 (src/pages/admin/templates.tsx)
 - [x] SUPER 사용자가 템플릿 CRUD(생성/조회/수정/삭제) 기능 사용 가능
-- [x] 비고(memo) 컬럼 파싱 로직 디버그 로깅 추가
-- [x] 테스트 87.5% 백엔드 / 100% 프론트엔드 통과 (iteration 5)
 
 ### 2026-02-20: 도움말 페이지 + 브랜딩 변경
 - [x] `/help` 페이지 생성 (사용자 12개 + 관리자 4개 카테고리)
@@ -35,7 +36,6 @@
 - [x] 반응형 grid/padding/font 전체 적용
 - [x] S3 설정 암호화 버그 안전장치 추가
 - [x] AWS Region 드롭다운 변경
-- [x] 테스트 100% 통과 (iteration 2~4)
 
 ## 사용자 역할
 - **LAWYER**: 자신의 사건만 조회/관리
@@ -47,7 +47,7 @@
 - super@test.com / admin123 (SUPER)
 
 ## 백로그
-- P0: 비고 컬럼 미리보기 버그 - 실제 파일 업로드 시 재현 테스트 필요 (S3 설정 후)
+- P0: 비고 컬럼 미리보기 버그 (S3 설정 후 재현 테스트)
 - P1: 도움말 검색 기능
 - P2: 동영상 튜토리얼, 다국어 지원
 
@@ -56,3 +56,5 @@
 ```bash
 npx tsx scripts/migrate-row-numbers.ts
 ```
+
+**주의**: 기존에 업로드된 파일의 거래 순서가 잘못된 경우, 해당 문서를 삭제하고 다시 업로드해야 합니다.

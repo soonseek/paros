@@ -460,6 +460,10 @@ export async function extractAndSaveTransactions(
     console.log(`[Data Extractor] 병합 후: ${processRows.length}개 거래`);
   }
 
+  // 잔액 검증을 위한 이전 잔액 추적
+  let previousBalance: number | null = null;
+  let balanceValidationWarnings: string[] = [];
+
   for (let i = 0; i < processRows.length; i++) {
     const row = processRows[i];
 
@@ -537,17 +541,30 @@ export async function extractAndSaveTransactions(
         // 병합된 행 대응: 첫 단어만 추출 ("출금 NH올원뱅크" → "출금")
         const transactionType = extractFirstWord(transactionTypeRaw);
 
-        // [+] 또는 입금 관련 키워드면 입금, [-] 또는 출금 관련 키워드면 출금
-        const isDeposit = transactionType.includes("+") ||
-          transactionType.includes("입금") ||
-          transactionType.includes("받기") ||
-          transactionType.includes("충전") ||
-          transactionType.includes("적립");
+        // 1. 금액 부호 기반 판단 (토스뱅크 등: 양수=입금, 음수=출금)
+        if (amount !== null && amount !== 0) {
+          if (amount > 0) {
+            // 양수 금액 = 입금
+            depositAmount = amount;
+          } else {
+            // 음수 금액 = 출금 (절대값으로 저장)
+            withdrawalAmount = Math.abs(amount);
+          }
+        }
+        // 2. 거래구분 키워드 기반 판단 (금액이 0이거나 없는 경우)
+        else if (amount !== null) {
+          // [+] 또는 입금 관련 키워드면 입금, [-] 또는 출금 관련 키워드면 출금
+          const isDeposit = transactionType.includes("+") ||
+            transactionType.includes("입금") ||
+            transactionType.includes("받기") ||
+            transactionType.includes("충전") ||
+            transactionType.includes("적립");
 
-        if (isDeposit) {
-          depositAmount = amount;
-        } else {
-          withdrawalAmount = amount;
+          if (isDeposit) {
+            depositAmount = amount;
+          } else {
+            withdrawalAmount = Math.abs(amount);
+          }
         }
       }
 
@@ -617,6 +634,42 @@ export async function extractAndSaveTransactions(
         continue; // Skip this row
       }
 
+      // 잔액 검증: 이전 잔액과 현재 잔액을 비교하여 입금/출금 방향 확인
+      if (previousBalance !== null && balance !== null) {
+        const expectedChange = (depositAmount ?? 0) - (withdrawalAmount ?? 0);
+        const actualChange = balance - previousBalance;
+        
+        // 허용 오차 (소수점 반올림 등으로 인한 미세한 차이 허용)
+        const tolerance = 1;
+        
+        if (Math.abs(expectedChange - actualChange) > tolerance) {
+          // 입금/출금이 반대로 되어 있는지 확인
+          const reverseChange = -(depositAmount ?? 0) + (withdrawalAmount ?? 0);
+          
+          if (Math.abs(reverseChange - actualChange) <= tolerance) {
+            // 입금/출금이 반대로 되어 있음 - 자동 수정
+            console.log(`[Data Extractor] Row ${i + 1}: 입금/출금 반전 감지, 자동 수정`);
+            const tempDeposit = depositAmount;
+            depositAmount = withdrawalAmount;
+            withdrawalAmount = tempDeposit;
+            
+            balanceValidationWarnings.push(
+              `Row ${i + 1}: 입금/출금 반전 자동 수정 (이전잔액: ${previousBalance}, 현재잔액: ${balance})`
+            );
+          } else {
+            // 잔액 불일치 경고 (수정하지 않음 - 데이터 손실 방지)
+            balanceValidationWarnings.push(
+              `Row ${i + 1}: 잔액 불일치 (예상: ${previousBalance + expectedChange}, 실제: ${balance})`
+            );
+          }
+        }
+      }
+      
+      // 현재 잔액을 이전 잔액으로 저장
+      if (balance !== null) {
+        previousBalance = balance;
+      }
+
       // Create transaction record
       transactions.push({
         caseId,
@@ -667,10 +720,16 @@ export async function extractAndSaveTransactions(
       skippedByValidation: skipped,
       skippedByDuplicate: duplicatesSkipped,
       errors: errors.length,
+      balanceWarnings: balanceValidationWarnings.length,
     });
     
     if (errors.length > 0 && errors.length <= 10) {
       console.log(`[Data Extractor] First errors:`, errors.slice(0, 10));
+    }
+    
+    // 잔액 검증 경고 로그
+    if (balanceValidationWarnings.length > 0) {
+      console.log(`[Data Extractor] Balance validation warnings:`, balanceValidationWarnings.slice(0, 20));
     }
   } catch (error) {
     // Log Prisma error details
