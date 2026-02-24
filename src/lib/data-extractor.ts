@@ -584,10 +584,16 @@ export async function extractAndSaveTransactions(
       skippedByValidation: skipped,
       skippedByDuplicate: duplicatesSkipped,
       errors: errors.length,
+      balanceWarnings: balanceValidationWarnings.length,
     });
     
     if (errors.length > 0 && errors.length <= 10) {
       console.log(`[Data Extractor] First errors:`, errors.slice(0, 10));
+    }
+    
+    // 잔액 검증 경고 로그
+    if (balanceValidationWarnings.length > 0) {
+      console.log(`[Data Extractor] Balance validation warnings:`, balanceValidationWarnings.slice(0, 20));
     }
   } catch (error) {
     // Log Prisma error details
