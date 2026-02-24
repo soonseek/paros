@@ -37,9 +37,30 @@ const statusLabels: Record<string, string> = {
 // Korean status labels for display
 const getStatusLabel = (status: string) => statusLabels[status] || status;
 
+// SUPER/ADMIN용 변호사 정보 타입
+interface LawyerInfo {
+  id: string;
+  name: string | null;
+  email: string;
+}
+
+// 변호사 정보를 안전하게 가져오는 헬퍼 함수
+const getLawyerName = (caseItem: unknown): string | null => {
+  if (typeof caseItem === 'object' && caseItem !== null && 'lawyer' in caseItem) {
+    const lawyer = (caseItem as { lawyer?: LawyerInfo }).lawyer;
+    if (lawyer) {
+      return lawyer.name || lawyer.email;
+    }
+  }
+  return null;
+};
+
 const CasesIndexPage: NextPage = () => {
   const router = useRouter();
   const { user } = useAuth();
+
+  // SUPER/ADMIN은 모든 사건을 조회할 수 있음
+  const isSuperOrAdmin = user?.role === "SUPER" || user?.role === "ADMIN";
 
   // Filter state
   const [search, setSearch] = useState("");
@@ -238,6 +259,12 @@ const CasesIndexPage: NextPage = () => {
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">{caseItem.debtorName}</p>
                           <p className="text-sm text-gray-500 dark:text-gray-400">{caseItem.caseNumber}</p>
+                          {/* SUPER/ADMIN: 변호사 이름 표시 */}
+                          {isSuperOrAdmin && getLawyerName(caseItem) && (
+                            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                              담당: {getLawyerName(caseItem)}
+                            </p>
+                          )}
                         </div>
                         <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full flex-shrink-0 ${statusColors[caseItem.status] || "bg-gray-100 text-gray-800"}`}>
                           {getStatusLabel(caseItem.status)}
@@ -263,6 +290,12 @@ const CasesIndexPage: NextPage = () => {
                           <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600" onClick={() => handleSort("debtorName")}>
                             채무자명 {sortBy === "debtorName" && <span>{sortOrder === "asc" ? "↑" : "↓"}</span>}
                           </th>
+                          {/* SUPER/ADMIN: 담당 변호사 컬럼 */}
+                          {isSuperOrAdmin && (
+                            <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                              담당 변호사
+                            </th>
+                          )}
                           <th className="hidden md:table-cell px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600" onClick={() => handleSort("courtName")}>
                             법원명 {sortBy === "courtName" && <span>{sortOrder === "asc" ? "↑" : "↓"}</span>}
                           </th>
@@ -279,6 +312,12 @@ const CasesIndexPage: NextPage = () => {
                           <tr key={caseItem.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer" onClick={() => handleRowClick(caseItem.id)}>
                             <td className="px-4 lg:px-6 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">{caseItem.caseNumber}</td>
                             <td className="px-4 lg:px-6 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{caseItem.debtorName}</td>
+                            {/* SUPER/ADMIN: 변호사 이름 표시 */}
+                            {isSuperOrAdmin && (
+                              <td className="px-4 lg:px-6 py-3 whitespace-nowrap text-sm text-blue-600 dark:text-blue-400">
+                                {getLawyerName(caseItem) || "-"}
+                              </td>
+                            )}
                             <td className="hidden md:table-cell px-4 lg:px-6 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{caseItem.courtName || "-"}</td>
                             <td className="hidden lg:table-cell px-4 lg:px-6 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{caseItem.filingDate ? new Date(caseItem.filingDate).toLocaleDateString("ko-KR") : "-"}</td>
                             <td className="px-4 lg:px-6 py-3 whitespace-nowrap">
