@@ -233,7 +233,7 @@ const TemplatesPage: NextPage = () => {
     onError: (error) => toast.error(error.message),
   });
 
-  // Auth check - ADMIN 또는 SUPER만 접근 가능
+  // Auth check - ADMIN과 SUPER 역할 모두 접근 허용
   useEffect(() => {
     if (user && user.role !== "ADMIN" && user.role !== "SUPER") {
       void router.push("/cases");

@@ -308,7 +308,8 @@ export const adminProcedure = protectedProcedure
       select: { role: true },
     });
 
-    if (!user || user.role !== "ADMIN") {
+    // ADMIN과 SUPER 역할 모두 관리자 권한 허용
+    if (!user || (user.role !== "ADMIN" && user.role !== "SUPER")) {
       throw new TRPCError({
         code: "FORBIDDEN",
         message: "관리자만 접근할 수 있습니다",

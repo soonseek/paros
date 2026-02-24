@@ -269,9 +269,18 @@ export function convertSchemaToMapping(
     if (idx !== -1) columnMapping.balance = idx;
   }
 
+  // memo 컬럼 처리
+  console.log(`[convertSchemaToMapping] columns.memo:`, columns.memo);
+  console.log(`[convertSchemaToMapping] memoInAmountColumn:`, memoInAmountColumn);
+  
   if (columns.memo && !memoInAmountColumn) {
     const idx = findColumnIndex(columns.memo, headers);
+    console.log(`[convertSchemaToMapping] memo column index found:`, idx);
     if (idx !== -1) columnMapping.memo = idx;
+  } else if (columns.memo && memoInAmountColumn) {
+    console.log(`[convertSchemaToMapping] memo column skipped due to memoInAmountColumn=true`);
+  } else {
+    console.log(`[convertSchemaToMapping] No memo column defined in schema`);
   }
 
   if (columns.transactionType) {
