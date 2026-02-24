@@ -268,7 +268,8 @@ model Transaction {
     updatedAt        DateTime  @updatedAt
 
     // CRITICAL-1 FIX: Add unique constraint to prevent duplicate transactions
-    @@unique([documentId, transactionDate, depositAmount, withdrawalAmount])
+    // rowNumber를 포함하여 같은 날짜/금액이라도 원본 순서가 다르면 허용
+    @@unique([documentId, transactionDate, depositAmount, withdrawalAmount, rowNumber])
     @@index([caseId])
     @@index([documentId])
     @@index([transactionDate])
