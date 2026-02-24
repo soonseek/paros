@@ -6,6 +6,12 @@
 
 ## 구현 완료
 
+### 2026-02-23: 거래 정렬 순서 버그 수정
+- [x] 같은 날짜 내 거래 순서 뒤섞임 버그 수정
+- [x] 모든 거래 조회 쿼리에 `rowNumber` 보조 정렬 키 추가 (8곳)
+- [x] 거래 저장 시 `rowNumber` 필드 설정 추가 (`data-extractor.ts`)
+- [x] 기존 데이터 마이그레이션 스크립트 생성 (`scripts/migrate-row-numbers.ts`)
+
 ### 2026-02-23: SUPER 역할 템플릿 권한 확장
 - [x] `adminProcedure`에서 SUPER 역할 허용 (src/server/api/trpc.ts)
 - [x] 템플릿 관리 페이지에서 SUPER 역할 접근 허용 (src/pages/admin/templates.tsx)
@@ -44,3 +50,9 @@
 - P0: 비고 컬럼 미리보기 버그 - 실제 파일 업로드 시 재현 테스트 필요 (S3 설정 후)
 - P1: 도움말 검색 기능
 - P2: 동영상 튜토리얼, 다국어 지원
+
+## 기존 데이터 마이그레이션
+기존에 저장된 거래의 `rowNumber`가 `null`인 경우 다음 스크립트를 실행하여 복원:
+```bash
+npx tsx scripts/migrate-row-numbers.ts
+```
