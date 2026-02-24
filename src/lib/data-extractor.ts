@@ -412,17 +412,30 @@ export async function extractAndSaveTransactions(
         // 병합된 행 대응: 첫 단어만 추출 ("출금 NH올원뱅크" → "출금")
         const transactionType = extractFirstWord(transactionTypeRaw);
 
-        // [+] 또는 입금 관련 키워드면 입금, [-] 또는 출금 관련 키워드면 출금
-        const isDeposit = transactionType.includes("+") ||
-          transactionType.includes("입금") ||
-          transactionType.includes("받기") ||
-          transactionType.includes("충전") ||
-          transactionType.includes("적립");
+        // 1. 금액 부호 기반 판단 (토스뱅크 등: 양수=입금, 음수=출금)
+        if (amount !== null && amount !== 0) {
+          if (amount > 0) {
+            // 양수 금액 = 입금
+            depositAmount = amount;
+          } else {
+            // 음수 금액 = 출금 (절대값으로 저장)
+            withdrawalAmount = Math.abs(amount);
+          }
+        }
+        // 2. 거래구분 키워드 기반 판단 (금액이 0이거나 없는 경우)
+        else if (amount !== null) {
+          // [+] 또는 입금 관련 키워드면 입금, [-] 또는 출금 관련 키워드면 출금
+          const isDeposit = transactionType.includes("+") ||
+            transactionType.includes("입금") ||
+            transactionType.includes("받기") ||
+            transactionType.includes("충전") ||
+            transactionType.includes("적립");
 
-        if (isDeposit) {
-          depositAmount = amount;
-        } else {
-          withdrawalAmount = amount;
+          if (isDeposit) {
+            depositAmount = amount;
+          } else {
+            withdrawalAmount = Math.abs(amount);
+          }
         }
       }
 
