@@ -2,6 +2,7 @@ import { analyticsRouter } from "~/server/api/routers/analytics"; // Story 4.8
 import { caseRouter } from "~/server/api/routers/case";
 import { caseNoteRouter } from "~/server/api/routers/caseNote";
 import { chatRouter } from "~/server/api/routers/chat";
+import { correctionGuideRouter } from "~/server/api/routers/correction-guide"; // 보정권고 안내사항
 import { exportRouter } from "~/server/api/routers/export"; // Story 7.1
 import { fundFlowRouter } from "~/server/api/routers/fundFlow"; // Story 5.1
 import { findingsRouter } from "~/server/api/routers/findings";
@@ -26,6 +27,7 @@ export const appRouter = createTRPCRouter({
   case: caseRouter,
   caseNote: caseNoteRouter,
   chat: chatRouter,
+  correctionGuide: correctionGuideRouter, // 보정권고 안내사항
   export: exportRouter, // Story 7.1
   fundFlow: fundFlowRouter, // Story 5.1
   findings: findingsRouter,
