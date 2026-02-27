@@ -602,3 +602,46 @@ model TransactionTemplate {
     @@index([priority])
     @@map("transaction_templates")
 }
+
+
+// 보정권고 안내사항 템플릿
+model CorrectionGuideTemplate {
+    id          String   @id @default(uuid())
+    title       String                                    // 제목
+    content     String   @db.Text                        // 내용 (AI 매칭용)
+    images      Json?                                    // 이미지 첨부 (S3 URLs 배열)
+    files       Json?                                    // 파일 첨부 (S3 URLs 배열)  
+    specialNotes String?  @db.Text                       // 특이사항 (AI 지침)
+    isActive    Boolean  @default(true)                  // 활성화 여부
+    priority    Int      @default(0)                     // 우선순위 (높을수록 먼저)
+    
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+    
+    @@index([isActive])
+    @@index([priority])
+    @@map("correction_guide_templates")
+}
+
+// 보정권고 분석 결과 (사건별)
+model CorrectionGuideAnalysis {
+    id              String   @id @default(uuid())
+    caseId          String                               // 사건 ID
+    documentId      String?                              // 업로드된 보정명령서 문서 ID
+    originalFileName String?                             // 원본 파일명
+    
+    // 분석 결과
+    analysisStatus  String   @default("pending")         // pending, processing, completed, failed
+    extractedItems  Json?                                // 추출된 보정 항목들
+    matchedTemplates Json?                               // 매칭된 템플릿 정보
+    
+    createdAt       DateTime @default(now())
+    updatedAt       DateTime @updatedAt
+    
+    // Relations
+    case            Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+    
+    @@index([caseId])
+    @@index([analysisStatus])
+    @@map("correction_guide_analyses")
+}
