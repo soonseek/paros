@@ -785,280 +785,314 @@ const CaseDetailPage: NextPage = () => {
           </div>
         </div>
 
-        {/* Story 6.2: Split View Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 sm:gap-6">
-          {/* 왼쪽 40%: 발견사항 목록 */}
-          <div className="lg:col-span-2">
-            <Card className="p-3 sm:p-6">
-              <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4 dark:text-gray-100">발견사항</h2>
-              {findings && findings.length > 0 ? (
-                <FindingList
-                  findings={findings as Finding[]}
-                  onUpdate={() => {
-                    // Findings 목록 갱신
-                    void utils.findings.getFindingsForCase.invalidate({ caseId: id as string });
-                  }}
-                  onFindingClick={handleFindingClick}
-                />
-              ) : (
-                <div className="text-center py-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-600">발견사항이 없습니다</p>
-                </div>
-              )}
-            </Card>
-          </div>
-
-          {/* 오른쪽 60%: 사건 정보 및 메모 */}
-          <div className="lg:col-span-3 space-y-3 sm:space-y-6">
-            {/* Case Details Card */}
-            <Card className="p-3 sm:p-6">
-              <div className="space-y-4 sm:space-y-6">
-                {/* Case Number */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500">사건번호</h3>
-                    <p className="mt-1 text-lg font-semibold text-gray-900">
-                      {caseItem.caseNumber}
-                    </p>
-                  </div>
-
-                  {/* Status */}
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500">상태</h3>
-                    <div className="mt-1">
-                      <span
-                        className={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${
-                          statusColors[caseItem.status] ?? "bg-gray-100 text-gray-800"
-                        }`}
+        {/* 보정권고 안내사항 섹션 */}
+        <Card className="p-4 sm:p-6 mb-4">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-4">
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg sm:text-xl font-bold dark:text-gray-100">
+                보정권고 안내사항 만들기
+              </h2>
+              {/* ADMIN/SUPER 사용자에게만 템플릿 관리 링크 표시 */}
+              {(user?.role === "ADMIN" || user?.role === "SUPER") && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Link 
+                        href="/admin/correction-guide-templates"
+                        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
                       >
-                        {getStatusLabel(caseItem.status)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Filing Date */}
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500">접수일자</h3>
-                    <p className="mt-1 text-lg text-gray-900">
-                      {caseItem.filingDate
-                        ? new Date(caseItem.filingDate).toLocaleDateString("ko-KR")
-                        : "-"}
-                    </p>
-                  </div>
-                </div>
-
-                <hr className="border-gray-200" />
-
-                {/* Debtor Name */}
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">채무자명</h3>
-                  <p className="mt-1 text-lg text-gray-900">{caseItem.debtorName}</p>
-                </div>
-
-                {/* Court Name */}
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">법원명</h3>
-                  <p className="mt-1 text-lg text-gray-900">
-                    {caseItem.courtName ?? "-"}
-                  </p>
-                </div>
-
-                <hr className="border-gray-200" />
-
-                {/* Lawyer Information */}
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">담당 변호사</h3>
-                  <div className="mt-1">
-                    <p className="text-lg font-medium text-gray-900">
-                      {caseItem.lawyer.name ?? caseItem.lawyer.email}
-                    </p>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {caseItem.lawyer.email}
-                    </p>
-                  </div>
-                </div>
-
-                <hr className="border-gray-200" />
-
-                {/* Timestamps */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500">생성일</h3>
-                    <p className="mt-1 text-sm text-gray-600">
-                      {new Date(caseItem.createdAt).toLocaleString("ko-KR")}
-                    </p>
-                  </div>
-
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500">수정일</h3>
-                    <p className="mt-1 text-sm text-gray-600">
-                      {new Date(caseItem.updatedAt).toLocaleString("ko-KR")}
-                    </p>
-                  </div>
-                </div>
+                        안내 사항 템플릿 관리
+                        <ExternalLink className="h-3 w-3" />
+                        <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>ADMIN 사용자에게만 보이는 링크입니다</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
+          </div>
+          
+          {/* 드래그앤드롭 업로드 영역 (목업) */}
+          <div
+            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+              isDraggingCorrection 
+                ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20" 
+                : "border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800"
+            }`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDraggingCorrection(true);
+            }}
+            onDragLeave={() => setIsDraggingCorrection(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setIsDraggingCorrection(false);
+              toast.info("보정권고/명령서 분석 기능은 추후 지원 예정입니다");
+            }}
+          >
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                <Plus className="h-8 w-8 text-gray-400" />
               </div>
-            </Card>
+              <div>
+                <p className="font-medium text-gray-700 dark:text-gray-300">
+                  보정권고/명령서를 여기에 드롭하세요
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  또는 클릭하여 파일 선택
+                </p>
+              </div>
+              <Button 
+                variant="outline"
+                onClick={() => toast.info("보정권고/명령서 분석 기능은 추후 지원 예정입니다")}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                파일 선택
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                PDF, 이미지 파일 지원 (추후 개발 예정)
+              </p>
+            </div>
+          </div>
+        </Card>
+      </div>
 
-            {/* Case Notes Section - Story 2.6 */}
-            <Card className="p-6">
-              <h2 className="text-2xl font-bold mb-4">사건 메모</h2>
-
-              {/* Add Note Form */}
-              <div className="mb-6">
-                <Label htmlFor="newNote">새 메모 추가</Label>
-                <Textarea
-                  id="newNote"
-                  placeholder="메모 내용을 입력하세요 (최대 1000자)"
-                  value={newNoteContent}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNewNoteContent(e.target.value)}
-                  rows={3}
-                  maxLength={1000}
-                  className="mt-2"
-                />
-                <div className="flex justify-between items-center mt-2">
-                  <p className="text-sm text-gray-500">
-                    {newNoteContent.length} / 1000자
-                  </p>
-                  <Button
-                    onClick={() =>
-                      createNoteMutation.mutate({
-                        caseId: id as string,
-                        content: newNoteContent.trim(), // Trim before sending to backend
-                      })
-                    }
-                    disabled={!newNoteContent.trim() || createNoteMutation.isPending}
+      {/* 상세정보 모달 */}
+      <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>사건 상세정보</DialogTitle>
+            <DialogDescription>
+              {caseItem.caseNumber} - {caseItem.debtorName}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-muted-foreground text-xs">사건번호</Label>
+                <p className="font-medium">{caseItem.caseNumber}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground text-xs">상태</Label>
+                <p>
+                  <span
+                    className={`px-2 py-0.5 inline-flex text-xs font-medium rounded-full ${
+                      statusColors[caseItem.status] ?? "bg-gray-100 text-gray-800"
+                    }`}
                   >
-                    {createNoteMutation.isPending ? "추가 중..." : "메모 추가"}
-                  </Button>
-                </div>
+                    {getStatusLabel(caseItem.status)}
+                  </span>
+                </p>
               </div>
+              <div>
+                <Label className="text-muted-foreground text-xs">채무자명</Label>
+                <p className="font-medium">{caseItem.debtorName}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground text-xs">접수일자</Label>
+                <p>
+                  {caseItem.filingDate
+                    ? new Date(caseItem.filingDate).toLocaleDateString("ko-KR")
+                    : "-"}
+                </p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground text-xs">법원명</Label>
+                <p>{caseItem.courtName ?? "-"}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground text-xs">담당 변호사</Label>
+                <p>{caseItem.lawyer.name ?? caseItem.lawyer.email}</p>
+              </div>
+            </div>
+            <hr />
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <Label className="text-muted-foreground text-xs">생성일</Label>
+                <p className="text-muted-foreground">
+                  {new Date(caseItem.createdAt).toLocaleString("ko-KR")}
+                </p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground text-xs">수정일</Label>
+                <p className="text-muted-foreground">
+                  {new Date(caseItem.updatedAt).toLocaleString("ko-KR")}
+                </p>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-              {/* Notes List */}
-              <div className="space-y-4">
-                {!notes || notes.length === 0 ? (
-                  <div className="text-center py-8 bg-gray-50 rounded-lg">
-                    <p className="text-gray-600">등록된 메모가 없습니다</p>
-                  </div>
-                ) : (
-                  notes.map((note) => (
-                    <Card key={note.id} className="p-4">
-                      {editingNoteId === note.id ? (
-                        /* Edit Mode */
-                        <div>
-                          <Label htmlFor={`edit-note-${note.id}`}>메모 수정</Label>
-                          <Textarea
-                            id={`edit-note-${note.id}`}
-                            value={editingNoteContent}
-                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setEditingNoteContent(e.target.value)}
-                            rows={3}
-                            maxLength={1000}
-                            className="mt-2"
-                          />
-                          <div className="flex justify-between items-center mt-2">
-                            <p className="text-sm text-gray-500">
-                              {editingNoteContent.length} / 1000자
+      {/* 사건메모 모달 */}
+      <Dialog open={isNotesModalOpen} onOpenChange={setIsNotesModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>사건 메모</DialogTitle>
+            <DialogDescription>
+              {caseItem.caseNumber} - {caseItem.debtorName}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Add Note Form */}
+            <div>
+              <Label htmlFor="newNote">새 메모 추가</Label>
+              <Textarea
+                id="newNote"
+                placeholder="메모 내용을 입력하세요 (최대 1000자)"
+                value={newNoteContent}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNewNoteContent(e.target.value)}
+                rows={3}
+                maxLength={1000}
+                className="mt-2"
+              />
+              <div className="flex justify-between items-center mt-2">
+                <p className="text-sm text-gray-500">
+                  {newNoteContent.length} / 1000자
+                </p>
+                <Button
+                  onClick={() =>
+                    createNoteMutation.mutate({
+                      caseId: id as string,
+                      content: newNoteContent.trim(),
+                    })
+                  }
+                  disabled={!newNoteContent.trim() || createNoteMutation.isPending}
+                >
+                  {createNoteMutation.isPending ? "추가 중..." : "메모 추가"}
+                </Button>
+              </div>
+            </div>
+
+            <hr />
+
+            {/* Notes List */}
+            <div className="space-y-3">
+              {!notes || notes.length === 0 ? (
+                <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <StickyNote className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                  <p className="text-muted-foreground">등록된 메모가 없습니다</p>
+                </div>
+              ) : (
+                notes.map((note) => (
+                  <Card key={note.id} className="p-4">
+                    {editingNoteId === note.id ? (
+                      /* Edit Mode */
+                      <div>
+                        <Label htmlFor={`edit-note-${note.id}`}>메모 수정</Label>
+                        <Textarea
+                          id={`edit-note-${note.id}`}
+                          value={editingNoteContent}
+                          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setEditingNoteContent(e.target.value)}
+                          rows={3}
+                          maxLength={1000}
+                          className="mt-2"
+                        />
+                        <div className="flex justify-between items-center mt-2">
+                          <p className="text-sm text-gray-500">
+                            {editingNoteContent.length} / 1000자
+                          </p>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setEditingNoteId(null);
+                                setEditingNoteContent("");
+                              }}
+                            >
+                              취소
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                updateNoteMutation.mutate({
+                                  id: note.id,
+                                  content: editingNoteContent.trim(),
+                                })
+                              }
+                              disabled={
+                                !editingNoteContent.trim() ||
+                                updateNoteMutation.isPending
+                              }
+                            >
+                              {updateNoteMutation.isPending ? "저장 중..." : "저장"}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      /* View Mode */
+                      <div>
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <p className="font-medium text-gray-900 dark:text-gray-100">
+                              {note.author.name ?? note.author.email}
                             </p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(note.createdAt).toLocaleString("ko-KR")}
+                            </p>
+                          </div>
+                          {note.authorId === user?.id && (
                             <div className="flex gap-2">
                               <Button
                                 variant="outline"
+                                size="sm"
                                 onClick={() => {
-                                  setEditingNoteId(null);
-                                  setEditingNoteContent("");
+                                  setEditingNoteId(note.id);
+                                  setEditingNoteContent(note.content);
                                 }}
                               >
-                                취소
+                                수정
                               </Button>
-                              <Button
-                                onClick={() =>
-                                  updateNoteMutation.mutate({
-                                    id: note.id,
-                                    content: editingNoteContent.trim(), // Trim before sending to backend
-                                  })
-                                }
-                                disabled={
-                                  !editingNoteContent.trim() ||
-                                  updateNoteMutation.isPending
-                                }
-                              >
-                                {updateNoteMutation.isPending
-                                  ? "저장 중..."
-                                  : "저장"}
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        /* View Mode */
-                        <div>
-                          <div className="flex justify-between items-start mb-2">
-                            <div>
-                              <p className="font-medium text-gray-900">
-                                {note.author.name ?? note.author.email}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                {new Date(note.createdAt).toLocaleString("ko-KR")}
-                              </p>
-                            </div>
-                            {note.authorId === user?.id && (
-                              <div className="flex gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    setEditingNoteId(note.id);
-                                    setEditingNoteContent(note.content);
-                                  }}
-                                  aria-label={`메모 수정: ${note.content.substring(0, 20)}${note.content.length > 20 ? "..." : ""}`}
-                                >
-                                  수정
-                                </Button>
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button
-                                      variant="destructive"
-                                      size="sm"
-                                      disabled={deleteNoteMutation.isPending}
-                                      aria-label={`메모 삭제: ${note.content.substring(0, 20)}${note.content.length > 20 ? "..." : ""}`}
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    disabled={deleteNoteMutation.isPending}
+                                  >
+                                    삭제
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>메모 삭제</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      이 메모를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>취소</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() =>
+                                        deleteNoteMutation.mutate({ id: note.id })
+                                      }
                                     >
                                       삭제
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>메모 삭제</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        이 메모를 삭제하시겠습니까? 이 작업은 되돌릴 수
-                                        없습니다.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>취소</AlertDialogCancel>
-                                      <AlertDialogAction
-                                        onClick={() =>
-                                          deleteNoteMutation.mutate({ id: note.id })
-                                        }
-                                      >
-                                        삭제
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              </div>
-                            )}
-                          </div>
-                          <p className="text-gray-700 whitespace-pre-wrap">
-                            {note.content}
-                          </p>
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </Card>
-                  ))
-                )}
-              </div>
-            </Card>
+                        <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                          {note.content}
+                        </p>
+                      </div>
+                    )}
+                  </Card>
+                ))
+              )}
+            </div>
           </div>
-        </div>
-      </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Story 6.2: Finding 상세 모달 */}
       <Dialog open={isFindingDetailModalOpen} onOpenChange={setIsFindingDetailModalOpen}>
