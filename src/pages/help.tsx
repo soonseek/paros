@@ -1463,8 +1463,8 @@ export default function HelpPage() {
             )}
             <ThemeToggleButton />
             {isAuthenticated ? (
-              <Button variant="outline" size="sm" onClick={() => router.push("/dashboard")} data-testid="help-dashboard-link">
-                대시보드
+              <Button variant="outline" size="sm" onClick={() => router.push("/cases")} data-testid="help-dashboard-link">
+                사건 목록
               </Button>
             ) : (
               <Button variant="outline" size="sm" onClick={() => router.push("/login")} data-testid="help-login-link">
