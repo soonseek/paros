@@ -6,6 +6,14 @@
 
 ## 구현 완료
 
+### 2026-02-27: GNB 및 네비게이션 개선
+- [x] GNB에 보정권고 안내사항 템플릿 관리 아이콘 버튼 추가 (ClipboardList)
+- [x] ADMIN/SUPER 사용자에게만 보이도록 권한 처리
+- [x] 대시보드(/dashboard) → 사건 목록(/cases)으로 메인 페이지 변경
+- [x] 로그인 후 /cases로 리다이렉트
+- [x] 모든 페이지의 backHref를 /cases로 통일
+- [x] 사건 목록 페이지에서 뒤로가기 버튼 제거 (메인 페이지이므로)
+
 ### 2026-02-27: 안내사항 템플릿 이미지/파일 첨부 기능
 - [x] tRPC 라우터에 파일 업로드/삭제 API 추가 (`correction-guide.ts`)
 - [x] Base64 인코딩 파일 업로드 지원
@@ -55,17 +63,17 @@
 ## 테스트 계정
 - admin@test.com / admin123 (ADMIN)
 
+## GNB 아이콘 (ADMIN/SUPER)
+1. 물음표 - 도움말 (/help)
+2. 스프레드시트 - 거래내역서 템플릿 (/admin/templates)
+3. 체크리스트 - 보정권고 안내사항 템플릿 (/admin/correction-guide-templates)
+4. 톱니바퀴 - 설정 (/admin/settings)
+
 ## 백로그
 - P0: 보정권고/명령서 분석 기능 구현 (현재 목업)
 - P1: 비고 컬럼 미리보기 버그 (S3 설정 후 재현 테스트)
 - P1: 도움말 검색 기능
 - P2: 동영상 튜토리얼, 다국어 지원
-
-## 새로 추가된 API 엔드포인트
-- `correctionGuide.uploadFile`: 이미지/파일 업로드 (Base64)
-- `correctionGuide.deleteFile`: 파일 삭제
-- `correctionGuide.getFileUrl`: 파일 다운로드 URL 조회
-- `GET /api/correction-guide/download`: 파일 다운로드
 
 ## 기존 데이터 마이그레이션
 기존에 저장된 거래의 `rowNumber`가 `null`인 경우 다음 스크립트를 실행하여 복원:
