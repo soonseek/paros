@@ -94,7 +94,7 @@ const NewCasePage: NextPage = () => {
             <Button type="submit" disabled={isPending} className="flex-1 sm:flex-none">
               {isPending ? "저장 중..." : "저장"}
             </Button>
-            <Button type="button" variant="outline" onClick={() => router.push("/dashboard")} className="flex-1 sm:flex-none">
+            <Button type="button" variant="outline" onClick={() => router.push("/cases")} className="flex-1 sm:flex-none">
               취소
             </Button>
           </div>
