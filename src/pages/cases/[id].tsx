@@ -313,6 +313,15 @@ const CaseDetailPage: NextPage = () => {
   // Upload modal state
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
+  // 기본정보 모달 상태
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  
+  // 사건메모 모달 상태
+  const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
+
+  // 보정권고 업로드 드래그 상태
+  const [isDraggingCorrection, setIsDraggingCorrection] = useState(false);
+
   // Story 6.2: Finding 클릭 상태 (관련 거래 하이라이트, 상세 모달)
   const [selectedFinding, setSelectedFinding] = useState<Finding | null>(null);
   const [isFindingDetailModalOpen, setIsFindingDetailModalOpen] = useState(false);
