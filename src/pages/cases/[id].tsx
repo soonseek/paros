@@ -1,10 +1,20 @@
 import { type NextPage } from "next";
 import { useRouter } from "next/router";
-import { useState, useEffect, useMemo } from "react";
-import { Upload, Loader2, Download } from "lucide-react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { 
+  Upload, 
+  Loader2, 
+  Download, 
+  Info, 
+  FileText, 
+  Plus, 
+  HelpCircle,
+  ExternalLink,
+  StickyNote,
+} from "lucide-react";
 
 import { Button } from "~/components/ui/button";
-import { Card } from "~/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "~/components/ui/card";
 import { Textarea } from "~/components/ui/textarea";
 import { Label } from "~/components/ui/label";
 import { FindingList } from "~/components/molecules/finding-list";
@@ -29,10 +39,18 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "~/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "~/components/ui/tooltip";
+import { Badge } from "~/components/ui/badge";
 import { FileUploadZone } from "~/components/upload-zone";
 import { ExportOptionsModal } from "~/components/export/export-options-modal";
 import { api } from "~/utils/api";
@@ -40,6 +58,7 @@ import { useAuth } from "~/contexts/AuthContext";
 import { AppHeader } from "~/components/app-header";
 import { toast } from "sonner";
 import { useI18n } from "~/lib/i18n/index";
+import Link from "next/link";
 
 /**
  * Case Detail Page
