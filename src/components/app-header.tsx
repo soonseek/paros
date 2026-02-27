@@ -6,7 +6,7 @@ import { useRouter } from "next/router";
 import { useAuth } from "~/contexts/AuthContext";
 import { ThemeToggleButton } from "~/components/theme-toggle";
 import { Button } from "~/components/ui/button";
-import { HelpCircle, FileSpreadsheet, ChevronLeft, Menu, LogOut, User, Settings } from "lucide-react";
+import { HelpCircle, FileSpreadsheet, ChevronLeft, Menu, LogOut, User, Settings, ClipboardList } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { api } from "~/utils/api";
 import { toast } from "sonner";
@@ -57,7 +57,7 @@ export function AppHeader({ title = "법무법인 파로스", showBack = false, 
           )}
           <h1
             className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100 truncate cursor-pointer"
-            onClick={() => router.push(isAuthenticated ? "/dashboard" : "/login")}
+            onClick={() => router.push(isAuthenticated ? "/cases" : "/login")}
             data-testid="header-title"
           >
             {title}
@@ -76,15 +76,27 @@ export function AppHeader({ title = "법무법인 파로스", showBack = false, 
             <HelpCircle className="h-4 w-4 sm:h-5 sm:w-5" />
           </button>
 
-          {/* 관리자: 템플릿 관리 */}
+          {/* 관리자: 거래내역서 템플릿 관리 */}
           {isAuthenticated && (user?.role === "ADMIN" || user?.role === "SUPER") && (
             <button
               onClick={() => router.push("/admin/templates")}
               className="hidden sm:flex p-2 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              title="템플릿 관리"
+              title="거래내역서 템플릿 관리"
               data-testid="header-templates-link"
             >
               <FileSpreadsheet className="h-5 w-5" />
+            </button>
+          )}
+
+          {/* 관리자: 보정권고 안내사항 템플릿 관리 */}
+          {isAuthenticated && (user?.role === "ADMIN" || user?.role === "SUPER") && (
+            <button
+              onClick={() => router.push("/admin/correction-guide-templates")}
+              className="hidden sm:flex p-2 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              title="보정권고 안내사항 템플릿"
+              data-testid="header-correction-guide-link"
+            >
+              <ClipboardList className="h-5 w-5" />
             </button>
           )}
 
@@ -114,7 +126,7 @@ export function AppHeader({ title = "법무법인 파로스", showBack = false, 
                 <Menu className="h-4 w-4 sm:hidden" />
               </button>
               {menuOpen && (
-                <div className="absolute right-0 mt-1 w-52 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg shadow-lg py-1 z-50">
+                <div className="absolute right-0 mt-1 w-56 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg shadow-lg py-1 z-50">
                   {/* 모바일: 이름 표시 */}
                   <div className="sm:hidden px-4 py-2 border-b dark:border-gray-700">
                     <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{user.name || user.email}</p>
@@ -139,7 +151,13 @@ export function AppHeader({ title = "법무법인 파로스", showBack = false, 
                         onClick={() => { setMenuOpen(false); void router.push("/admin/templates"); }}
                         className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 sm:hidden flex items-center gap-2"
                       >
-                        <FileSpreadsheet className="h-4 w-4" /> 템플릿 관리
+                        <FileSpreadsheet className="h-4 w-4" /> 거래내역서 템플릿
+                      </button>
+                      <button
+                        onClick={() => { setMenuOpen(false); void router.push("/admin/correction-guide-templates"); }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 sm:hidden flex items-center gap-2"
+                      >
+                        <ClipboardList className="h-4 w-4" /> 보정권고 안내사항
                       </button>
                     </>
                   )}
