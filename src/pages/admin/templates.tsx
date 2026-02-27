@@ -538,7 +538,7 @@ const TemplatesPage: NextPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <AppHeader showBack backHref="/admin/settings" />
+      <AppHeader showBack backHref="/cases" />
       <div className="px-3 sm:px-4 py-4 sm:py-6 max-w-7xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4 sm:mb-6">
           <div>
