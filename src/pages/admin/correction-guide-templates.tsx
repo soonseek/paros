@@ -481,11 +481,11 @@ const CorrectionGuideTemplatesPage: NextPage = () => {
             {/* 활성화 (수정 시에만) */}
             {editingId && (
               <div className="flex items-center gap-2">
-                <Switch
+                <Checkbox
                   id="isActive"
                   checked={formData.isActive}
                   onCheckedChange={(checked) =>
-                    setFormData({ ...formData, isActive: checked })
+                    setFormData({ ...formData, isActive: checked === true })
                   }
                 />
                 <Label htmlFor="isActive">활성화</Label>
