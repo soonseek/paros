@@ -94,6 +94,7 @@ model Case {
     analysisResults   FileAnalysisResult[]               // Story 3.4: File structure analysis results
     transactions      Transaction[]                       // Story 3.6: Extracted transaction data
     findings          Finding[]                           // Story 4.3: Findings for this case
+    correctionGuideAnalyses CorrectionGuideAnalysis[]    // 보정권고 분석 결과
     createdAt         DateTime     @default(now())
     updatedAt         DateTime     @updatedAt
 
