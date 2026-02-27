@@ -595,8 +595,47 @@ const CaseDetailPage: NextPage = () => {
       <AppHeader showBack backHref="/cases" />
       <div className="px-2 sm:px-4 py-3 sm:py-6 max-w-[1920px] mx-auto">
         {/* Header with navigation */}
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-4 sm:mb-6">
-          <h1 className="text-xl sm:text-3xl font-bold dark:text-gray-100">사건 상세</h1>
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-4 sm:mb-6">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-xl sm:text-3xl font-bold dark:text-gray-100">사건 상세</h1>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-sm font-medium">
+                  {caseItem.debtorName}
+                </Badge>
+                <Badge variant="secondary" className="text-sm font-mono">
+                  {caseItem.caseNumber}
+                </Badge>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 mt-1">
+              {/* 상세정보 버튼 */}
+              <Button 
+                variant="ghost" 
+                size="sm"
+                className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => setIsDetailModalOpen(true)}
+              >
+                <Info className="w-3 h-3 mr-1" />
+                상세정보
+              </Button>
+              {/* 사건메모 버튼 */}
+              <Button 
+                variant="ghost" 
+                size="sm"
+                className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => setIsNotesModalOpen(true)}
+              >
+                <StickyNote className="w-3 h-3 mr-1" />
+                사건메모
+                {caseItem.notes && caseItem.notes.length > 0 && (
+                  <span className="ml-1 px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs">
+                    {caseItem.notes.length}
+                  </span>
+                )}
+              </Button>
+            </div>
+          </div>
           <div className="flex gap-1.5 sm:gap-2 flex-wrap">
             <Button variant="outline" size="sm" onClick={() => void router.push("/cases")}>
               목록
