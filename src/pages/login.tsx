@@ -37,7 +37,7 @@ export default function LoginPage() {
       setAuth(data.user, data.accessToken);
 
       // Redirect to dashboard
-      router.push("/dashboard");
+      router.push("/cases");
     },
     onError: (error) => {
       setErrorMessage(error.message || "로그인에 실패했습니다");

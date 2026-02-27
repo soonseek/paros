@@ -176,7 +176,7 @@ export default function AdminSettings() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <AppHeader showBack backHref="/dashboard" />
+      <AppHeader showBack backHref="/cases" />
       <div className="px-3 sm:px-4 py-4 sm:py-8 max-w-4xl mx-auto">
         <div className="mb-4 sm:mb-8">
           <h1 className="text-xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">관리자 설정</h1>

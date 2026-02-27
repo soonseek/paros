@@ -1,6 +1,6 @@
 import { type NextPage } from "next";
 import { useRouter } from "next/router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { 
   Plus, 
   Pencil, 
@@ -10,6 +10,9 @@ import {
   Image as ImageIcon,
   FileText,
   AlertCircle,
+  Upload,
+  X,
+  Download,
 } from "lucide-react";
 
 import { Button } from "~/components/ui/button";
@@ -42,11 +45,20 @@ import { api } from "~/utils/api";
 import { useAuth } from "~/contexts/AuthContext";
 import { toast } from "sonner";
 
+// 파일 정보 타입
+interface FileInfo {
+  key: string;
+  name: string;
+  size: number;
+  type: string;
+  uploadedAt: string;
+}
+
 interface TemplateFormData {
   title: string;
   content: string;
-  images: string[];
-  files: string[];
+  images: FileInfo[];
+  files: FileInfo[];
   specialNotes: string;
   priority: number;
   isActive: boolean;
@@ -62,6 +74,15 @@ const defaultFormData: TemplateFormData = {
   isActive: true,
 };
 
+// 파일 크기 포맷팅
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return "0 Bytes";
+  const k = 1024;
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+}
+
 const CorrectionGuideTemplatesPage: NextPage = () => {
   const router = useRouter();
   const { user } = useAuth();
@@ -72,6 +93,10 @@ const CorrectionGuideTemplatesPage: NextPage = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<TemplateFormData>(defaultFormData);
   const [showInactive, setShowInactive] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -89,6 +114,12 @@ const CorrectionGuideTemplatesPage: NextPage = () => {
     { includeInactive: showInactive },
     { enabled: mounted && !!user }
   );
+
+  // 파일 업로드 mutation
+  const uploadFileMutation = api.correctionGuide.uploadFile.useMutation();
+
+  // 파일 삭제 mutation
+  const deleteFileMutation = api.correctionGuide.deleteFile.useMutation();
 
   // 생성 mutation
   const createMutation = api.correctionGuide.createTemplate.useMutation({
@@ -128,6 +159,80 @@ const CorrectionGuideTemplatesPage: NextPage = () => {
     },
   });
 
+  // 파일 업로드 핸들러
+  const handleFileUpload = useCallback(async (
+    files: FileList | null,
+    isImage: boolean
+  ) => {
+    if (!files || files.length === 0) return;
+
+    setIsUploading(true);
+    const uploadedFiles: FileInfo[] = [];
+
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (!file) continue;
+
+        // 파일 크기 검증 (10MB)
+        if (file.size > 10 * 1024 * 1024) {
+          toast.error(`${file.name}: 파일 크기는 10MB를 초과할 수 없습니다`);
+          continue;
+        }
+
+        // Base64로 변환
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            // data:image/png;base64, 부분 제거
+            resolve(result.split(",")[1] ?? "");
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        // 업로드
+        const result = await uploadFileMutation.mutateAsync({
+          fileName: file.name,
+          fileData: base64,
+          fileType: file.type,
+          fileSize: file.size,
+          isImage,
+        });
+
+        uploadedFiles.push(result);
+        toast.success(`${file.name} 업로드 완료`);
+      }
+
+      // 폼 데이터 업데이트
+      if (uploadedFiles.length > 0) {
+        setFormData((prev) => ({
+          ...prev,
+          [isImage ? "images" : "files"]: [
+            ...(isImage ? prev.images : prev.files),
+            ...uploadedFiles,
+          ],
+        }));
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.error("파일 업로드 중 오류가 발생했습니다");
+    } finally {
+      setIsUploading(false);
+    }
+  }, [uploadFileMutation]);
+
+  // 파일 삭제 핸들러 (폼에서만 제거, 실제 삭제는 저장 시 또는 취소 시)
+  const handleRemoveFile = useCallback((fileKey: string, isImage: boolean) => {
+    setFormData((prev) => ({
+      ...prev,
+      [isImage ? "images" : "files"]: isImage
+        ? prev.images.filter((f) => f.key !== fileKey)
+        : prev.files.filter((f) => f.key !== fileKey),
+    }));
+  }, []);
+
   const handleOpenCreate = () => {
     setEditingId(null);
     setFormData(defaultFormData);
@@ -139,8 +244,8 @@ const CorrectionGuideTemplatesPage: NextPage = () => {
     setFormData({
       title: template.title,
       content: template.content,
-      images: (template.images as string[]) ?? [],
-      files: (template.files as string[]) ?? [],
+      images: (template.images as FileInfo[]) ?? [],
+      files: (template.files as FileInfo[]) ?? [],
       specialNotes: template.specialNotes ?? "",
       priority: template.priority,
       isActive: template.isActive,
@@ -180,6 +285,30 @@ const CorrectionGuideTemplatesPage: NextPage = () => {
       });
     }
   };
+
+  // 모달 닫기 시 업로드된 파일 정리 (저장하지 않은 경우)
+  const handleCloseModal = useCallback(async () => {
+    // 새 생성 모드에서 파일이 업로드되었다면 삭제
+    if (!editingId) {
+      for (const img of formData.images) {
+        try {
+          await deleteFileMutation.mutateAsync({ fileKey: img.key });
+        } catch (e) {
+          console.error("Failed to cleanup image:", e);
+        }
+      }
+      for (const file of formData.files) {
+        try {
+          await deleteFileMutation.mutateAsync({ fileKey: file.key });
+        } catch (e) {
+          console.error("Failed to cleanup file:", e);
+        }
+      }
+    }
+    setIsModalOpen(false);
+    setEditingId(null);
+    setFormData(defaultFormData);
+  }, [editingId, formData, deleteFileMutation]);
 
   if (!mounted || (user && user.role !== "ADMIN" && user.role !== "SUPER")) {
     return (
@@ -304,16 +433,16 @@ const CorrectionGuideTemplatesPage: NextPage = () => {
                             {template.content}
                           </p>
                           <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            {((template.images as string[])?.length ?? 0) > 0 && (
+                            {((template.images as FileInfo[])?.length ?? 0) > 0 && (
                               <span className="flex items-center gap-1">
                                 <ImageIcon className="h-3 w-3" />
-                                이미지 {(template.images as string[]).length}개
+                                이미지 {(template.images as FileInfo[]).length}개
                               </span>
                             )}
-                            {((template.files as string[])?.length ?? 0) > 0 && (
+                            {((template.files as FileInfo[])?.length ?? 0) > 0 && (
                               <span className="flex items-center gap-1">
                                 <FileText className="h-3 w-3" />
-                                파일 {(template.files as string[]).length}개
+                                파일 {(template.files as FileInfo[]).length}개
                               </span>
                             )}
                             {template.specialNotes && (
@@ -343,7 +472,7 @@ const CorrectionGuideTemplatesPage: NextPage = () => {
                                 <AlertDialogTitle>템플릿 삭제</AlertDialogTitle>
                                 <AlertDialogDescription>
                                   &quot;{template.title}&quot; 템플릿을 삭제하시겠습니까?
-                                  <br />이 작업은 되돌릴 수 없습니다.
+                                  <br />이 작업은 되돌릴 수 없으며, 첨부된 파일도 함께 삭제됩니다.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
@@ -377,7 +506,7 @@ const CorrectionGuideTemplatesPage: NextPage = () => {
       </div>
 
       {/* 생성/수정 모달 */}
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+      <Dialog open={isModalOpen} onOpenChange={(open) => !open && handleCloseModal()}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
@@ -423,26 +552,131 @@ const CorrectionGuideTemplatesPage: NextPage = () => {
               />
             </div>
 
-            {/* 이미지 첨부 (목업) */}
+            {/* 이미지 첨부 */}
             <div className="space-y-2">
               <Label>이미지 첨부</Label>
-              <div className="border-2 border-dashed rounded-lg p-6 text-center bg-gray-50 dark:bg-gray-800">
-                <ImageIcon className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                <p className="text-sm text-muted-foreground">
-                  이미지 첨부 기능은 추후 지원 예정입니다
-                </p>
+              <p className="text-xs text-muted-foreground">
+                JPEG, PNG, GIF, WebP 형식 (최대 10MB)
+              </p>
+              
+              {/* 이미지 목록 */}
+              {formData.images.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-2">
+                  {formData.images.map((img) => (
+                    <div
+                      key={img.key}
+                      className="relative group bg-gray-100 dark:bg-gray-800 rounded-lg p-2"
+                    >
+                      <img
+                        src={`/api/correction-guide/download?key=${encodeURIComponent(img.key)}`}
+                        alt={img.name}
+                        className="w-full h-24 object-cover rounded"
+                      />
+                      <p className="text-xs truncate mt-1">{img.name}</p>
+                      <p className="text-xs text-muted-foreground">{formatFileSize(img.size)}</p>
+                      <button
+                        onClick={() => handleRemoveFile(img.key, true)}
+                        className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 업로드 영역 */}
+              <div
+                className="border-2 border-dashed rounded-lg p-4 text-center bg-gray-50 dark:bg-gray-800 cursor-pointer hover:border-blue-500 transition-colors"
+                onClick={() => imageInputRef.current?.click()}
+              >
+                {isUploading ? (
+                  <Loader2 className="h-6 w-6 mx-auto animate-spin text-muted-foreground" />
+                ) : (
+                  <>
+                    <ImageIcon className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground">
+                      클릭하여 이미지 선택
+                    </p>
+                  </>
+                )}
               </div>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                multiple
+                className="hidden"
+                onChange={(e) => handleFileUpload(e.target.files, true)}
+              />
             </div>
 
-            {/* 파일 첨부 (목업) */}
+            {/* 파일 첨부 */}
             <div className="space-y-2">
               <Label>파일 첨부</Label>
-              <div className="border-2 border-dashed rounded-lg p-6 text-center bg-gray-50 dark:bg-gray-800">
-                <FileText className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                <p className="text-sm text-muted-foreground">
-                  파일 첨부 기능은 추후 지원 예정입니다
-                </p>
+              <p className="text-xs text-muted-foreground">
+                PDF, 문서 파일 등 (최대 10MB)
+              </p>
+
+              {/* 파일 목록 */}
+              {formData.files.length > 0 && (
+                <div className="space-y-2 mb-2">
+                  {formData.files.map((file) => (
+                    <div
+                      key={file.key}
+                      className="flex items-center justify-between bg-gray-100 dark:bg-gray-800 rounded-lg p-2"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                        <div className="min-w-0">
+                          <p className="text-sm truncate">{file.name}</p>
+                          <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <a
+                          href={`/api/correction-guide/download?key=${encodeURIComponent(file.key)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+                        >
+                          <Download className="h-4 w-4" />
+                        </a>
+                        <button
+                          onClick={() => handleRemoveFile(file.key, false)}
+                          className="p-1 hover:bg-red-100 dark:hover:bg-red-900 rounded text-red-500"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 업로드 영역 */}
+              <div
+                className="border-2 border-dashed rounded-lg p-4 text-center bg-gray-50 dark:bg-gray-800 cursor-pointer hover:border-blue-500 transition-colors"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {isUploading ? (
+                  <Loader2 className="h-6 w-6 mx-auto animate-spin text-muted-foreground" />
+                ) : (
+                  <>
+                    <Upload className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground">
+                      클릭하여 파일 선택
+                    </p>
+                  </>
+                )}
               </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => handleFileUpload(e.target.files, false)}
+              />
             </div>
 
             {/* 특이사항 */}
@@ -494,12 +728,12 @@ const CorrectionGuideTemplatesPage: NextPage = () => {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+            <Button variant="outline" onClick={handleCloseModal} disabled={isUploading}>
               취소
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={createMutation.isPending || updateMutation.isPending}
+              disabled={createMutation.isPending || updateMutation.isPending || isUploading}
             >
               {createMutation.isPending || updateMutation.isPending ? (
                 <>

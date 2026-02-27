@@ -128,7 +128,7 @@ const CasesIndexPage: NextPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <AppHeader showBack backHref="/dashboard" />
+      <AppHeader />
       <div className="px-3 sm:px-4 py-4 sm:py-8 max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-4 sm:mb-6">

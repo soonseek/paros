@@ -9,7 +9,7 @@ export default function Home() {
   useEffect(() => {
     // 즉시 리다이렉션 (AuthContext는 sessionStorage에서 복원하므로 바로 사용 가능)
     if (isAuthenticated) {
-      void router.push("/dashboard");
+      void router.push("/cases");
     } else {
       void router.push("/login");
     }
