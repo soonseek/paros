@@ -217,10 +217,10 @@ const CorrectionGuideTemplatesPage: NextPage = () => {
           </div>
           <div className="flex gap-2 items-center">
             <div className="flex items-center gap-2">
-              <Switch
+              <Checkbox
                 id="show-inactive"
                 checked={showInactive}
-                onCheckedChange={setShowInactive}
+                onCheckedChange={(checked) => setShowInactive(checked === true)}
               />
               <Label htmlFor="show-inactive" className="text-sm">
                 비활성 포함
