@@ -1,18 +1,16 @@
 /**
  * 보정권고 안내사항 분석 컴포넌트
  * 
- * 2열 레이아웃: 왼쪽(카드 리스트), 오른쪽(미리보기)
- * 개선된 UX: 기본 펼침, 매칭 없음 강조, 토스트 메시지
+ * 2열 레이아웃: 왼쪽(카드 리스트), 오른쪽(미리보기 + 편집)
+ * 중복 템플릿 제거, 링크 복사 개선, 수동 추가 기능
  */
 
-import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import { 
   Upload, 
   Loader2, 
-  CheckCircle2, 
-  XCircle,
+  CheckCircle2,
   FileText,
-  Download,
   Link2,
   ExternalLink,
   ChevronDown,
@@ -21,21 +19,23 @@ import {
   File,
   AlertTriangle,
   Copy,
-  Check,
   RefreshCw,
   Eye,
   FileWarning,
   Sparkles,
+  Pencil,
+  Check,
+  X,
+  Plus,
+  Trash2,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { Card } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import { Checkbox } from "~/components/ui/checkbox";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "~/components/ui/collapsible";
+import { Textarea } from "~/components/ui/textarea";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -50,6 +50,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "~/components/ui/tooltip";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "~/components/ui/collapsible";
 import { api } from "~/utils/api";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -72,9 +77,50 @@ interface TemplateMatchResult {
   isSelected: boolean;
 }
 
+// 수동 추가 안내사항 타입
+interface ManualGuideItem {
+  id: string;
+  title: string;
+  defectContent: string;
+  content: string;
+}
+
 interface CorrectionGuideAnalyzerProps {
   caseId: string;
   userRole?: string;
+}
+
+// 안전한 클립보드 복사 함수
+async function copyToClipboard(text: string): Promise<boolean> {
+  if (typeof navigator !== "undefined" && navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // fallback으로 진행
+    }
+  }
+  
+  try {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    textArea.style.left = "-999999px";
+    textArea.style.top = "-999999px";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    const success = document.execCommand("copy");
+    document.body.removeChild(textArea);
+    return success;
+  } catch {
+    return false;
+  }
+}
+
+// 고유 ID 생성
+function generateId(): string {
+  return `manual-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
 export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAnalyzerProps) {
@@ -84,12 +130,29 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
   // 상태
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [collapsedItems, setCollapsedItems] = useState<Set<number>>(new Set()); // 접힌 항목만 추적
+  const [collapsedItems, setCollapsedItems] = useState<Set<number>>(new Set());
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [selectedAnalysisId, setSelectedAnalysisId] = useState<string | null>(null);
+  
+  // 편집 상태
+  const [editingItemNumber, setEditingItemNumber] = useState<number | null>(null);
+  const [editingManualId, setEditingManualId] = useState<string | null>(null);
+  const [editedContents, setEditedContents] = useState<Record<string, string>>({});
+  
+  // 미리보기에서 흠결사항 펼침 상태 (기본 접힘)
+  const [expandedDefects, setExpandedDefects] = useState<Set<string>>(new Set());
+  
+  // 수동 추가 관련 상태
+  const [manualAddDialogOpen, setManualAddDialogOpen] = useState(false);
+  const [manualItems, setManualItems] = useState<ManualGuideItem[]>([]);
+  const [newManualItem, setNewManualItem] = useState({
+    title: "",
+    defectContent: "",
+    content: "",
+  });
 
   // 분석 결과 목록 조회
-  const { data: analyses, isLoading: isLoadingAnalyses } = api.correctionGuide.getAnalysesForCase.useQuery(
+  const { data: analyses } = api.correctionGuide.getAnalysesForCase.useQuery(
     { caseId },
     { enabled: !!caseId }
   );
@@ -112,69 +175,27 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
     },
   });
 
-  // PDF 생성 mutation
-  const generatePdfMutation = api.correctionGuide.generatePDF.useMutation({
-    onSuccess: (data) => {
-      try {
-        const byteCharacters = atob(data.data);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-        const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], { type: data.mimeType });
-        
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = data.fileName;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-        
-        toast.success("PDF 문서가 다운로드되었습니다");
-      } catch (e) {
-        toast.error("PDF 다운로드 중 오류가 발생했습니다");
-      }
-    },
-    onError: (error) => {
-      toast.error(error.message || "PDF 생성에 실패했습니다");
-    },
-  });
-
   // 공유 링크 생성 mutation
   const createShareLinkMutation = api.correctionGuide.createShareLink.useMutation({
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       void utils.correctionGuide.getAnalysesForCase.invalidate({ caseId });
-      // 링크 바로 복사
       const url = `${window.location.origin}/guide/${data.shareSlug}`;
-      navigator.clipboard.writeText(url).then(() => {
+      const success = await copyToClipboard(url);
+      if (success) {
         toast.success("공유 링크가 생성되어 클립보드에 복사되었습니다", {
           description: url,
           duration: 5000,
         });
-      }).catch(() => {
+      } else {
         toast.success("공유 링크가 생성되었습니다", {
-          description: url,
-          duration: 5000,
+          description: `링크: ${url}`,
+          duration: 8000,
         });
-      });
+      }
       setShareDialogOpen(false);
     },
     onError: (error) => {
       toast.error(error.message || "링크 생성에 실패했습니다");
-    },
-  });
-
-  // 분석 삭제 mutation
-  const deleteAnalysisMutation = api.correctionGuide.deleteAnalysis.useMutation({
-    onSuccess: () => {
-      toast.success("분석 결과가 삭제되었습니다");
-      void utils.correctionGuide.getAnalysesForCase.invalidate({ caseId });
-    },
-    onError: (error) => {
-      toast.error(error.message || "삭제에 실패했습니다");
     },
   });
 
@@ -265,32 +286,19 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
   };
 
   // 공유 링크 복사
-  const copyShareLink = async (slug: string) => {
+  const handleCopyShareLink = async (slug: string) => {
     const url = `${window.location.origin}/guide/${slug}`;
-    try {
-      await navigator.clipboard.writeText(url);
+    const success = await copyToClipboard(url);
+    if (success) {
       toast.success("링크가 클립보드에 복사되었습니다", {
         description: url,
         duration: 3000,
       });
-    } catch (error) {
-      // 클립보드 API 실패 시 대체 방법
-      const textArea = document.createElement("textarea");
-      textArea.value = url;
-      textArea.style.position = "fixed";
-      textArea.style.left = "-999999px";
-      document.body.appendChild(textArea);
-      textArea.select();
-      try {
-        document.execCommand("copy");
-        toast.success("링크가 클립보드에 복사되었습니다", {
-          description: url,
-          duration: 3000,
-        });
-      } catch {
-        toast.error("링크 복사에 실패했습니다. 직접 복사해주세요: " + url);
-      }
-      document.body.removeChild(textArea);
+    } else {
+      toast.info("링크를 복사해주세요", {
+        description: url,
+        duration: 8000,
+      });
     }
   };
 
@@ -307,9 +315,22 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
   const matchResults = (latestAnalysis?.matchedTemplates as unknown as TemplateMatchResult[]) ?? [];
   const selectedItems = (latestAnalysis?.selectedItems as number[]) ?? [];
 
-  // 선택된 항목만 필터링 (미리보기용)
+  // 선택된 항목 중 중복 템플릿 제거 (같은 템플릿 ID는 첫 번째만 유지)
   const selectedMatchResults = useMemo(() => {
-    return matchResults.filter(r => selectedItems.includes(r.itemNumber) && r.matchedTemplate);
+    const selected = matchResults.filter(r => selectedItems.includes(r.itemNumber) && r.matchedTemplate);
+    const seenTemplateIds = new Set<string>();
+    const deduplicated: TemplateMatchResult[] = [];
+    
+    for (const item of selected) {
+      if (item.matchedTemplate) {
+        if (!seenTemplateIds.has(item.matchedTemplate.id)) {
+          seenTemplateIds.add(item.matchedTemplate.id);
+          deduplicated.push(item);
+        }
+      }
+    }
+    
+    return deduplicated;
   }, [matchResults, selectedItems]);
 
   // 전체 선택/해제
@@ -323,10 +344,112 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
     });
   };
 
-  // 분석 결과가 없거나 로딩 중일 때
+  // 수동 추가 다이얼로그 열기
+  const openManualAddDialog = (defectContent?: string) => {
+    setNewManualItem({
+      title: "",
+      defectContent: defectContent ?? "",
+      content: "",
+    });
+    setManualAddDialogOpen(true);
+  };
+
+  // 수동 안내사항 추가
+  const addManualItem = () => {
+    if (!newManualItem.title.trim() || !newManualItem.content.trim()) {
+      toast.error("제목과 내용은 필수입니다");
+      return;
+    }
+    
+    const newItem: ManualGuideItem = {
+      id: generateId(),
+      title: newManualItem.title.trim(),
+      defectContent: newManualItem.defectContent.trim(),
+      content: newManualItem.content.trim(),
+    };
+    
+    setManualItems(prev => [...prev, newItem]);
+    setManualAddDialogOpen(false);
+    setNewManualItem({ title: "", defectContent: "", content: "" });
+    toast.success("안내사항이 추가되었습니다");
+  };
+
+  // 수동 안내사항 삭제
+  const removeManualItem = (id: string) => {
+    setManualItems(prev => prev.filter(item => item.id !== id));
+    toast.success("안내사항이 삭제되었습니다");
+  };
+
+  // 편집 시작 (AI 매칭 항목)
+  const startEditingMatched = (itemNumber: number, content: string) => {
+    setEditingItemNumber(itemNumber);
+    setEditingManualId(null);
+    const key = `matched-${itemNumber}`;
+    if (!editedContents[key]) {
+      setEditedContents(prev => ({ ...prev, [key]: content }));
+    }
+  };
+
+  // 편집 시작 (수동 추가 항목)
+  const startEditingManual = (id: string, content: string) => {
+    setEditingManualId(id);
+    setEditingItemNumber(null);
+    const key = `manual-${id}`;
+    if (!editedContents[key]) {
+      setEditedContents(prev => ({ ...prev, [key]: content }));
+    }
+  };
+
+  // 편집 취소
+  const cancelEditing = () => {
+    setEditingItemNumber(null);
+    setEditingManualId(null);
+  };
+
+  // 편집 완료
+  const saveEditing = () => {
+    // 수동 항목인 경우 실제 저장
+    if (editingManualId) {
+      const key = `manual-${editingManualId}`;
+      const newContent = editedContents[key];
+      if (newContent !== undefined) {
+        setManualItems(prev => prev.map(item => 
+          item.id === editingManualId 
+            ? { ...item, content: newContent }
+            : item
+        ));
+      }
+    }
+    setEditingItemNumber(null);
+    setEditingManualId(null);
+    toast.success("내용이 수정되었습니다");
+  };
+
+  // 편집 내용 변경
+  const handleContentChange = (key: string, value: string) => {
+    setEditedContents(prev => ({ ...prev, [key]: value }));
+  };
+
+  // 흠결사항 펼침/접힘 토글
+  const toggleDefectExpand = (key: string) => {
+    setExpandedDefects(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(key)) {
+        newSet.delete(key);
+      } else {
+        newSet.add(key);
+      }
+      return newSet;
+    });
+  };
+
+  // 상태 판단
   const showUploadArea = !latestAnalysis || latestAnalysis.analysisStatus === "failed";
   const isProcessing = isUploading || analyzeMutation.isPending;
   const hasResults = latestAnalysis && latestAnalysis.analysisStatus === "completed" && matchResults.length > 0;
+
+  // 미리보기에 표시할 전체 항목 수
+  const totalPreviewItems = selectedMatchResults.length + manualItems.length;
 
   return (
     <Card className="p-0 overflow-hidden">
@@ -456,7 +579,7 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
               <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
                 <div className="flex items-center gap-3 text-sm">
                   <FileText className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">{latestAnalysis.originalFileName}</span>
+                  <span className="text-muted-foreground truncate max-w-[150px]">{latestAnalysis.originalFileName}</span>
                   <Badge variant="outline">{matchResults.length}개 항목</Badge>
                 </div>
                 <div className="flex items-center gap-2">
@@ -484,6 +607,11 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
                 <span className="text-muted-foreground">
                   <CheckCircle2 className="h-4 w-4 inline mr-1" />
                   {selectedItems.length}개 선택됨
+                  {selectedMatchResults.length < selectedItems.length && (
+                    <span className="text-xs text-amber-600 ml-2">
+                      (중복 {selectedItems.length - selectedMatchResults.length}개 제외)
+                    </span>
+                  )}
                 </span>
                 <Button variant="link" size="sm" className="h-6 p-0" onClick={handleSelectAll}>
                   {selectedItems.length === matchResults.filter(r => r.matchedTemplate).length ? "전체 해제" : "전체 선택"}
@@ -584,14 +712,27 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
                             </p>
                           </div>
 
-                          {/* 템플릿 내용 미리보기 */}
-                          {hasTemplate && (
+                          {/* 템플릿 내용 미리보기 또는 수동 추가 버튼 */}
+                          {hasTemplate ? (
                             <div>
                               <h4 className="text-xs font-semibold text-gray-500 mb-1.5">안내 내용</h4>
                               <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap line-clamp-4">
                                 {item.matchedTemplate?.content}
                               </p>
                             </div>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full mt-2 border-dashed border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openManualAddDialog(item.itemContent);
+                              }}
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              이 흠결사항에 안내사항 수동 추가
+                            </Button>
                           )}
 
                           {/* 첨부 파일 */}
@@ -618,35 +759,20 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
                 })}
               </div>
 
-              {/* 액션 버튼 */}
-              <div className="flex gap-2 pt-4 border-t">
+              {/* 링크 추출 버튼 */}
+              <div className="pt-4 border-t">
                 <Button
-                  className="flex-1"
-                  onClick={() => generatePdfMutation.mutate({ 
-                    analysisId: latestAnalysis.id,
-                    selectedOnly: true,
-                  })}
-                  disabled={generatePdfMutation.isPending || selectedItems.length === 0}
-                >
-                  {generatePdfMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Download className="h-4 w-4 mr-2" />
-                  )}
-                  문서 추출 (PDF)
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1"
+                  className="w-full"
+                  variant="default"
                   onClick={() => {
                     if (latestAnalysis.shareSlug) {
-                      void copyShareLink(latestAnalysis.shareSlug);
+                      void handleCopyShareLink(latestAnalysis.shareSlug);
                     } else {
                       setSelectedAnalysisId(latestAnalysis.id);
                       setShareDialogOpen(true);
                     }
                   }}
-                  disabled={createShareLinkMutation.isPending || selectedItems.length === 0}
+                  disabled={createShareLinkMutation.isPending || totalPreviewItems === 0}
                 >
                   {createShareLinkMutation.isPending ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -655,84 +781,268 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
                   ) : (
                     <Link2 className="h-4 w-4 mr-2" />
                   )}
-                  {latestAnalysis.shareSlug ? "링크 복사" : "링크 추출"}
+                  {latestAnalysis.shareSlug ? "공유 링크 복사" : "공유 링크 생성"}
                 </Button>
               </div>
             </div>
 
-            {/* 오른쪽: 미리보기 */}
+            {/* 오른쪽: 미리보기 + 편집 */}
             <div className="border rounded-xl overflow-hidden bg-white dark:bg-gray-900">
               <div className="bg-gray-100 dark:bg-gray-800 px-4 py-3 border-b flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                   <Eye className="h-4 w-4" />
                   안내사항 미리보기
                 </div>
-                <Badge variant="secondary">{selectedMatchResults.length}개 항목</Badge>
+                <Badge variant="secondary">{totalPreviewItems}개 항목</Badge>
               </div>
               
               <div className="p-4 max-h-[700px] overflow-y-auto">
-                {selectedMatchResults.length === 0 ? (
+                {totalPreviewItems === 0 ? (
                   <div className="py-16 text-center text-muted-foreground">
                     <FileText className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                    <p>왼쪽에서 포함할 항목을 선택하세요</p>
+                    <p>왼쪽에서 포함할 항목을 선택하거나</p>
+                    <p>아래 버튼으로 수동 추가하세요</p>
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    {selectedMatchResults.map((item, idx) => (
-                      <div key={item.itemNumber} className="pb-6 border-b last:border-0">
-                        {/* 항목 제목 */}
-                        <h3 className="text-base font-bold text-blue-700 dark:text-blue-400 mb-3">
-                          {idx + 1}. {item.matchedTemplate?.title}
-                        </h3>
-                        
-                        {/* 흠결사항 원문 */}
-                        <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 mb-4 text-sm">
-                          <p className="text-xs text-gray-500 mb-1">[흠결사항]</p>
-                          <p className="text-gray-600 dark:text-gray-400">{item.itemContent}</p>
-                        </div>
-                        
-                        {/* 안내 내용 */}
-                        <div className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
-                          {item.matchedTemplate?.content}
-                        </div>
-                        
-                        {/* 첨부 이미지 */}
-                        {item.matchedTemplate?.images && item.matchedTemplate.images.length > 0 && (
-                          <div className="mt-4 space-y-2">
-                            {item.matchedTemplate.images.map((img, imgIdx) => (
-                              <div key={imgIdx} className="border rounded-lg overflow-hidden">
-                                <img
-                                  src={`/api/correction-guide/download?key=${encodeURIComponent(img.key)}`}
-                                  alt={img.name}
-                                  className="w-full h-auto max-h-48 object-contain bg-gray-50"
-                                  loading="lazy"
-                                />
-                                <p className="px-2 py-1 text-xs text-gray-500 bg-gray-50">{img.name}</p>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        
-                        {/* 첨부 파일 */}
-                        {item.matchedTemplate?.files && item.matchedTemplate.files.length > 0 && (
-                          <div className="mt-4 flex flex-wrap gap-2">
-                            {item.matchedTemplate.files.map((file, fileIdx) => (
-                              <a
-                                key={fileIdx}
-                                href={`/api/correction-guide/download?key=${encodeURIComponent(file.key)}`}
-                                download={file.name}
-                                className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded"
+                    {/* AI 매칭 항목 */}
+                    {selectedMatchResults.map((item, idx) => {
+                      const isEditing = editingItemNumber === item.itemNumber;
+                      const contentKey = `matched-${item.itemNumber}`;
+                      const currentContent = editedContents[contentKey] ?? item.matchedTemplate?.content ?? "";
+                      const defectKey = `defect-matched-${item.itemNumber}`;
+                      const isDefectExpanded = expandedDefects.has(defectKey);
+                      
+                      return (
+                        <div key={item.itemNumber} className="pb-6 border-b last:border-0">
+                          {/* 항목 제목 + 편집 버튼 */}
+                          <div className="flex items-start justify-between mb-3">
+                            <h3 className="text-base font-bold text-blue-700 dark:text-blue-400">
+                              {idx + 1}. {item.matchedTemplate?.title}
+                            </h3>
+                            {!isEditing ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={() => startEditingMatched(item.itemNumber, item.matchedTemplate?.content ?? "")}
                               >
-                                <File className="h-3 w-3" />
-                                {file.name}
-                              </a>
-                            ))}
+                                <Pencil className="h-3 w-3 mr-1" />
+                                편집
+                              </Button>
+                            ) : (
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs text-green-600"
+                                  onClick={saveEditing}
+                                >
+                                  <Check className="h-3 w-3 mr-1" />
+                                  저장
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs text-gray-500"
+                                  onClick={cancelEditing}
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    ))}
+                          
+                          {/* 흠결사항 원문 (접히는 형태) */}
+                          <Collapsible open={isDefectExpanded} onOpenChange={() => toggleDefectExpand(defectKey)}>
+                            <CollapsibleTrigger asChild>
+                              <button className="w-full text-left bg-gray-100 dark:bg-gray-800 rounded-lg p-3 mb-4 text-sm hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500 font-medium">[흠결사항] 클릭하여 확인</span>
+                                  {isDefectExpanded ? (
+                                    <ChevronUp className="h-4 w-4 text-gray-400" />
+                                  ) : (
+                                    <ChevronDown className="h-4 w-4 text-gray-400" />
+                                  )}
+                                </div>
+                              </button>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                              <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 mb-4 -mt-4 pt-1 border-t border-gray-200 dark:border-gray-700">
+                                <p className="text-gray-600 dark:text-gray-400 text-sm">{item.itemContent}</p>
+                              </div>
+                            </CollapsibleContent>
+                          </Collapsible>
+                          
+                          {/* 안내 내용 (편집 가능) */}
+                          {isEditing ? (
+                            <Textarea
+                              value={currentContent}
+                              onChange={(e) => handleContentChange(contentKey, e.target.value)}
+                              className="min-h-[150px] text-sm"
+                              placeholder="안내 내용을 입력하세요..."
+                            />
+                          ) : (
+                            <div className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
+                              {currentContent}
+                            </div>
+                          )}
+                          
+                          {/* 첨부 이미지 */}
+                          {item.matchedTemplate?.images && item.matchedTemplate.images.length > 0 && (
+                            <div className="mt-4 space-y-2">
+                              {item.matchedTemplate.images.map((img, imgIdx) => (
+                                <div key={imgIdx} className="border rounded-lg overflow-hidden">
+                                  <img
+                                    src={`/api/correction-guide/download?key=${encodeURIComponent(img.key)}`}
+                                    alt={img.name}
+                                    className="w-full h-auto max-h-48 object-contain bg-gray-50"
+                                    loading="lazy"
+                                  />
+                                  <p className="px-2 py-1 text-xs text-gray-500 bg-gray-50">{img.name}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {/* 첨부 파일 */}
+                          {item.matchedTemplate?.files && item.matchedTemplate.files.length > 0 && (
+                            <div className="mt-4 flex flex-wrap gap-2">
+                              {item.matchedTemplate.files.map((file, fileIdx) => (
+                                <a
+                                  key={fileIdx}
+                                  href={`/api/correction-guide/download?key=${encodeURIComponent(file.key)}`}
+                                  download={file.name}
+                                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded"
+                                >
+                                  <File className="h-3 w-3" />
+                                  {file.name}
+                                </a>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {/* 수동 추가 항목 */}
+                    {manualItems.map((item, idx) => {
+                      const isEditing = editingManualId === item.id;
+                      const contentKey = `manual-${item.id}`;
+                      const currentContent = editedContents[contentKey] ?? item.content;
+                      const defectKey = `defect-manual-${item.id}`;
+                      const isDefectExpanded = expandedDefects.has(defectKey);
+                      
+                      return (
+                        <div key={item.id} className="pb-6 border-b last:border-0">
+                          {/* 항목 제목 + 편집/삭제 버튼 */}
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-base font-bold text-purple-700 dark:text-purple-400">
+                                {selectedMatchResults.length + idx + 1}. {item.title}
+                              </h3>
+                              <Badge variant="outline" className="text-xs text-purple-600 border-purple-300">
+                                수동 추가
+                              </Badge>
+                            </div>
+                            <div className="flex gap-1">
+                              {!isEditing ? (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-xs"
+                                    onClick={() => startEditingManual(item.id, item.content)}
+                                  >
+                                    <Pencil className="h-3 w-3 mr-1" />
+                                    편집
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-xs text-red-500 hover:text-red-700"
+                                    onClick={() => removeManualItem(item.id)}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </>
+                              ) : (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-xs text-green-600"
+                                    onClick={saveEditing}
+                                  >
+                                    <Check className="h-3 w-3 mr-1" />
+                                    저장
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-xs text-gray-500"
+                                    onClick={cancelEditing}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* 흠결사항 (있는 경우) */}
+                          {item.defectContent && (
+                            <Collapsible open={isDefectExpanded} onOpenChange={() => toggleDefectExpand(defectKey)}>
+                              <CollapsibleTrigger asChild>
+                                <button className="w-full text-left bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3 mb-4 text-sm hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-purple-500 font-medium">[흠결사항] 클릭하여 확인</span>
+                                    {isDefectExpanded ? (
+                                      <ChevronUp className="h-4 w-4 text-purple-400" />
+                                    ) : (
+                                      <ChevronDown className="h-4 w-4 text-purple-400" />
+                                    )}
+                                  </div>
+                                </button>
+                              </CollapsibleTrigger>
+                              <CollapsibleContent>
+                                <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3 mb-4 -mt-4 pt-1 border-t border-purple-200 dark:border-purple-800">
+                                  <p className="text-purple-700 dark:text-purple-300 text-sm">{item.defectContent}</p>
+                                </div>
+                              </CollapsibleContent>
+                            </Collapsible>
+                          )}
+                          
+                          {/* 안내 내용 (편집 가능) */}
+                          {isEditing ? (
+                            <Textarea
+                              value={currentContent}
+                              onChange={(e) => handleContentChange(contentKey, e.target.value)}
+                              className="min-h-[150px] text-sm"
+                              placeholder="안내 내용을 입력하세요..."
+                            />
+                          ) : (
+                            <div className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
+                              {currentContent}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
+
+                {/* 수동 추가 버튼 */}
+                <div className="mt-6 pt-4 border-t">
+                  <Button
+                    variant="outline"
+                    className="w-full border-dashed"
+                    onClick={() => openManualAddDialog()}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    안내사항 수동 추가
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
@@ -751,7 +1061,13 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
           </DialogHeader>
           <div className="py-4">
             <p className="text-sm text-muted-foreground">
-              ✓ 선택된 {selectedItems.length}개 항목이 공유됩니다<br />
+              ✓ 선택된 {selectedMatchResults.length}개 항목이 공유됩니다
+              {manualItems.length > 0 && (
+                <span> + 수동 추가 {manualItems.length}개</span>
+              )}
+              {selectedItems.length > selectedMatchResults.length && (
+                <span className="text-amber-600"> (중복 제외)</span>
+              )}<br />
               ✓ 이미지와 첨부파일도 함께 확인할 수 있습니다<br />
               ✓ 링크는 영구적으로 유효합니다
             </p>
@@ -774,6 +1090,58 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
                 <Link2 className="h-4 w-4 mr-2" />
               )}
               링크 생성 및 복사
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 수동 추가 다이얼로그 */}
+      <Dialog open={manualAddDialogOpen} onOpenChange={setManualAddDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>안내사항 수동 추가</DialogTitle>
+            <DialogDescription>
+              직접 안내사항을 작성하여 추가합니다.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="manual-title">제목 *</Label>
+              <Input
+                id="manual-title"
+                placeholder="안내사항 제목을 입력하세요"
+                value={newManualItem.title}
+                onChange={(e) => setNewManualItem(prev => ({ ...prev, title: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="manual-defect">흠결사항 (선택)</Label>
+              <Textarea
+                id="manual-defect"
+                placeholder="해당하는 흠결사항이 있으면 입력하세요"
+                value={newManualItem.defectContent}
+                onChange={(e) => setNewManualItem(prev => ({ ...prev, defectContent: e.target.value }))}
+                className="min-h-[80px]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="manual-content">안내 내용 *</Label>
+              <Textarea
+                id="manual-content"
+                placeholder="안내사항 내용을 입력하세요"
+                value={newManualItem.content}
+                onChange={(e) => setNewManualItem(prev => ({ ...prev, content: e.target.value }))}
+                className="min-h-[150px]"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setManualAddDialogOpen(false)}>
+              취소
+            </Button>
+            <Button onClick={addManualItem}>
+              <Plus className="h-4 w-4 mr-2" />
+              추가
             </Button>
           </DialogFooter>
         </DialogContent>
