@@ -24,6 +24,7 @@ import { LoanTrackingModal } from "~/components/loan-tracking-modal";
 import { AmountFilterModal } from "~/components/amount-filter-modal";
 import { FindingNoteList } from "~/components/molecules/finding-note-list";
 import { FindingNoteForm } from "~/components/molecules/finding-note-form";
+import { CorrectionGuideAnalyzer } from "~/components/correction-guide-analyzer";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -318,9 +319,6 @@ const CaseDetailPage: NextPage = () => {
   
   // 사건메모 모달 상태
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
-
-  // 보정권고 업로드 드래그 상태
-  const [isDraggingCorrection, setIsDraggingCorrection] = useState(false);
 
   // Story 6.2: Finding 클릭 상태 (관련 거래 하이라이트, 상세 모달)
   const [selectedFinding, setSelectedFinding] = useState<Finding | null>(null);
@@ -786,78 +784,9 @@ const CaseDetailPage: NextPage = () => {
         </div>
 
         {/* 보정권고 안내사항 섹션 */}
-        <Card className="p-4 sm:p-6 mb-4">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-4">
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg sm:text-xl font-bold dark:text-gray-100">
-                보정권고 안내사항 만들기
-              </h2>
-              {/* ADMIN/SUPER 사용자에게만 템플릿 관리 링크 표시 */}
-              {(user?.role === "ADMIN" || user?.role === "SUPER") && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Link 
-                        href="/admin/correction-guide-templates"
-                        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
-                      >
-                        안내 사항 템플릿 관리
-                        <ExternalLink className="h-3 w-3" />
-                        <HelpCircle className="h-3 w-3 text-muted-foreground" />
-                      </Link>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>ADMIN 사용자에게만 보이는 링크입니다</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-            </div>
-          </div>
-          
-          {/* 드래그앤드롭 업로드 영역 (목업) */}
-          <div
-            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-              isDraggingCorrection 
-                ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20" 
-                : "border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800"
-            }`}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setIsDraggingCorrection(true);
-            }}
-            onDragLeave={() => setIsDraggingCorrection(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setIsDraggingCorrection(false);
-              toast.info("보정권고/명령서 분석 기능은 추후 지원 예정입니다");
-            }}
-          >
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-                <Plus className="h-8 w-8 text-gray-400" />
-              </div>
-              <div>
-                <p className="font-medium text-gray-700 dark:text-gray-300">
-                  보정권고/명령서를 여기에 드롭하세요
-                </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  또는 클릭하여 파일 선택
-                </p>
-              </div>
-              <Button 
-                variant="outline"
-                onClick={() => toast.info("보정권고/명령서 분석 기능은 추후 지원 예정입니다")}
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                파일 선택
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                PDF, 이미지 파일 지원 (추후 개발 예정)
-              </p>
-            </div>
-          </div>
-        </Card>
+        <div className="mb-4">
+          <CorrectionGuideAnalyzer caseId={id as string} userRole={user?.role} />
+        </div>
       </div>
 
       {/* 상세정보 모달 */}

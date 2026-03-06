@@ -6,6 +6,29 @@
 
 ## 구현 완료
 
+### 2026-03-06: 보정권고 안내사항 만들기 핵심 기능 구현
+- [x] Upstage Document Parse API 연동 (이미지 기반 PDF OCR)
+- [x] "흠결사항" 섹션 추출 로직 (1~n번 항목 파싱)
+- [x] GPT-5.2 (OpenAI gpt-4o) 템플릿 매칭 + 신뢰도/근거 산출
+- [x] CorrectionGuideService 서비스 클래스 생성
+- [x] tRPC 분석 라우터 엔드포인트 추가:
+  - `analyzeDocument`: 문서 업로드 및 AI 분석
+  - `updateSelectedItems`: 사용자 선택 항목 업데이트
+  - `generatePDF`: PDF 문서 생성
+  - `createShareLink`: 공유 링크 생성
+  - `getAnalysisByShareSlug`: 공유 링크로 분석 결과 조회 (인증 불필요)
+- [x] PDF 생성 서비스 (pdf-lib + fontkit, 한글 폰트 지원)
+- [x] 프론트엔드 분석 컴포넌트 생성 (`CorrectionGuideAnalyzer`)
+  - 드래그앤드롭 파일 업로드
+  - 매칭 결과 표시 (신뢰도, 근거)
+  - 항목 선택/해제 체크박스
+  - 문서 추출(PDF) / 링크 추출 버튼
+- [x] 공개 페이지 생성 (`/guide/[slug]`) - 인증 없이 고객에게 안내사항 공유
+- [x] DB 스키마 업데이트:
+  - `CorrectionGuideAnalysis` 모델에 `shareSlug`, `shareExpiresAt`, `documentS3Key`, `selectedItems` 필드 추가
+- [x] Collapsible UI 컴포넌트 추가 (`@radix-ui/react-collapsible`)
+- [x] 공통 타입 정의 파일 생성 (`/src/types/correction-guide.ts`)
+
 ### 2026-02-27: GNB 및 네비게이션 개선
 - [x] GNB에 보정권고 안내사항 템플릿 관리 아이콘 버튼 추가 (ClipboardList)
 - [x] ADMIN/SUPER 사용자에게만 보이도록 권한 처리
@@ -30,7 +53,7 @@
 - [x] 기본정보 → 모달 처리 (상세정보 버튼)
 - [x] 사건메모 → 모달 처리 (사건메모 버튼)  
 - [x] 페이지 타이틀 옆에 채무자명, 사건번호 배지 표시
-- [x] 보정권고 안내사항 섹션 추가 (드래그앤드롭 업로드 영역 - 목업)
+- [x] 보정권고 안내사항 섹션 추가 (드래그앤드롭 업로드 영역)
 - [x] ADMIN/SUPER 사용자에게만 '안내 사항 템플릿 관리' 링크 표시 (툴팁 포함)
 - [x] 보정권고 안내사항 템플릿 관리 페이지 생성 (`/admin/correction-guide-templates`)
 - [x] 템플릿 CRUD 기능 (제목, 내용, 이미지/파일 첨부, 특이사항, 우선순위)
@@ -69,11 +92,16 @@
 3. 체크리스트 - 보정권고 안내사항 템플릿 (/admin/correction-guide-templates)
 4. 톱니바퀴 - 설정 (/admin/settings)
 
+## API 키 설정 (관리자 설정)
+- `UPSTAGE_API_KEY`: Upstage Document Parse API 키 (OCR용)
+- `OPENAI_API_KEY`: OpenAI API 키 (템플릿 매칭용)
+
 ## 백로그
-- P0: 보정권고/명령서 분석 기능 구현 (현재 목업)
+- P1: ESLint 설정 수정 (TypeScript 파싱 문제)
 - P1: 비고 컬럼 미리보기 버그 (S3 설정 후 재현 테스트)
 - P1: 도움말 검색 기능
 - P2: 동영상 튜토리얼, 다국어 지원
+- P2: PDF 문서에 한글 폰트 번들 추가 (현재 시스템 폰트 의존)
 
 ## 기존 데이터 마이그레이션
 기존에 저장된 거래의 `rowNumber`가 `null`인 경우 다음 스크립트를 실행하여 복원:

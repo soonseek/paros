@@ -1,67 +1,56 @@
 <analysis>**original_problem_statement:**
-The user's initial request was to add a Help menu accessible to all users, regardless of their login status. This page should contain comprehensive user and administrator guides.
+The user's initial project involved creating a case and transaction management tool for a law firm. During this session, the user requested the following additions and fixes:
+- Resolve pending issues: Grant  role full permissions for template management and fix a bug where the 비고 (remarks) column was missing from the transaction preview.
+- **Transaction Data Integrity and Sorting:**
+    - Fix incorrect sorting of transactions that occur on the same day. The original row order from the uploaded file must be preserved.
+    - Change the default transaction sort order to be descending (most recent first).
+    - Fix a critical bug where deposits were being recorded as withdrawals and vice-versa.
+    - Implement a balance-based verification logic to cross-check parsed transaction data and automatically correct inverted entries.
+    - Preserve the timestamp (not just the date) for transactions to ensure accurate ordering.
+- **UI/UX Overhaul:**
+    - Refactor the case detail page: remove the Findings card, move Basic Info and Case Memos into modals, and display the debtor's name and case number in the page header.
+    - Make the Case List page () the main dashboard/landing page after login, removing the old dashboard.
+- **New Feature: Correction Recommendation Guides:**
+    - **Phase 1 (Completed):**
+        - Create a new Correction Recommendation Guide section on the case detail page (as a UI mockup).
+        - Add a link for  users to a new Correction Guide Template Management page.
+        - Build the full CRUD functionality for Correction Guide Templates, including fields for title, content, special instructions for an AI, and priority.
+        - Implement image and file attachments for these templates, using the existing S3 storage backend.
+    - **Phase 2 (Upcoming):**
+        - Implement the file upload and AI analysis of 보정권고/명령서 (correction recommendation/order) documents.
 
-Over the course of the session, the user added several more requests:
-- Change the company branding from pros bmad to 법무법인 파로스.
-- Rework the navigation: replace the floating help button with a GNB hamburger icon that toggles a slide-out sidebar, and add a Template Management button in the GNB for admins.
-- Fix two critical S3-related bugs: one causing a malformed endpoint URL () and another causing an  error due to an un-decrypted access key.
-- Perform mobile optimization across the entire application and ensure the Help link is available on all pages.
-- Fix a  error by increasing the Nginx file upload limit to 1GB.
-- Introduce a new  user role with the ability to view all cases belonging to any user.
-- **Current pending requests**:
-    1. Ensure the new  role has full administrative permissions over transaction templates.
-    2. Debug and fix an issue where the 비고 (remarks) column is missing from the transaction data preview during file upload, even when it is correctly mapped in the template.
-
-**User's preferred language**: Korean. The next agent MUST respond in Korean.
+**User's preferred language**: Korean
 
 **what currently exists?**
-The project is a full-stack Next.js application using tRPC for the API layer and Prisma with PostgreSQL for the database. It serves as a case and transaction management tool for a law firm. Key features include role-based access control (LAWYER, ADMIN, SUPER), case management, S3-based file uploads, and analysis of transaction data using customizable templates. Most of the UI has been made responsive, and several critical backend bugs related to S3 configuration and permissions have been resolved.
+The application is a full-stack Next.js monolith using tRPC, Prisma, and PostgreSQL. It functions as a comprehensive case and transaction management system for a law firm.
+
+Key existing features include:
+- Role-Based Access Control (, , ).
+- Case management and transaction data parsing from uploaded files.
+- A new, fully functional Correction Guide Template Management system with CRUD UI and S3-backed file/image attachments.
+- A significantly refactored case detail page that uses modals for displaying information and includes a mockup for a future AI analysis feature.
+- The primary navigation has been updated to use the case list as the main landing page, with a new icon in the global navigation bar for accessing the template management page.
 
 **Last working item**:
-- **Last item agent was working:** The agent started investigating two issues reported by the user:
-    1.  Granting the  role full permissions for managing transaction templates.
-    2.  Debugging a bug where the 비고 (remarks) column is missing from the parsed transaction data preview.
-    The agent's last action was to view the relevant source code files (, , , , ) to understand the parsing logic and permission structure.
-- **Status:** IN PROGRESS
-- **Agent Testing Done:** N
-- **Which testing method agent to use?** both
+- **Last item agent was working:** The agent finished a navigation and UX overhaul. This involved making the case list page () the new default dashboard and adding a GNB icon for the Correction Guide Template Management page, visible only to  and  users. The agent modified , redirected , and updated multiple back-links across the application.
+- **Status:** USER VERIFICATION PENDING
+- **Agent Testing Done:** Y (Verified via screenshots)
+- **Which testing method agent to use?** manual testing by screenshot tool
 - **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
-- **Issue 1 (P0):** Transaction Parsing Bug: The 비고 (remarks) column is not appearing in the parsed data preview table during transaction file upload, despite being correctly detected in the headers and mapped in the selected template.
-- **Issue 2 (P1):** Incomplete SUPER Role Permissions: The  role needs full CRUD (Create, Read, Update, Delete) permissions for transaction templates, equivalent to the  role.
-- **Issue 3 (P2):** Potential JSX Rendering Error: A previously detected JSX tag mismatch in  may not have been fully resolved, posing a risk of rendering errors on that page.
+- **Issue 1 (P1): Broken ESLint Configuration**
+    - The ESLint setup fails to parse TypeScript files correctly, leading to false-positive errors in the linter output. This prevents effective static analysis, though it doesn't break the application build itself.
 
 **Issues Detail:**
-- **Issue 1: Transaction Parsing Bug**
-    - **Attempted fixes:** None. The agent was still in the investigation phase.
+- **Issue 1: Broken ESLint Configuration**
+    - **Attempted fixes:** The agent identified the issue but deferred fixing it, concluding it was an environment/configuration problem rather than a code error since the Next.js application compiles and runs successfully.
     - **Next debug checklist:**
-        - ****: Focus on the  function. Add extensive  statements to trace the data flow: log the template , the raw  data from the sheet, and the final  object to pinpoint where the 비고 data is lost.
-        - ****: Verify the React component rendering the preview table is configured to display a 비고 column and that the data source for the table includes this field.
-        - ****: Check the  procedure to ensure the column isn't being dropped during the initial file processing on the server.
-    - **Why fix this issue and what will be achieved with the fix?** The 비고 column contains essential contextual information for financial transactions. Fixing this will ensure data integrity and make the transaction analysis feature reliable.
+        - Check  for incorrect parser settings or plugin configurations.
+        - Ensure  and related plugins are correctly installed and configured in .
+        - Run  to get more verbose output on the parsing failure.
+    - **Why fix this issue and what will be achieved with the fix?** Fixing this will restore static code analysis capabilities, allowing for better code quality checks and preventing potential syntax errors from being committed.
     - **Status:** NOT STARTED
-    - **Is recurring issue?** N
-    - **Should Test frontend/backend/both after fix?** Both
-    - **Blocked on other issue:** None
-
-- **Issue 2: Incomplete SUPER Role Permissions**
-    - **Attempted fixes:** The agent modified  to grant  broad access, but did not explicitly confirm if this covered the template management endpoints.
-    - **Next debug checklist:**
-        - ****: Scrutinize the tRPC router for template management. Identify if it uses any middleware or inline permission checks that need to be updated to include the  role.
-        - ****: Check the frontend code to ensure that a user with the  role can see and use all UI controls for template management (create, edit, delete buttons).
-    - **Why fix this issue and what will be achieved with the fix?** This is required to complete the user's request for the  role, giving them full oversight and administrative capabilities.
-    - **Status:** IN PROGRESS
-    - **Is recurring issue?** N
-    - **Should Test frontend/backend/both after fix?** Both
-    - **Blocked on other issue:** None
-
-- **Issue 3: Potential JSX Rendering Error**
-    - **Attempted fixes:** The agent previously attempted to correct the closing tags in  but was interrupted.
-    - **Next debug checklist:**
-        - ****: Run  on the file and carefully inspect the JSX structure to ensure all elements are properly nested and closed.
-    - **Why fix this issue and what will be achieved with the fix?** An unclosed JSX tag will crash the template management page, making it unusable.
-    - **Status:** IN PROGRESS
     - **Is recurring issue?** Y
     - **Should Test frontend/backend/both after fix?** Frontend
     - **Blocked on other issue:** None
@@ -70,18 +59,32 @@ The project is a full-stack Next.js application using tRPC for the API layer and
 - None.
 
 **Upcoming and Future Tasks**
-- None specified by the user.
+- **Upcoming Tasks:**
+    - **P0: Implement Correction Recommendation Analysis:** The core functionality for the 보정권고 안내사항 만들기 section is pending. This involves:
+        - Implementing the drag-and-drop file upload for correction order documents on the case detail page ().
+        - Creating a new tRPC endpoint and service to handle the AI-powered analysis of the uploaded document.
+        - Developing the logic to match analysis results with the existing  records to generate a consolidated guide for the end-user.
 
 **Completed work in this session**
-- **Branding Update**: Successfully changed the company name from paros BMAD to 법무법인 파로스 throughout the application.
-- **Help Page and Navigation Rework**: Created a comprehensive help page () and integrated it into a new, globally consistent navigation system featuring a slide-out sidebar accessible via a GNB hamburger icon.
-- **S3 Bug Fixes**: Resolved two critical S3 bugs related to a corrupted region string and un-decrypted access keys by implementing a dropdown for region selection and adding robust decryption/cache-clearing logic.
-- **Mobile Optimization**: Refactored numerous pages to be responsive, using a new shared header component () to ensure a consistent mobile experience.
-- **Nginx Upload Limit**: Increased the  to 1GB to resolve  errors during large file uploads and provided the user with instructions for their deployment server.
-- **SUPER Role (Partial Implementation)**: Added the  role to the database schema and updated backend access control logic to allow this role to view all cases across the platform.
+- **SUPER Role Permissions:** Granted  role full CRUD permissions for transaction templates.
+- **Transaction Data Integrity and Sorting:**
+    - **Sorting Fix:** Resolved incorrect same-day transaction sorting by updating all relevant Prisma queries to use  as the sort order.
+    - **Time Precision Fix:** Changed  from  to  in  to preserve timestamps.
+    - **Deposit/Withdrawal Fix:** Implemented logic in  to correctly parse transactions based on the amount's sign (positive for deposit, negative for withdrawal).
+    - **Balance Verification:** Added a balance-based validation mechanism to auto-correct reversed entries and log warnings for discrepancies.
+- **Case Detail Page Refactor:**
+    - Overhauled the UI of , moving key information into modals and adding a new header with case identifiers.
+- **Correction Guide Templates Feature:**
+    - **Backend:** Created the  model in Prisma and a full set of tRPC endpoints () for CRUD operations.
+    - **Frontend:** Built the template management page () with a data table, creation/edit modals, and statistics.
+    - **File Attachments:** Implemented image and file uploads for templates, including S3 integration and download endpoints.
+- **Navigation & UX:**
+    - Made the Case List page () the application's main dashboard.
+    - Added a new icon to the global navigation bar () for quick access to the Correction Guide Template page.
+- **Environment Recovery:** Successfully diagnosed and fixed a broken development environment by installing PostgreSQL, running Prisma migrations, and manually configuring process management due to an incorrect  setup.
 
 **Earlier issues found/mentioned but not fixed**
-- None.
+- See  for the ESLint configuration issue.
 
 **Known issue recurrence from previous fork**
 - None.
@@ -96,80 +99,75 @@ The project is a full-stack Next.js application using tRPC for the API layer and
 - **Authentication**: NextAuth.js
 - **Styling**: TailwindCSS
 - **File Storage**: AWS S3
-- **Security**: Role-Based Access Control (LAWYER, ADMIN, SUPER), AES encryption for sensitive settings via CryptoJS.
+- **UI Components**: Shadcn UI, Radix UI
 
 **key DB schema**
 - **User**: 
-- **Case**: 
-- **Setting**: 
-- **Template**: 
+- **Transaction**:
+    - : Changed from  to 
+    - : Now correctly populated on creation.
+    - : Updated to 
+- **CorrectionGuideTemplate (New)**: 
 
 **changes in tech stack**
-- No changes to the core tech stack.
+- None.
 
 **All files of reference**
-- : Contains the client-side parsing logic central to the 비고 column bug.
-- : The tRPC router for template management, which needs to be checked for  role permissions.
-- : The location of core RBAC logic, which has been modified for the  role.
-- : The frontend page where the transaction preview bug manifests.
-- : The frontend page for template management, which needs its permissions and JSX structure verified.
-- : The database schema, which was updated to include the  role.
+- : Contains the refactored UI and the mockup for the upcoming AI feature.
+- : The UI for the new template management feature.
+- : The tRPC backend for the template feature.
+- : Contains the critical business logic for parsing and validating transaction data.
+- : Contains the updated database query and sorting logic.
+- : Defines the new  model and changes to the  model.
+- : Contains the updated global navigation.
 
 **Areas that need refactoring**:
-- The Role-Based Access Control (RBAC) could be improved. Currently, some permission checks are performed inline within tRPC procedures by fetching the user's role from the database on-demand. A more efficient and secure approach would be to add the user's role to the tRPC context during the initial authentication step and rely exclusively on centralized middleware for all authorization checks.
+- **ESLint Configuration**: The linter configuration in  needs to be fixed to properly support TypeScript parsing. This is currently preventing any useful linting.
 
 **key api endpoints**
-All API interactions are through tRPC. The most relevant procedures for the pending tasks are:
-- : Server-side procedure for processing uploaded Excel files.
-- , , , : Procedures for managing transaction templates.
+- **Correction Guide Templates:**
+  - tRPC: , , , , , 
+  - REST: 
+- **Transactions:**
+  - tRPC: ,  (and others) were modified to update sorting logic.
 
 **Critical Info for New Agent**
-- ** Role Context**: The  role was added to allow a user to view all cases, bypassing ownership checks. The next step is to ensure this role also has full administrative control over transaction templates.
-- **S3 Bugs Are Fixed**: Previous critical bugs with S3 configuration were resolved by adding a dropdown for region selection and implementing a robust decryption/cache-clearing mechanism. The user has been advised to re-save their S3 settings in the admin panel to apply these fixes.
-- **Prisma Schema Mismatch**: The agent added the  role to  but could not run Environment variables loaded from .env
-Prisma schema loaded from prisma/schema.prisma
-Datasource "db": PostgreSQL database "paros", schema "public" at "localhost:5432" due to a missing PostgreSQL client in the local environment. The next agent should be aware that the local database is out of sync with the schema file and may need to install dependencies or run the migration.
-- **File Upload Limit**: The Nginx  was increased to 1GB to fix upload errors. This is an environment configuration, not a code change.
+- **Main Page is **: The application's landing page is now the case list. All navigation, redirects, and back-links should use  as the root, not .
+- **Environment Instability**: The agent had to manually set up PostgreSQL and the dev server because the provided supervisor configuration was incorrect for a Next.js monolith. Be prepared for potential environment setup tasks.
+- **Transaction Logic is Complex**: The core transaction parsing logic is in . It now includes balance verification and amount sign checks. Refer to this file for any bugs related to data import.
 
 **documents and test reports created in this job**
 - 
-- 
-- 
-- 
-- 
+-  (updated)
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User (pending):** Requested two fixes: 1.  users need full permissions for transaction templates. 2. A bug where the 비고 (remarks) column is missing in the transaction data preview.
-2.  **User:** Asked how to configure nginx on their deployment server. (Completed)
-3.  **User:** Reported a  error. (Completed)
-4.  **User:** Requested the creation of a  role. (In Progress)
-5.  **User:** Reported an  S3 error. (Completed)
-6.  **User:** Reported a malformed S3 endpoint URL error. (Completed)
-7.  **User:** Noted that the Template Management button was not appearing on the dashboard. (Completed)
-8.  **User:** Requested a major navigation redesign (hamburger menu, slide-out sidebar). (Completed)
-9.  **User:** Requested full mobile optimization and a global Help link. (Completed)
-10. **User:** Provided initial feedback and requested a branding change. (Completed)
+1. **User:** Add a GNB icon for the correction guide page and make the case list the main dashboard. (Completed)
+2. **User:** Implement image/file attachments for correction guide templates. (Completed)
+3. **User:** Refactor the case detail page and create the correction guide template management page. (Completed)
+4. **User:** Reported that transaction sorting is now wrong (wants latest first) and deposit/withdrawal is still inverted. (Completed)
+5. **User:** Reported that transactions on the same date have a jumbled order. (Completed)
+6. **User:** Reported an issue with transaction data appearing out of order in the UI. (This was the first report of the sorting issue).
+7. **User:** Initiated the refactor of the case detail page, requesting modals and a new Correction Recommendation section. (This started the major UI overhaul).
 
 **Project Health Check:**
 - **Broken**:
-    - Transaction parsing preview is not showing all mapped data (비고 column).
-    - Permissions for the  role are incomplete (template management).
-- **Mocked**: None.
+    - ESLint configuration is non-functional.
+- **Mocked**:
+    - The core AI analysis feature for Correction Recommendations on the case detail page. The UI exists but is not wired to any backend logic.
 
 **3rd Party Integrations**
-- **AWS S3**: Used for file storage, configured via user-provided credentials in the admin settings panel.
+- **AWS S3**: Used for file and image attachments for Correction Guide Templates.
 
 **Testing status**
-- **Testing agent used after significant changes:** YES
+- **Testing agent used after significant changes:** YES (Once, to verify SUPER role permissions)
 - **Troubleshoot agent used after agent stuck in loop:** NO
-- **Test files created:** None
-- **Known regressions:** The missing 비고 column in the transaction preview is a newly discovered bug in an existing feature.
+- **Test files created:**
+  -  (a data migration script)
+- **Known regressions:** All user-reported regressions during this session (sorting order, deposit/withdrawal inversion) have been fixed.
 
 **Credentials to test flow:**
-- To fully test the pending issues, credentials for an  and/or a  user are required to access the template management and case detail pages.
+- An  or  user is required to see the new GNB icon and access the Correction Guide Template Management page.
+- Any user can be used to test the main navigation flow starting from .
 
 **What agent forgot to execute**
-- The agent failed to apply the Prisma schema changes to the local database by running Environment variables loaded from .env
-Prisma schema loaded from prisma/schema.prisma
-Datasource "db": PostgreSQL database "paros", schema "public" at "localhost:5432" because the PostgreSQL client was missing from the environment. The local DB schema is therefore out of sync.
-- The fix for a JSX tag mismatch in  was interrupted and may be incomplete.</analysis>
+- The agent did not fix the root cause of the ESLint configuration issue, deferring it as a non-blocking environment problem.</analysis>
