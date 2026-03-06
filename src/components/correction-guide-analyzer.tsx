@@ -2,15 +2,14 @@
  * 보정권고 안내사항 분석 컴포넌트
  * 
  * 2열 레이아웃: 왼쪽(카드 리스트), 오른쪽(미리보기 + 편집)
- * 중복 템플릿 제거, 링크 복사 개선
+ * 중복 템플릿 제거, 링크 복사 개선, 수동 추가 기능
  */
 
 import { useState, useRef, useCallback, useMemo } from "react";
 import { 
   Upload, 
   Loader2, 
-  CheckCircle2, 
-  XCircle,
+  CheckCircle2,
   FileText,
   Link2,
   ExternalLink,
@@ -27,12 +26,16 @@ import {
   Pencil,
   Check,
   X,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { Card } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Textarea } from "~/components/ui/textarea";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -74,6 +77,14 @@ interface TemplateMatchResult {
   isSelected: boolean;
 }
 
+// 수동 추가 안내사항 타입
+interface ManualGuideItem {
+  id: string;
+  title: string;
+  defectContent: string;
+  content: string;
+}
+
 interface CorrectionGuideAnalyzerProps {
   caseId: string;
   userRole?: string;
@@ -81,7 +92,6 @@ interface CorrectionGuideAnalyzerProps {
 
 // 안전한 클립보드 복사 함수
 async function copyToClipboard(text: string): Promise<boolean> {
-  // 1. Modern API 시도
   if (typeof navigator !== "undefined" && navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
     try {
       await navigator.clipboard.writeText(text);
@@ -91,7 +101,6 @@ async function copyToClipboard(text: string): Promise<boolean> {
     }
   }
   
-  // 2. execCommand fallback
   try {
     const textArea = document.createElement("textarea");
     textArea.value = text;
@@ -109,6 +118,11 @@ async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
+// 고유 ID 생성
+function generateId(): string {
+  return `manual-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
+
 export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAnalyzerProps) {
   const utils = api.useUtils();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -122,10 +136,20 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
   
   // 편집 상태
   const [editingItemNumber, setEditingItemNumber] = useState<number | null>(null);
-  const [editedContents, setEditedContents] = useState<Record<number, string>>({});
+  const [editingManualId, setEditingManualId] = useState<string | null>(null);
+  const [editedContents, setEditedContents] = useState<Record<string, string>>({});
   
   // 미리보기에서 흠결사항 펼침 상태 (기본 접힘)
-  const [expandedDefects, setExpandedDefects] = useState<Set<number>>(new Set());
+  const [expandedDefects, setExpandedDefects] = useState<Set<string>>(new Set());
+  
+  // 수동 추가 관련 상태
+  const [manualAddDialogOpen, setManualAddDialogOpen] = useState(false);
+  const [manualItems, setManualItems] = useState<ManualGuideItem[]>([]);
+  const [newManualItem, setNewManualItem] = useState({
+    title: "",
+    defectContent: "",
+    content: "",
+  });
 
   // 분석 결과 목록 조회
   const { data: analyses } = api.correctionGuide.getAnalysesForCase.useQuery(
@@ -320,38 +344,100 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
     });
   };
 
-  // 편집 시작
-  const startEditing = (itemNumber: number, content: string) => {
+  // 수동 추가 다이얼로그 열기
+  const openManualAddDialog = (defectContent?: string) => {
+    setNewManualItem({
+      title: "",
+      defectContent: defectContent ?? "",
+      content: "",
+    });
+    setManualAddDialogOpen(true);
+  };
+
+  // 수동 안내사항 추가
+  const addManualItem = () => {
+    if (!newManualItem.title.trim() || !newManualItem.content.trim()) {
+      toast.error("제목과 내용은 필수입니다");
+      return;
+    }
+    
+    const newItem: ManualGuideItem = {
+      id: generateId(),
+      title: newManualItem.title.trim(),
+      defectContent: newManualItem.defectContent.trim(),
+      content: newManualItem.content.trim(),
+    };
+    
+    setManualItems(prev => [...prev, newItem]);
+    setManualAddDialogOpen(false);
+    setNewManualItem({ title: "", defectContent: "", content: "" });
+    toast.success("안내사항이 추가되었습니다");
+  };
+
+  // 수동 안내사항 삭제
+  const removeManualItem = (id: string) => {
+    setManualItems(prev => prev.filter(item => item.id !== id));
+    toast.success("안내사항이 삭제되었습니다");
+  };
+
+  // 편집 시작 (AI 매칭 항목)
+  const startEditingMatched = (itemNumber: number, content: string) => {
     setEditingItemNumber(itemNumber);
-    if (!editedContents[itemNumber]) {
-      setEditedContents(prev => ({ ...prev, [itemNumber]: content }));
+    setEditingManualId(null);
+    const key = `matched-${itemNumber}`;
+    if (!editedContents[key]) {
+      setEditedContents(prev => ({ ...prev, [key]: content }));
+    }
+  };
+
+  // 편집 시작 (수동 추가 항목)
+  const startEditingManual = (id: string, content: string) => {
+    setEditingManualId(id);
+    setEditingItemNumber(null);
+    const key = `manual-${id}`;
+    if (!editedContents[key]) {
+      setEditedContents(prev => ({ ...prev, [key]: content }));
     }
   };
 
   // 편집 취소
   const cancelEditing = () => {
     setEditingItemNumber(null);
+    setEditingManualId(null);
   };
 
   // 편집 완료
   const saveEditing = () => {
+    // 수동 항목인 경우 실제 저장
+    if (editingManualId) {
+      const key = `manual-${editingManualId}`;
+      const newContent = editedContents[key];
+      if (newContent !== undefined) {
+        setManualItems(prev => prev.map(item => 
+          item.id === editingManualId 
+            ? { ...item, content: newContent }
+            : item
+        ));
+      }
+    }
     setEditingItemNumber(null);
+    setEditingManualId(null);
     toast.success("내용이 수정되었습니다");
   };
 
   // 편집 내용 변경
-  const handleContentChange = (itemNumber: number, value: string) => {
-    setEditedContents(prev => ({ ...prev, [itemNumber]: value }));
+  const handleContentChange = (key: string, value: string) => {
+    setEditedContents(prev => ({ ...prev, [key]: value }));
   };
 
   // 흠결사항 펼침/접힘 토글
-  const toggleDefectExpand = (itemNumber: number) => {
+  const toggleDefectExpand = (key: string) => {
     setExpandedDefects(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(itemNumber)) {
-        newSet.delete(itemNumber);
+      if (newSet.has(key)) {
+        newSet.delete(key);
       } else {
-        newSet.add(itemNumber);
+        newSet.add(key);
       }
       return newSet;
     });
@@ -361,6 +447,9 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
   const showUploadArea = !latestAnalysis || latestAnalysis.analysisStatus === "failed";
   const isProcessing = isUploading || analyzeMutation.isPending;
   const hasResults = latestAnalysis && latestAnalysis.analysisStatus === "completed" && matchResults.length > 0;
+
+  // 미리보기에 표시할 전체 항목 수
+  const totalPreviewItems = selectedMatchResults.length + manualItems.length;
 
   return (
     <Card className="p-0 overflow-hidden">
@@ -623,14 +712,27 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
                             </p>
                           </div>
 
-                          {/* 템플릿 내용 미리보기 */}
-                          {hasTemplate && (
+                          {/* 템플릿 내용 미리보기 또는 수동 추가 버튼 */}
+                          {hasTemplate ? (
                             <div>
                               <h4 className="text-xs font-semibold text-gray-500 mb-1.5">안내 내용</h4>
                               <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap line-clamp-4">
                                 {item.matchedTemplate?.content}
                               </p>
                             </div>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full mt-2 border-dashed border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openManualAddDialog(item.itemContent);
+                              }}
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              이 흠결사항에 안내사항 수동 추가
+                            </Button>
                           )}
 
                           {/* 첨부 파일 */}
@@ -670,7 +772,7 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
                       setShareDialogOpen(true);
                     }
                   }}
-                  disabled={createShareLinkMutation.isPending || selectedItems.length === 0}
+                  disabled={createShareLinkMutation.isPending || totalPreviewItems === 0}
                 >
                   {createShareLinkMutation.isPending ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -691,21 +793,25 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
                   <Eye className="h-4 w-4" />
                   안내사항 미리보기
                 </div>
-                <Badge variant="secondary">{selectedMatchResults.length}개 항목</Badge>
+                <Badge variant="secondary">{totalPreviewItems}개 항목</Badge>
               </div>
               
               <div className="p-4 max-h-[700px] overflow-y-auto">
-                {selectedMatchResults.length === 0 ? (
+                {totalPreviewItems === 0 ? (
                   <div className="py-16 text-center text-muted-foreground">
                     <FileText className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                    <p>왼쪽에서 포함할 항목을 선택하세요</p>
+                    <p>왼쪽에서 포함할 항목을 선택하거나</p>
+                    <p>아래 버튼으로 수동 추가하세요</p>
                   </div>
                 ) : (
                   <div className="space-y-6">
+                    {/* AI 매칭 항목 */}
                     {selectedMatchResults.map((item, idx) => {
                       const isEditing = editingItemNumber === item.itemNumber;
-                      const currentContent = editedContents[item.itemNumber] ?? item.matchedTemplate?.content ?? "";
-                      const isDefectExpanded = expandedDefects.has(item.itemNumber);
+                      const contentKey = `matched-${item.itemNumber}`;
+                      const currentContent = editedContents[contentKey] ?? item.matchedTemplate?.content ?? "";
+                      const defectKey = `defect-matched-${item.itemNumber}`;
+                      const isDefectExpanded = expandedDefects.has(defectKey);
                       
                       return (
                         <div key={item.itemNumber} className="pb-6 border-b last:border-0">
@@ -719,7 +825,7 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
                                 variant="ghost"
                                 size="sm"
                                 className="h-7 text-xs"
-                                onClick={() => startEditing(item.itemNumber, item.matchedTemplate?.content ?? "")}
+                                onClick={() => startEditingMatched(item.itemNumber, item.matchedTemplate?.content ?? "")}
                               >
                                 <Pencil className="h-3 w-3 mr-1" />
                                 편집
@@ -748,7 +854,7 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
                           </div>
                           
                           {/* 흠결사항 원문 (접히는 형태) */}
-                          <Collapsible open={isDefectExpanded} onOpenChange={() => toggleDefectExpand(item.itemNumber)}>
+                          <Collapsible open={isDefectExpanded} onOpenChange={() => toggleDefectExpand(defectKey)}>
                             <CollapsibleTrigger asChild>
                               <button className="w-full text-left bg-gray-100 dark:bg-gray-800 rounded-lg p-3 mb-4 text-sm hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
                                 <div className="flex items-center justify-between">
@@ -772,7 +878,7 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
                           {isEditing ? (
                             <Textarea
                               value={currentContent}
-                              onChange={(e) => handleContentChange(item.itemNumber, e.target.value)}
+                              onChange={(e) => handleContentChange(contentKey, e.target.value)}
                               className="min-h-[150px] text-sm"
                               placeholder="안내 내용을 입력하세요..."
                             />
@@ -818,8 +924,125 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
                         </div>
                       );
                     })}
+
+                    {/* 수동 추가 항목 */}
+                    {manualItems.map((item, idx) => {
+                      const isEditing = editingManualId === item.id;
+                      const contentKey = `manual-${item.id}`;
+                      const currentContent = editedContents[contentKey] ?? item.content;
+                      const defectKey = `defect-manual-${item.id}`;
+                      const isDefectExpanded = expandedDefects.has(defectKey);
+                      
+                      return (
+                        <div key={item.id} className="pb-6 border-b last:border-0">
+                          {/* 항목 제목 + 편집/삭제 버튼 */}
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-base font-bold text-purple-700 dark:text-purple-400">
+                                {selectedMatchResults.length + idx + 1}. {item.title}
+                              </h3>
+                              <Badge variant="outline" className="text-xs text-purple-600 border-purple-300">
+                                수동 추가
+                              </Badge>
+                            </div>
+                            <div className="flex gap-1">
+                              {!isEditing ? (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-xs"
+                                    onClick={() => startEditingManual(item.id, item.content)}
+                                  >
+                                    <Pencil className="h-3 w-3 mr-1" />
+                                    편집
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-xs text-red-500 hover:text-red-700"
+                                    onClick={() => removeManualItem(item.id)}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </>
+                              ) : (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-xs text-green-600"
+                                    onClick={saveEditing}
+                                  >
+                                    <Check className="h-3 w-3 mr-1" />
+                                    저장
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-xs text-gray-500"
+                                    onClick={cancelEditing}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* 흠결사항 (있는 경우) */}
+                          {item.defectContent && (
+                            <Collapsible open={isDefectExpanded} onOpenChange={() => toggleDefectExpand(defectKey)}>
+                              <CollapsibleTrigger asChild>
+                                <button className="w-full text-left bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3 mb-4 text-sm hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-purple-500 font-medium">[흠결사항] 클릭하여 확인</span>
+                                    {isDefectExpanded ? (
+                                      <ChevronUp className="h-4 w-4 text-purple-400" />
+                                    ) : (
+                                      <ChevronDown className="h-4 w-4 text-purple-400" />
+                                    )}
+                                  </div>
+                                </button>
+                              </CollapsibleTrigger>
+                              <CollapsibleContent>
+                                <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3 mb-4 -mt-4 pt-1 border-t border-purple-200 dark:border-purple-800">
+                                  <p className="text-purple-700 dark:text-purple-300 text-sm">{item.defectContent}</p>
+                                </div>
+                              </CollapsibleContent>
+                            </Collapsible>
+                          )}
+                          
+                          {/* 안내 내용 (편집 가능) */}
+                          {isEditing ? (
+                            <Textarea
+                              value={currentContent}
+                              onChange={(e) => handleContentChange(contentKey, e.target.value)}
+                              className="min-h-[150px] text-sm"
+                              placeholder="안내 내용을 입력하세요..."
+                            />
+                          ) : (
+                            <div className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
+                              {currentContent}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
+
+                {/* 수동 추가 버튼 */}
+                <div className="mt-6 pt-4 border-t">
+                  <Button
+                    variant="outline"
+                    className="w-full border-dashed"
+                    onClick={() => openManualAddDialog()}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    안내사항 수동 추가
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
@@ -839,6 +1062,9 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
           <div className="py-4">
             <p className="text-sm text-muted-foreground">
               ✓ 선택된 {selectedMatchResults.length}개 항목이 공유됩니다
+              {manualItems.length > 0 && (
+                <span> + 수동 추가 {manualItems.length}개</span>
+              )}
               {selectedItems.length > selectedMatchResults.length && (
                 <span className="text-amber-600"> (중복 제외)</span>
               )}<br />
@@ -864,6 +1090,58 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
                 <Link2 className="h-4 w-4 mr-2" />
               )}
               링크 생성 및 복사
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 수동 추가 다이얼로그 */}
+      <Dialog open={manualAddDialogOpen} onOpenChange={setManualAddDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>안내사항 수동 추가</DialogTitle>
+            <DialogDescription>
+              직접 안내사항을 작성하여 추가합니다.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="manual-title">제목 *</Label>
+              <Input
+                id="manual-title"
+                placeholder="안내사항 제목을 입력하세요"
+                value={newManualItem.title}
+                onChange={(e) => setNewManualItem(prev => ({ ...prev, title: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="manual-defect">흠결사항 (선택)</Label>
+              <Textarea
+                id="manual-defect"
+                placeholder="해당하는 흠결사항이 있으면 입력하세요"
+                value={newManualItem.defectContent}
+                onChange={(e) => setNewManualItem(prev => ({ ...prev, defectContent: e.target.value }))}
+                className="min-h-[80px]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="manual-content">안내 내용 *</Label>
+              <Textarea
+                id="manual-content"
+                placeholder="안내사항 내용을 입력하세요"
+                value={newManualItem.content}
+                onChange={(e) => setNewManualItem(prev => ({ ...prev, content: e.target.value }))}
+                className="min-h-[150px]"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setManualAddDialogOpen(false)}>
+              취소
+            </Button>
+            <Button onClick={addManualItem}>
+              <Plus className="h-4 w-4 mr-2" />
+              추가
             </Button>
           </DialogFooter>
         </DialogContent>
