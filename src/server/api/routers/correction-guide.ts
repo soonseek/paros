@@ -1,23 +1,19 @@
 /**
- * 보정권고 안내사항 템플릿 관리 라우터
+ * 보정권고 안내사항 템플릿 관리 및 분석 라우터
  */
 import { z } from "zod";
-import { createTRPCRouter, adminProcedure, protectedProcedure } from "~/server/api/trpc";
+import { createTRPCRouter, adminProcedure, protectedProcedure, publicProcedure } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
+import { Prisma } from "@prisma/client";
 import { db } from "~/server/db";
-import { uploadFile, deleteFile, downloadFile } from "~/lib/storage";
-import { randomUUID } from "crypto";
-
-// 파일 정보 타입
-interface FileInfo {
-  key: string;
-  name: string;
-  size: number;
-  type: string;
-  uploadedAt: string;
-}
+import { uploadFile, deleteFile } from "~/lib/storage";
+import { CorrectionGuideService } from "~/server/services/correction-guide-service";
+import { generateCorrectionGuidePDF } from "~/server/services/pdf-generator";
+import type { FileInfo, TemplateMatchResult } from "~/types/correction-guide";
 
 export const correctionGuideRouter = createTRPCRouter({
+  // ========== 템플릿 관리 ==========
+  
   // 템플릿 목록 조회 (모든 인증된 사용자)
   getTemplates: protectedProcedure
     .input(
@@ -56,19 +52,17 @@ export const correctionGuideRouter = createTRPCRouter({
   uploadFile: adminProcedure
     .input(
       z.object({
-        templateId: z.string().optional(), // 기존 템플릿에 추가하는 경우
+        templateId: z.string().optional(),
         fileName: z.string(),
-        fileData: z.string(), // Base64 인코딩된 파일 데이터
-        fileType: z.string(), // MIME 타입
+        fileData: z.string(),
+        fileType: z.string(),
         fileSize: z.number(),
-        isImage: z.boolean(), // 이미지인지 일반 파일인지
+        isImage: z.boolean(),
       })
     )
     .mutation(async ({ input }) => {
-      // Base64 디코딩
       const fileBuffer = Buffer.from(input.fileData, "base64");
       
-      // 파일 크기 검증 (최대 10MB)
       const MAX_FILE_SIZE = 10 * 1024 * 1024;
       if (fileBuffer.length > MAX_FILE_SIZE) {
         throw new TRPCError({
@@ -77,7 +71,6 @@ export const correctionGuideRouter = createTRPCRouter({
         });
       }
 
-      // 이미지 타입 검증
       if (input.isImage) {
         const allowedImageTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
         if (!allowedImageTypes.includes(input.fileType)) {
@@ -88,7 +81,6 @@ export const correctionGuideRouter = createTRPCRouter({
         }
       }
 
-      // 파일 업로드 (correction-guide-templates 폴더에 저장)
       const storageKey = await uploadFile(
         fileBuffer,
         "correction-guide-templates",
@@ -96,7 +88,6 @@ export const correctionGuideRouter = createTRPCRouter({
         input.fileType
       );
 
-      // 파일 정보 반환
       const fileInfo: FileInfo = {
         key: storageKey,
         name: input.fileName,
@@ -106,17 +97,12 @@ export const correctionGuideRouter = createTRPCRouter({
       };
 
       console.log(`[CorrectionGuide] File uploaded: ${storageKey}`);
-
       return fileInfo;
     }),
 
   // 파일 삭제
   deleteFile: adminProcedure
-    .input(
-      z.object({
-        fileKey: z.string(),
-      })
-    )
+    .input(z.object({ fileKey: z.string() }))
     .mutation(async ({ input }) => {
       try {
         await deleteFile(input.fileKey);
@@ -131,33 +117,20 @@ export const correctionGuideRouter = createTRPCRouter({
       }
     }),
 
-  // 파일 다운로드 URL 생성 (로컬 스토리지용)
+  // 파일 다운로드 URL 생성
   getFileUrl: protectedProcedure
-    .input(
-      z.object({
-        fileKey: z.string(),
-      })
-    )
+    .input(z.object({ fileKey: z.string() }))
     .query(async ({ input }) => {
-      // S3인 경우 직접 URL 반환, 로컬인 경우 API 엔드포인트로 리다이렉트
       const { getStorageBackend } = await import("~/lib/storage");
       const backend = await getStorageBackend();
       
-      if (backend === "S3") {
-        // S3 presigned URL 생성 (실제 구현 시 추가)
-        return {
-          url: `/api/correction-guide/download?key=${encodeURIComponent(input.fileKey)}`,
-          backend: "S3",
-        };
-      } else {
-        return {
-          url: `/api/correction-guide/download?key=${encodeURIComponent(input.fileKey)}`,
-          backend: "LOCAL",
-        };
-      }
+      return {
+        url: `/api/correction-guide/download?key=${encodeURIComponent(input.fileKey)}`,
+        backend,
+      };
     }),
 
-  // 템플릿 생성 (ADMIN, SUPER만)
+  // 템플릿 생성
   createTemplate: adminProcedure
     .input(
       z.object({
@@ -194,7 +167,7 @@ export const correctionGuideRouter = createTRPCRouter({
       });
     }),
 
-  // 템플릿 수정 (ADMIN, SUPER만)
+  // 템플릿 수정
   updateTemplate: adminProcedure
     .input(
       z.object({
@@ -240,7 +213,7 @@ export const correctionGuideRouter = createTRPCRouter({
       });
     }),
 
-  // 템플릿 삭제 (ADMIN, SUPER만) - 연결된 파일도 삭제
+  // 템플릿 삭제
   deleteTemplate: adminProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ input }) => {
@@ -255,8 +228,7 @@ export const correctionGuideRouter = createTRPCRouter({
         });
       }
 
-      // 연결된 이미지 삭제
-      const images = (template.images as FileInfo[]) ?? [];
+      const images = (template.images as unknown as FileInfo[]) ?? [];
       for (const image of images) {
         try {
           await deleteFile(image.key);
@@ -265,8 +237,7 @@ export const correctionGuideRouter = createTRPCRouter({
         }
       }
 
-      // 연결된 파일 삭제
-      const files = (template.files as FileInfo[]) ?? [];
+      const files = (template.files as unknown as FileInfo[]) ?? [];
       for (const file of files) {
         try {
           await deleteFile(file.key);
@@ -280,7 +251,9 @@ export const correctionGuideRouter = createTRPCRouter({
       });
     }),
 
-  // 사건별 보정권고 분석 결과 조회
+  // ========== 분석 기능 ==========
+
+  // 사건별 분석 결과 목록 조회
   getAnalysesForCase: protectedProcedure
     .input(z.object({ caseId: z.string() }))
     .query(async ({ input }) => {
@@ -290,23 +263,268 @@ export const correctionGuideRouter = createTRPCRouter({
       });
     }),
 
-  // 보정권고 분석 생성 (목업 - 실제 분석은 나중에 구현)
-  createAnalysis: protectedProcedure
+  // 단일 분석 결과 조회
+  getAnalysis: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ input }) => {
+      const analysis = await db.correctionGuideAnalysis.findUnique({
+        where: { id: input.id },
+        include: {
+          case: {
+            select: { caseNumber: true, debtorName: true },
+          },
+        },
+      });
+
+      if (!analysis) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "분석 결과를 찾을 수 없습니다",
+        });
+      }
+
+      return analysis;
+    }),
+
+  // 보정권고/명령서 분석 실행
+  analyzeDocument: protectedProcedure
     .input(
       z.object({
         caseId: z.string(),
-        documentId: z.string().optional(),
-        originalFileName: z.string().optional(),
+        fileName: z.string(),
+        fileData: z.string(),  // Base64 인코딩
+        fileType: z.string(),
       })
     )
     .mutation(async ({ input }) => {
-      return db.correctionGuideAnalysis.create({
+      const service = new CorrectionGuideService(db);
+      const fileBuffer = Buffer.from(input.fileData, "base64");
+
+      // 1. 분석 레코드 생성 (pending 상태)
+      const analysis = await db.correctionGuideAnalysis.create({
         data: {
           caseId: input.caseId,
-          documentId: input.documentId,
-          originalFileName: input.originalFileName,
-          analysisStatus: "pending",
+          originalFileName: input.fileName,
+          analysisStatus: "processing",
         },
+      });
+
+      try {
+        // 2. 파일 저장
+        const documentS3Key = await uploadFile(
+          fileBuffer,
+          `correction-guide-analysis/${input.caseId}`,
+          input.fileName,
+          input.fileType
+        );
+
+        // 3. Upstage OCR로 텍스트 추출
+        const extractedText = await service.parseDocumentWithUpstage(
+          fileBuffer,
+          input.fileName,
+          input.fileType
+        );
+
+        // 4. 흠결사항 항목 추출
+        const defectItems = service.extractDefectItems(extractedText);
+
+        if (defectItems.length === 0) {
+          throw new Error("흠결사항 항목을 찾을 수 없습니다. 문서 형식을 확인해주세요.");
+        }
+
+        // 5. 활성 템플릿 조회
+        const templates = await db.correctionGuideTemplate.findMany({
+          where: { isActive: true },
+          orderBy: [{ priority: "desc" }],
+        });
+
+        // 6. GPT로 템플릿 매칭
+        const matchResults = await service.matchTemplatesWithGPT(defectItems, templates);
+
+        // 7. 결과 저장
+        const updatedAnalysis = await db.correctionGuideAnalysis.update({
+          where: { id: analysis.id },
+          data: {
+            documentS3Key,
+            analysisStatus: "completed",
+            extractedItems: JSON.parse(JSON.stringify(defectItems)) as Prisma.InputJsonValue,
+            matchedTemplates: JSON.parse(JSON.stringify(matchResults)) as Prisma.InputJsonValue,
+            selectedItems: matchResults
+              .filter(m => m.isSelected)
+              .map(m => m.itemNumber) as Prisma.InputJsonValue,
+          },
+        });
+
+        return updatedAnalysis;
+      } catch (error) {
+        // 분석 실패 처리
+        await db.correctionGuideAnalysis.update({
+          where: { id: analysis.id },
+          data: {
+            analysisStatus: "failed",
+            errorMessage: error instanceof Error ? error.message : "알 수 없는 오류",
+          },
+        });
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: error instanceof Error ? error.message : "분석에 실패했습니다",
+        });
+      }
+    }),
+
+  // 선택 항목 업데이트
+  updateSelectedItems: protectedProcedure
+    .input(
+      z.object({
+        analysisId: z.string(),
+        selectedItemNumbers: z.array(z.number()),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const analysis = await db.correctionGuideAnalysis.findUnique({
+        where: { id: input.analysisId },
+      });
+
+      if (!analysis) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "분석 결과를 찾을 수 없습니다",
+        });
+      }
+
+      const matchedTemplates = analysis.matchedTemplates as unknown as TemplateMatchResult[];
+      const updatedTemplates = matchedTemplates.map(t => ({
+        ...t,
+        isSelected: input.selectedItemNumbers.includes(t.itemNumber),
+      }));
+
+      return db.correctionGuideAnalysis.update({
+        where: { id: input.analysisId },
+        data: {
+          matchedTemplates: JSON.parse(JSON.stringify(updatedTemplates)) as Prisma.InputJsonValue,
+          selectedItems: input.selectedItemNumbers as Prisma.InputJsonValue,
+        },
+      });
+    }),
+
+  // PDF 생성 및 다운로드
+  generatePDF: protectedProcedure
+    .input(
+      z.object({
+        analysisId: z.string(),
+        selectedOnly: z.boolean().default(true),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const analysis = await db.correctionGuideAnalysis.findUnique({
+        where: { id: input.analysisId },
+        include: {
+          case: {
+            select: { caseNumber: true, debtorName: true },
+          },
+        },
+      });
+
+      if (!analysis) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "분석 결과를 찾을 수 없습니다",
+        });
+      }
+
+      const matchResults = analysis.matchedTemplates as unknown as TemplateMatchResult[];
+      
+      const pdfBuffer = await generateCorrectionGuidePDF(
+        {
+          caseNumber: analysis.case.caseNumber,
+          debtorName: analysis.case.debtorName,
+        },
+        matchResults,
+        input.selectedOnly
+      );
+
+      // Base64로 반환 (클라이언트에서 다운로드 처리)
+      return {
+        fileName: `보정권고안내_${analysis.case.caseNumber}_${new Date().toISOString().split("T")[0]}.pdf`,
+        data: pdfBuffer.toString("base64"),
+        mimeType: "application/pdf",
+      };
+    }),
+
+  // 공유 링크 생성
+  createShareLink: protectedProcedure
+    .input(
+      z.object({
+        analysisId: z.string(),
+        expiresInDays: z.number().optional(),  // null이면 무기한
+      })
+    )
+    .mutation(async ({ input }) => {
+      const service = new CorrectionGuideService(db);
+      
+      const analysis = await db.correctionGuideAnalysis.findUnique({
+        where: { id: input.analysisId },
+      });
+
+      if (!analysis) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "분석 결과를 찾을 수 없습니다",
+        });
+      }
+
+      const updated = await service.createShareLink(input.analysisId, input.expiresInDays);
+      
+      return {
+        shareSlug: updated.shareSlug,
+        shareUrl: `/guide/${updated.shareSlug}`,
+        expiresAt: updated.shareExpiresAt,
+      };
+    }),
+
+  // 공유 링크로 분석 결과 조회 (인증 불필요)
+  getAnalysisByShareSlug: publicProcedure
+    .input(z.object({ slug: z.string() }))
+    .query(async ({ input }) => {
+      const service = new CorrectionGuideService(db);
+      const analysis = await service.getAnalysisByShareSlug(input.slug);
+
+      if (!analysis) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "공유 링크가 만료되었거나 존재하지 않습니다",
+        });
+      }
+
+      return analysis;
+    }),
+
+  // 분석 삭제
+  deleteAnalysis: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ input }) => {
+      const analysis = await db.correctionGuideAnalysis.findUnique({
+        where: { id: input.id },
+      });
+
+      if (!analysis) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "분석 결과를 찾을 수 없습니다",
+        });
+      }
+
+      // 저장된 문서 삭제
+      if (analysis.documentS3Key) {
+        try {
+          await deleteFile(analysis.documentS3Key);
+        } catch (error) {
+          console.error(`[CorrectionGuide] Failed to delete document: ${analysis.documentS3Key}`, error);
+        }
+      }
+
+      return db.correctionGuideAnalysis.delete({
+        where: { id: input.id },
       });
     }),
 });

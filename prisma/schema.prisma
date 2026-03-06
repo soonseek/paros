@@ -628,13 +628,20 @@ model CorrectionGuideTemplate {
 model CorrectionGuideAnalysis {
     id              String   @id @default(uuid())
     caseId          String                               // 사건 ID
-    documentId      String?                              // 업로드된 보정명령서 문서 ID
+    documentS3Key   String?                              // 업로드된 보정명령서 S3 키
     originalFileName String?                             // 원본 파일명
     
     // 분석 결과
     analysisStatus  String   @default("pending")         // pending, processing, completed, failed
-    extractedItems  Json?                                // 추출된 보정 항목들
-    matchedTemplates Json?                               // 매칭된 템플릿 정보
+    extractedItems  Json?                                // 추출된 보정 항목들 (흠결사항 1~n번)
+    matchedTemplates Json?                               // 매칭된 템플릿 정보 (각 항목별 매칭 결과)
+    selectedItems   Json?                                // 사용자가 선택한 항목들
+    
+    // 공유 링크
+    shareSlug       String?  @unique                     // 공유용 고유 슬러그 (인증 없이 접근)
+    shareExpiresAt  DateTime?                            // 공유 링크 만료일 (null이면 무기한)
+    
+    errorMessage    String?  @db.Text                    // 분석 실패 시 에러 메시지
     
     createdAt       DateTime @default(now())
     updatedAt       DateTime @updatedAt
@@ -644,5 +651,6 @@ model CorrectionGuideAnalysis {
     
     @@index([caseId])
     @@index([analysisStatus])
+    @@index([shareSlug])
     @@map("correction_guide_analyses")
 }

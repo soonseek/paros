@@ -44,15 +44,7 @@ import { AppHeader } from "~/components/app-header";
 import { api } from "~/utils/api";
 import { useAuth } from "~/contexts/AuthContext";
 import { toast } from "sonner";
-
-// 파일 정보 타입
-interface FileInfo {
-  key: string;
-  name: string;
-  size: number;
-  type: string;
-  uploadedAt: string;
-}
+import type { FileInfo } from "~/types/correction-guide";
 
 interface TemplateFormData {
   title: string;
@@ -244,8 +236,8 @@ const CorrectionGuideTemplatesPage: NextPage = () => {
     setFormData({
       title: template.title,
       content: template.content,
-      images: (template.images as FileInfo[]) ?? [],
-      files: (template.files as FileInfo[]) ?? [],
+      images: (template.images as unknown as FileInfo[]) ?? [],
+      files: (template.files as unknown as FileInfo[]) ?? [],
       specialNotes: template.specialNotes ?? "",
       priority: template.priority,
       isActive: template.isActive,
@@ -433,16 +425,16 @@ const CorrectionGuideTemplatesPage: NextPage = () => {
                             {template.content}
                           </p>
                           <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            {((template.images as FileInfo[])?.length ?? 0) > 0 && (
+                            {((template.images as unknown as FileInfo[])?.length ?? 0) > 0 && (
                               <span className="flex items-center gap-1">
                                 <ImageIcon className="h-3 w-3" />
-                                이미지 {(template.images as FileInfo[]).length}개
+                                이미지 {(template.images as unknown as FileInfo[]).length}개
                               </span>
                             )}
-                            {((template.files as FileInfo[])?.length ?? 0) > 0 && (
+                            {((template.files as unknown as FileInfo[])?.length ?? 0) > 0 && (
                               <span className="flex items-center gap-1">
                                 <FileText className="h-3 w-3" />
-                                파일 {(template.files as FileInfo[]).length}개
+                                파일 {(template.files as unknown as FileInfo[]).length}개
                               </span>
                             )}
                             {template.specialNotes && (
