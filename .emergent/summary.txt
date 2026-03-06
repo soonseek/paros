@@ -1,93 +1,121 @@
 <analysis>**original_problem_statement:**
-The user's initial project involved creating a case and transaction management tool for a law firm. During this session, the user requested the following additions and fixes:
-- Resolve pending issues: Grant  role full permissions for template management and fix a bug where the 비고 (remarks) column was missing from the transaction preview.
-- **Transaction Data Integrity and Sorting:**
-    - Fix incorrect sorting of transactions that occur on the same day. The original row order from the uploaded file must be preserved.
-    - Change the default transaction sort order to be descending (most recent first).
-    - Fix a critical bug where deposits were being recorded as withdrawals and vice-versa.
-    - Implement a balance-based verification logic to cross-check parsed transaction data and automatically correct inverted entries.
-    - Preserve the timestamp (not just the date) for transactions to ensure accurate ordering.
-- **UI/UX Overhaul:**
-    - Refactor the case detail page: remove the Findings card, move Basic Info and Case Memos into modals, and display the debtor's name and case number in the page header.
-    - Make the Case List page () the main dashboard/landing page after login, removing the old dashboard.
-- **New Feature: Correction Recommendation Guides:**
-    - **Phase 1 (Completed):**
-        - Create a new Correction Recommendation Guide section on the case detail page (as a UI mockup).
-        - Add a link for  users to a new Correction Guide Template Management page.
-        - Build the full CRUD functionality for Correction Guide Templates, including fields for title, content, special instructions for an AI, and priority.
-        - Implement image and file attachments for these templates, using the existing S3 storage backend.
-    - **Phase 2 (Upcoming):**
-        - Implement the file upload and AI analysis of 보정권고/명령서 (correction recommendation/order) documents.
+The user requested the implementation of a Correction Recommendation Guide feature. This involves:
+1.  Uploading an image-based PDF (보정권고/명령서).
+2.  Using the Upstage API to parse the document and extract numbered sections labeled 흠결사항 (defect items).
+3.  Using GPT-5.2 to analyze each defect item and match it with a pre-existing Correction Guide Template.
+4.  Displaying the analysis results, allowing the user to select, edit, and manually add guide items.
+5.  Generating a public, shareable link for the final guide, which must persist all user edits and additions.
+
+Over several iterations, the user provided extensive feedback, leading to the following refinements and bug fixes:
+*   **UI/UX Overhaul:**
+    *   Implement a two-column layout showing analysis results on the left and a live preview on the right.
+    *   Improve the display for items with no matching template.
+    *   Add in-place editing for guide content and modals for manually adding new items.
+    *   Move the Copy Share Link button to the preview header.
+*   **Functionality Changes:**
+    *   Remove the PDF download feature entirely.
+    *   Implement data persistence: all manual additions and edits must be saved to the database and be reflected on the shared link page.
+    *   Add business logic to deduplicate identical matched templates and filter out invalid defect items (e.g., numbers over 100).
+*   **Bug Fixes:**
+    *   Resolved a client-side error with the Copy Link button ( issue).
+
+The user explicitly stated that testing can only be performed in the production environment, meaning the agent cannot conduct functional tests.
 
 **User's preferred language**: Korean
 
 **what currently exists?**
-The application is a full-stack Next.js monolith using tRPC, Prisma, and PostgreSQL. It functions as a comprehensive case and transaction management system for a law firm.
+The application is a full-stack Next.js monolith with a tRPC API, Prisma ORM, and PostgreSQL database. It serves as a case management tool for a law firm.
 
-Key existing features include:
-- Role-Based Access Control (, , ).
-- Case management and transaction data parsing from uploaded files.
-- A new, fully functional Correction Guide Template Management system with CRUD UI and S3-backed file/image attachments.
-- A significantly refactored case detail page that uses modals for displaying information and includes a mockup for a future AI analysis feature.
-- The primary navigation has been updated to use the case list as the main landing page, with a new icon in the global navigation bar for accessing the template management page.
+The Correction Recommendation Guide feature has been substantially built out, including:
+- Integration with Upstage for document parsing and GPT-5.2 for analysis.
+- A new database model () to store analysis results, user selections, and custom modifications.
+- A complex, interactive two-column UI on the case detail page () for building the guide.
+- A public, shareable page () to display the final guide.
+- tRPC endpoints to handle file analysis, saving custom/edited content, and retrieving guide data.
+
+The core logic is in place, but the most recent changes to ensure data persistence have not been verified by the user.
 
 **Last working item**:
-- **Last item agent was working:** The agent finished a navigation and UX overhaul. This involved making the case list page () the new default dashboard and adding a GNB icon for the Correction Guide Template Management page, visible only to  and  users. The agent modified , redirected , and updated multiple back-links across the application.
-- **Status:** USER VERIFICATION PENDING
-- **Agent Testing Done:** Y (Verified via screenshots)
-- **Which testing method agent to use?** manual testing by screenshot tool
+- **Last item agent was working:** The agent was implementing data persistence for manually added and edited guide content. This involved modifying the database schema, creating tRPC endpoints to save changes, and updating the frontend to call these endpoints. The agent also moved the Copy Share Link button to the preview card's header as requested.
+- **Status:** IN PROGRESS
+- **Agent Testing Done:** N (Only static type-checking and build command were run. Functional testing is not possible for the agent.)
+- **Which testing method agent to use?** User Manual Testing (The user must deploy and test in their environment).
 - **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
-- **Issue 1 (P1): Broken ESLint Configuration**
-    - The ESLint setup fails to parse TypeScript files correctly, leading to false-positive errors in the linter output. This prevents effective static analysis, though it doesn't break the application build itself.
+- **Issue 1 (P0): Data Persistence for Correction Guides**
+    - The core user request to save manually added and edited guide content is implemented but completely unverified.
+- **Issue 2 (P1): Broken ESLint Configuration**
+    - The ESLint setup fails to parse TypeScript files, preventing effective static analysis. This is a recurring issue from the previous session.
 
 **Issues Detail:**
-- **Issue 1: Broken ESLint Configuration**
-    - **Attempted fixes:** The agent identified the issue but deferred fixing it, concluding it was an environment/configuration problem rather than a code error since the Next.js application compiles and runs successfully.
+- **Issue 1: Data Persistence for Correction Guides**
+    - **Attempted fixes:** The agent created a comprehensive solution:
+        1.  Added  and  fields to the  model in .
+        2.  Created  and  mutations in the  tRPC router.
+        3.  Updated the  component to call these mutations on user actions.
+        4.  Modified the public page  to fetch and display this persisted data.
+    - **Next debug checklist:** The user needs to test the following workflow:
+        1.  Analyze a document.
+        2.  Manually add a new guide item.
+        3.  Edit an existing guide item.
+        4.  Generate and open the shared link.
+        5.  Verify that the added and edited content appears correctly on the shared link page.
+        6.  Refresh the case detail page and verify the changes are still present.
+    - **Why fix this issue and what will be achieved with the fix?** This is the critical final step to make the feature usable. It ensures user work is not lost and the shared link is an accurate representation of the finalized guide.
+    - **Status:** IN PROGRESS
+    - **Is recurring issue?** N
+    - **Should Test frontend/backend/both after fix?** Both
+    - **Blocked on other issue:** None
+
+- **Issue 2: Broken ESLint Configuration**
+    - **Attempted fixes:** None in this session. The agent has worked around it by relying on TypeScript compiler () errors.
     - **Next debug checklist:**
-        - Check  for incorrect parser settings or plugin configurations.
-        - Ensure  and related plugins are correctly installed and configured in .
-        - Run  to get more verbose output on the parsing failure.
-    - **Why fix this issue and what will be achieved with the fix?** Fixing this will restore static code analysis capabilities, allowing for better code quality checks and preventing potential syntax errors from being committed.
+        - Review  for incorrect parser or plugin settings.
+        - Verify  is correctly configured to work with the project's .
+        - Run  for verbose error output.
+    - **Why fix this issue and what will be achieved with the fix?** Fixing this will enable static code analysis, improving code quality and catching potential errors early.
     - **Status:** NOT STARTED
     - **Is recurring issue?** Y
     - **Should Test frontend/backend/both after fix?** Frontend
     - **Blocked on other issue:** None
 
 **In progress Task List**:
-- None.
+- **Task 1: Complete and Verify Correction Guide Feature**
+    - **Where to resume:** The user needs to test the latest implementation for data persistence. All code has been written.
+    - **What will be achieved with this?** The Correction Recommendation Guide feature will be functionally complete as per the latest user requirements.
+    - **Status:** IN PROGRESS
+    - **Should Test frontend/backend/both after fix?** Both
+    - **Blocked on something:** User testing.
 
 **Upcoming and Future Tasks**
 - **Upcoming Tasks:**
-    - **P0: Implement Correction Recommendation Analysis:** The core functionality for the 보정권고 안내사항 만들기 section is pending. This involves:
-        - Implementing the drag-and-drop file upload for correction order documents on the case detail page ().
-        - Creating a new tRPC endpoint and service to handle the AI-powered analysis of the uploaded document.
-        - Developing the logic to match analysis results with the existing  records to generate a consolidated guide for the end-user.
+    - **P0: User Acceptance Testing:** The user must test the entire Correction Recommendation Guide feature flow in their environment. The agent should be prepared to receive feedback and perform further bug fixes.
 
 **Completed work in this session**
-- **SUPER Role Permissions:** Granted  role full CRUD permissions for transaction templates.
-- **Transaction Data Integrity and Sorting:**
-    - **Sorting Fix:** Resolved incorrect same-day transaction sorting by updating all relevant Prisma queries to use  as the sort order.
-    - **Time Precision Fix:** Changed  from  to  in  to preserve timestamps.
-    - **Deposit/Withdrawal Fix:** Implemented logic in  to correctly parse transactions based on the amount's sign (positive for deposit, negative for withdrawal).
-    - **Balance Verification:** Added a balance-based validation mechanism to auto-correct reversed entries and log warnings for discrepancies.
-- **Case Detail Page Refactor:**
-    - Overhauled the UI of , moving key information into modals and adding a new header with case identifiers.
-- **Correction Guide Templates Feature:**
-    - **Backend:** Created the  model in Prisma and a full set of tRPC endpoints () for CRUD operations.
-    - **Frontend:** Built the template management page () with a data table, creation/edit modals, and statistics.
-    - **File Attachments:** Implemented image and file uploads for templates, including S3 integration and download endpoints.
-- **Navigation & UX:**
-    - Made the Case List page () the application's main dashboard.
-    - Added a new icon to the global navigation bar () for quick access to the Correction Guide Template page.
-- **Environment Recovery:** Successfully diagnosed and fixed a broken development environment by installing PostgreSQL, running Prisma migrations, and manually configuring process management due to an incorrect  setup.
+- **Core Feature Implementation (Correction Guide Analysis):**
+    - Integrated Upstage and GPT-5.2 APIs using .
+    - Created  model in  to persist guide data.
+    - Implemented a new tRPC router () and service ().
+    - Built the main UI component () and the public share page ().
+- **Iterative Refinements and Bug Fixes:**
+    - Re-architected the UI into a two-column layout with a live preview.
+    - Implemented in-place editing and manual addition of guide items.
+    - Fixed client-side clipboard API errors and added toast notifications ().
+    - Removed the PDF generation feature as requested by the user.
+    - Added business logic to filter analysis results and deduplicate templates.
+- **Dependency and Build Management:**
+    - Installed missing dependencies (, ).
+    - Resolved numerous TypeScript build errors related to Prisma JSON types and prop mismatches by creating a shared types file ().
+    - Diagnosed and worked around an unstable  environment by running the Next.js development server directly.
 
 **Earlier issues found/mentioned but not fixed**
-- See  for the ESLint configuration issue.
+- **ESLint Configuration**: A broken ESLint configuration, mentioned in the initial handoff summary, was not addressed. It prevents static analysis, though the application builds correctly.
 
 **Known issue recurrence from previous fork**
-- None.
+- **ESLint Configuration**: The ESLint configuration was reported as broken in the previous fork and remains unfixed.
+- **Recurrence count**: 2
+- **Status**: NOT STARTED
 
 **Code Architecture**
 
@@ -97,77 +125,79 @@ Key existing features include:
 - **API**: tRPC
 - **Database**: PostgreSQL with Prisma ORM
 - **Authentication**: NextAuth.js
-- **Styling**: TailwindCSS
+- **Styling**: TailwindCSS, Shadcn UI
 - **File Storage**: AWS S3
-- **UI Components**: Shadcn UI, Radix UI
+- **External APIs**:
+    - **Upstage API**: For Document AI / OCR on PDFs.
+    - **OpenAI GPT-5.2**: For natural language processing to match defects with templates.
 
 **key DB schema**
-- **User**: 
-- **Transaction**:
-    - : Changed from  to 
-    - : Now correctly populated on creation.
-    - : Updated to 
-- **CorrectionGuideTemplate (New)**: 
+- **SharedCorrectionGuide**: 
 
 **changes in tech stack**
 - None.
 
 **All files of reference**
-- : Contains the refactored UI and the mockup for the upcoming AI feature.
-- : The UI for the new template management feature.
-- : The tRPC backend for the template feature.
-- : Contains the critical business logic for parsing and validating transaction data.
-- : Contains the updated database query and sorting logic.
-- : Defines the new  model and changes to the  model.
-- : Contains the updated global navigation.
+- : The primary frontend component for the feature. Contains all client-side logic for analysis, editing, and saving.
+- : The tRPC router handling all backend logic for the feature, including analysis calls and DB mutations.
+- : The service layer that orchestrates calls to the Upstage and OpenAI APIs.
+- : Defines the  table, which is central to the data persistence requirement.
+- : The public, unauthenticated page that displays the final guide.
 
 **Areas that need refactoring**:
-- **ESLint Configuration**: The linter configuration in  needs to be fixed to properly support TypeScript parsing. This is currently preventing any useful linting.
+- The  service and related font files () could be removed since the PDF generation feature was cancelled by the user.
 
 **key api endpoints**
-- **Correction Guide Templates:**
-  - tRPC: , , , , , 
-  - REST: 
-- **Transactions:**
-  - tRPC: ,  (and others) were modified to update sorting logic.
+- **tRPC Mutations:**
+  - : Kicks off the PDF parsing and AI analysis.
+  - : Generates a unique slug and saves the initial guide state.
+  - : Saves manually added guide items to the DB.
+  - : Saves user edits to existing guide items to the DB.
+- **tRPC Queries:**
+  - : Fetches guide data for the public link page.
 
 **Critical Info for New Agent**
-- **Main Page is **: The application's landing page is now the case list. All navigation, redirects, and back-links should use  as the root, not .
-- **Environment Instability**: The agent had to manually set up PostgreSQL and the dev server because the provided supervisor configuration was incorrect for a Next.js monolith. Be prepared for potential environment setup tasks.
-- **Transaction Logic is Complex**: The core transaction parsing logic is in . It now includes balance verification and amount sign checks. Refer to this file for any bugs related to data import.
+- **User Must Test:** The user has stated that testing is only possible in their production environment. You CANNOT perform functional tests. Your development cycle will be: write code -> ensure it builds -> hand off to the user for testing -> wait for feedback.
+- **Data Persistence is the Goal:** The last set of changes was focused on saving all user modifications (edits, manual additions) to the database. This implementation is complete but **unverified**. This is the highest priority item to get confirmed by the user.
+- **API Keys are in DB:** Do not ask for API keys for OpenAI or Upstage. The application is designed to fetch these from the database via an admin settings panel.
+- **PDF Feature is Removed:** The user explicitly requested the removal of the Download PDF button. Do not re-implement this feature or related code unless specifically asked.
 
 **documents and test reports created in this job**
-- 
--  (updated)
+-  (updated multiple times)
 
 **Last 10 User Messages and any pending HUMAN messages**
-1. **User:** Add a GNB icon for the correction guide page and make the case list the main dashboard. (Completed)
-2. **User:** Implement image/file attachments for correction guide templates. (Completed)
-3. **User:** Refactor the case detail page and create the correction guide template management page. (Completed)
-4. **User:** Reported that transaction sorting is now wrong (wants latest first) and deposit/withdrawal is still inverted. (Completed)
-5. **User:** Reported that transactions on the same date have a jumbled order. (Completed)
-6. **User:** Reported an issue with transaction data appearing out of order in the UI. (This was the first report of the sorting issue).
-7. **User:** Initiated the refactor of the case detail page, requesting modals and a new Correction Recommendation section. (This started the major UI overhaul).
+1.  **User (Pending):** Manually added and edited content doesn't persist on refresh or in the shared link. Move the copy link button to the preview header.
+2.  **Agent:** Acknowledged. Implemented DB persistence and moved the button.
+3.  **User:** Add a Manually Add Guide button, which pre-fills context when applicable.
+4.  **Agent:** Acknowledged. Implemented the feature.
+5.  **User:** Reported multiple issues: clipboard error, requested PDF button removal, requested deduplication, requested filtering logic, and requested UI changes (collapse behavior, edit button).
+6.  **Agent:** Acknowledged. Implemented all fixes.
+7.  **User:** Reported a  error.
+8.  **Agent:** Fixed by installing missing packages.
+9.  **User:** Reported PDF encoding errors, a broken link copy button, and poor UX, requesting a two-column layout.
+10. **Agent:** Acknowledged and began a major UI/UX refactor.
 
 **Project Health Check:**
 - **Broken**:
     - ESLint configuration is non-functional.
 - **Mocked**:
-    - The core AI analysis feature for Correction Recommendations on the case detail page. The UI exists but is not wired to any backend logic.
+    - None. The feature mockup has been replaced with a full implementation.
+- **In Progress/Unverified**:
+    - The entire Correction Recommendation Guide feature, particularly the data persistence logic for user edits and additions.
 
 **3rd Party Integrations**
-- **AWS S3**: Used for file and image attachments for Correction Guide Templates.
+- **AWS S3**: For file attachments on .
+- **Upstage API**: Document AI for parsing PDFs. Integrated via .
+- **OpenAI GPT-5.2**: LLM for analysis. Integrated via .
 
 **Testing status**
-- **Testing agent used after significant changes:** YES (Once, to verify SUPER role permissions)
+- **Testing agent used after significant changes:** NO
 - **Troubleshoot agent used after agent stuck in loop:** NO
-- **Test files created:**
-  -  (a data migration script)
-- **Known regressions:** All user-reported regressions during this session (sorting order, deposit/withdrawal inversion) have been fixed.
+- **Test files created:** None.
+- **Known regressions:** The primary issue is that user modifications to guides are not persisting, which was the last problem the user reported and the agent just implemented a fix for.
 
 **Credentials to test flow:**
-- An  or  user is required to see the new GNB icon and access the Correction Guide Template Management page.
-- Any user can be used to test the main navigation flow starting from .
+- An  or  user is required to access the case detail page and use the feature. Testing must be conducted by the user in their own environment.
 
 **What agent forgot to execute**
-- The agent did not fix the root cause of the ESLint configuration issue, deferring it as a non-blocking environment problem.</analysis>
+- The agent did not fix the root cause of the broken ESLint configuration, an issue carried over from the previous session.</analysis>
