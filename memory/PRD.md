@@ -17,15 +17,16 @@
   - `generatePDF`: PDF 문서 생성
   - `createShareLink`: 공유 링크 생성
   - `getAnalysisByShareSlug`: 공유 링크로 분석 결과 조회 (인증 불필요)
-- [x] PDF 생성 서비스 (pdf-lib + fontkit, 한글 폰트 지원)
+- [x] PDF 생성 서비스 (pdf-lib + fontkit, Noto Sans KR 한글 폰트)
 - [x] 프론트엔드 분석 컴포넌트 생성 (`CorrectionGuideAnalyzer`)
   - 드래그앤드롭 파일 업로드
-  - 매칭 결과 표시 (신뢰도, 근거)
-  - 항목 선택/해제 체크박스
+  - 2열 레이아웃: 왼쪽(항목 리스트), 오른쪽(미리보기)
+  - 매칭 결과 기본 펼침 상태
+  - 매칭 없음 항목 빨간색 강조 표시
   - 문서 추출(PDF) / 링크 추출 버튼
-- [x] 공개 페이지 생성 (`/guide/[slug]`) - 인증 없이 고객에게 안내사항 공유
-- [x] DB 스키마 업데이트:
-  - `CorrectionGuideAnalysis` 모델에 `shareSlug`, `shareExpiresAt`, `documentS3Key`, `selectedItems` 필드 추가
+  - 클립보드 복사 + 토스트 알림
+- [x] 공개 페이지 생성 (`/guide/[slug]`) - 인쇄 최적화
+- [x] 한글 폰트 다운로드 및 설정 (`/public/fonts/NotoSansKR-Regular.ttf`)
 - [x] Collapsible UI 컴포넌트 추가 (`@radix-ui/react-collapsible`)
 - [x] 공통 타입 정의 파일 생성 (`/src/types/correction-guide.ts`)
 
@@ -101,7 +102,6 @@
 - P1: 비고 컬럼 미리보기 버그 (S3 설정 후 재현 테스트)
 - P1: 도움말 검색 기능
 - P2: 동영상 튜토리얼, 다국어 지원
-- P2: PDF 문서에 한글 폰트 번들 추가 (현재 시스템 폰트 의존)
 
 ## 기존 데이터 마이그레이션
 기존에 저장된 거래의 `rowNumber`가 `null`인 경우 다음 스크립트를 실행하여 복원:

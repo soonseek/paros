@@ -2,24 +2,25 @@
  * 보정권고 안내사항 공개 페이지
  * 
  * 인증 없이 공유 링크로 접근 가능
+ * 깔끔한 문서 형식으로 표시
  */
 
 import { type NextPage } from "next";
 import { useRouter } from "next/router";
-import { useState } from "react";
 import Head from "next/head";
 import { 
   FileText, 
   Download, 
-  CheckCircle2, 
-  XCircle, 
+  CheckCircle2,
   Image as ImageIcon,
   File,
-  ExternalLink,
   Loader2,
   AlertTriangle,
+  Calendar,
+  User,
+  Hash,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { Card, CardContent } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import { api } from "~/utils/api";
@@ -76,7 +77,7 @@ const SharedGuidePage: NextPage = () => {
   // 로딩 상태
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
           <p className="text-gray-600">안내사항을 불러오는 중...</p>
@@ -88,10 +89,12 @@ const SharedGuidePage: NextPage = () => {
   // 에러 또는 만료
   if (error || !analysis) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="max-w-md w-full mx-4">
-          <CardContent className="pt-6 text-center">
-            <AlertTriangle className="h-16 w-16 text-amber-500 mx-auto mb-4" />
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
+          <CardContent className="pt-8 pb-8 text-center">
+            <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="h-8 w-8 text-amber-600" />
+            </div>
             <h1 className="text-xl font-bold text-gray-900 mb-2">
               페이지를 찾을 수 없습니다
             </h1>
@@ -117,93 +120,120 @@ const SharedGuidePage: NextPage = () => {
         <meta name="robots" content="noindex, nofollow" />
       </Head>
       
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gradient-to-b from-blue-50/50 to-white print:bg-white">
         {/* 헤더 */}
-        <header className="bg-white border-b sticky top-0 z-10">
-          <div className="max-w-4xl mx-auto px-4 py-4">
-            <div className="flex items-center justify-between">
+        <header className="bg-white border-b shadow-sm print:shadow-none sticky top-0 z-10">
+          <div className="max-w-3xl mx-auto px-4 py-4">
+            <div className="flex items-start justify-between">
               <div>
-                <h1 className="text-xl font-bold text-gray-900">
+                <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                  <FileText className="h-6 w-6 text-blue-600" />
                   보정권고 안내사항
                 </h1>
-                <p className="text-sm text-gray-500">
-                  사건번호: {analysis.case?.caseNumber} | 채무자: {analysis.case?.debtorName}
-                </p>
+                <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-gray-600">
+                  <span className="flex items-center gap-1">
+                    <Hash className="h-4 w-4" />
+                    {analysis.case?.caseNumber}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <User className="h-4 w-4" />
+                    {analysis.case?.debtorName}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Calendar className="h-4 w-4" />
+                    {new Date(analysis.createdAt).toLocaleDateString("ko-KR")}
+                  </span>
+                </div>
               </div>
-              <FileText className="h-8 w-8 text-blue-600" />
+              <Button
+                variant="outline"
+                size="sm"
+                className="print:hidden"
+                onClick={() => window.print()}
+              >
+                인쇄
+              </Button>
             </div>
           </div>
         </header>
 
         {/* 본문 */}
-        <main className="max-w-4xl mx-auto px-4 py-6">
+        <main className="max-w-3xl mx-auto px-4 py-8">
           {/* 안내 메시지 */}
-          <Card className="mb-6 bg-blue-50 border-blue-200">
-            <CardContent className="py-4">
-              <p className="text-blue-800 text-sm">
-                아래 안내사항을 참고하여 보정서류를 준비해주세요.
-                첨부된 이미지와 파일을 확인하시고, 궁금한 사항은 담당 법무사/변호사에게 문의해주세요.
-              </p>
-            </CardContent>
-          </Card>
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-8 print:hidden">
+            <p className="text-blue-800 text-sm">
+              <strong>📋 안내사항 확인</strong><br />
+              아래 내용을 참고하여 보정서류를 준비해주세요.
+              첨부된 이미지와 파일을 다운로드하여 확인하실 수 있습니다.
+            </p>
+          </div>
 
           {/* 안내사항 목록 */}
-          <div className="space-y-6">
+          <div className="space-y-8">
             {selectedItems.length === 0 ? (
               <Card>
-                <CardContent className="py-8 text-center text-gray-500">
+                <CardContent className="py-12 text-center text-gray-500">
+                  <FileText className="h-12 w-12 mx-auto mb-4 opacity-30" />
                   표시할 안내사항이 없습니다.
                 </CardContent>
               </Card>
             ) : (
               selectedItems.map((item, index) => (
-                <Card key={item.itemNumber} className="overflow-hidden">
-                  <CardHeader className="bg-gray-50 border-b">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className="flex items-center justify-center w-8 h-8 bg-blue-600 text-white rounded-full font-bold text-sm">
-                          {index + 1}
-                        </span>
-                        <CardTitle className="text-lg">
-                          {item.matchedTemplate?.title}
-                        </CardTitle>
-                      </div>
-                      <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0" />
+                <Card key={item.itemNumber} className="overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                  {/* 항목 헤더 */}
+                  <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-4 text-white">
+                    <div className="flex items-center gap-3">
+                      <span className="flex items-center justify-center w-8 h-8 bg-white/20 rounded-full font-bold">
+                        {index + 1}
+                      </span>
+                      <h2 className="text-lg font-semibold">
+                        {item.matchedTemplate?.title}
+                      </h2>
                     </div>
-                    
-                    {/* 원본 흠결사항 */}
-                    <div className="mt-3 p-3 bg-gray-100 rounded-lg text-sm text-gray-600">
-                      <span className="font-medium text-gray-700">흠결사항: </span>
-                      {item.itemContent}
-                    </div>
-                  </CardHeader>
+                  </div>
                   
-                  <CardContent className="pt-4">
+                  <CardContent className="pt-5 pb-6">
+                    {/* 원본 흠결사항 */}
+                    <div className="bg-gray-100 rounded-lg p-4 mb-5 border-l-4 border-gray-400">
+                      <p className="text-xs font-semibold text-gray-500 mb-1">📌 흠결사항</p>
+                      <p className="text-gray-700 text-sm">
+                        {item.itemContent}
+                      </p>
+                    </div>
+
                     {/* 안내 내용 */}
-                    <div className="prose prose-sm max-w-none mb-4">
-                      <p className="whitespace-pre-wrap text-gray-700">
+                    <div className="prose prose-sm max-w-none mb-5">
+                      <p className="whitespace-pre-wrap text-gray-800 leading-relaxed">
                         {item.matchedTemplate?.content}
                       </p>
                     </div>
 
                     {/* 첨부 이미지 */}
                     {item.matchedTemplate?.images && item.matchedTemplate.images.length > 0 && (
-                      <div className="mt-4 border-t pt-4">
-                        <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-                          <ImageIcon className="h-4 w-4" />
-                          참고 이미지 ({item.matchedTemplate.images.length}개)
+                      <div className="mt-6 pt-5 border-t">
+                        <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                          <ImageIcon className="h-4 w-4 text-blue-600" />
+                          참고 이미지
                         </h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           {item.matchedTemplate.images.map((img, imgIdx) => (
-                            <div key={imgIdx} className="border rounded-lg overflow-hidden">
+                            <div key={imgIdx} className="border rounded-lg overflow-hidden bg-gray-50">
                               <img
                                 src={`/api/correction-guide/download?key=${encodeURIComponent(img.key)}`}
                                 alt={img.name}
-                                className="w-full h-auto max-h-64 object-contain bg-gray-100"
+                                className="w-full h-auto max-h-56 object-contain"
                                 loading="lazy"
                               />
-                              <div className="p-2 bg-gray-50 text-xs text-gray-600 truncate">
-                                {img.name}
+                              <div className="p-2 bg-white border-t text-xs text-gray-600 flex items-center justify-between">
+                                <span className="truncate">{img.name}</span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 px-2 print:hidden"
+                                  onClick={() => handleFileDownload(img.key, img.name)}
+                                >
+                                  <Download className="h-3 w-3" />
+                                </Button>
                               </div>
                             </div>
                           ))}
@@ -213,21 +243,23 @@ const SharedGuidePage: NextPage = () => {
 
                     {/* 첨부 파일 */}
                     {item.matchedTemplate?.files && item.matchedTemplate.files.length > 0 && (
-                      <div className="mt-4 border-t pt-4">
-                        <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-                          <File className="h-4 w-4" />
-                          첨부 파일 ({item.matchedTemplate.files.length}개)
+                      <div className="mt-6 pt-5 border-t">
+                        <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                          <File className="h-4 w-4 text-blue-600" />
+                          첨부 파일
                         </h4>
                         <div className="space-y-2">
                           {item.matchedTemplate.files.map((file, fileIdx) => (
                             <div 
                               key={fileIdx} 
-                              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border"
+                              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border hover:bg-gray-100 transition-colors"
                             >
                               <div className="flex items-center gap-3 min-w-0">
-                                <File className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                  <File className="h-5 w-5 text-blue-600" />
+                                </div>
                                 <div className="min-w-0">
-                                  <p className="text-sm font-medium text-gray-700 truncate">
+                                  <p className="text-sm font-medium text-gray-800 truncate">
                                     {file.name}
                                   </p>
                                   <p className="text-xs text-gray-500">
@@ -239,6 +271,7 @@ const SharedGuidePage: NextPage = () => {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleFileDownload(file.key, file.name)}
+                                className="print:hidden"
                               >
                                 <Download className="h-4 w-4 mr-1" />
                                 다운로드
@@ -255,9 +288,12 @@ const SharedGuidePage: NextPage = () => {
           </div>
 
           {/* 푸터 */}
-          <div className="mt-8 text-center text-sm text-gray-500">
-            <p>이 페이지는 자동 생성된 안내 문서입니다.</p>
+          <div className="mt-12 pt-6 border-t text-center text-sm text-gray-500 print:mt-8">
+            <p>이 문서는 자동 생성된 안내 문서입니다.</p>
             <p className="mt-1">
+              문의사항은 담당 법무사/변호사에게 연락해주세요.
+            </p>
+            <p className="mt-2 text-xs text-gray-400">
               생성일시: {new Date(analysis.createdAt).toLocaleString("ko-KR")}
             </p>
           </div>
