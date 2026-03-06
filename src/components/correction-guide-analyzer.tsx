@@ -2,10 +2,10 @@
  * 보정권고 안내사항 분석 컴포넌트
  * 
  * 2열 레이아웃: 왼쪽(카드 리스트), 오른쪽(미리보기 + 편집)
- * 중복 템플릿 제거, 링크 복사 개선, 수동 추가 기능
+ * 수동 추가/편집 내용 DB 저장, 공유 링크에 반영
  */
 
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { 
   Upload, 
   Loader2, 
@@ -28,6 +28,7 @@ import {
   X,
   Plus,
   Trash2,
+  Save,
 } from "lucide-react";
 import { Card } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
@@ -138,6 +139,7 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
   const [editingItemNumber, setEditingItemNumber] = useState<number | null>(null);
   const [editingManualId, setEditingManualId] = useState<string | null>(null);
   const [editedContents, setEditedContents] = useState<Record<string, string>>({});
+  const [hasUnsavedEdits, setHasUnsavedEdits] = useState(false);
   
   // 미리보기에서 흠결사항 펼침 상태 (기본 접힘)
   const [expandedDefects, setExpandedDefects] = useState<Set<string>>(new Set());
@@ -145,6 +147,7 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
   // 수동 추가 관련 상태
   const [manualAddDialogOpen, setManualAddDialogOpen] = useState(false);
   const [manualItems, setManualItems] = useState<ManualGuideItem[]>([]);
+  const [hasUnsavedManualItems, setHasUnsavedManualItems] = useState(false);
   const [newManualItem, setNewManualItem] = useState({
     title: "",
     defectContent: "",
@@ -156,6 +159,21 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
     { caseId },
     { enabled: !!caseId }
   );
+
+  // 최신 분석 결과
+  const latestAnalysis = analyses?.[0];
+
+  // DB에서 수동 항목과 편집 내용 로드
+  useEffect(() => {
+    if (latestAnalysis) {
+      const savedManualItems = (latestAnalysis.manualItems as unknown as ManualGuideItem[]) ?? [];
+      const savedEditedContents = (latestAnalysis.editedContents as unknown as Record<string, string>) ?? {};
+      setManualItems(savedManualItems);
+      setEditedContents(savedEditedContents);
+      setHasUnsavedManualItems(false);
+      setHasUnsavedEdits(false);
+    }
+  }, [latestAnalysis?.id]);
 
   // 분석 실행 mutation
   const analyzeMutation = api.correctionGuide.analyzeDocument.useMutation({
@@ -172,6 +190,28 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
   const updateSelectionMutation = api.correctionGuide.updateSelectedItems.useMutation({
     onSuccess: () => {
       void utils.correctionGuide.getAnalysesForCase.invalidate({ caseId });
+    },
+  });
+
+  // 수동 항목 저장 mutation
+  const saveManualItemsMutation = api.correctionGuide.saveManualItems.useMutation({
+    onSuccess: () => {
+      setHasUnsavedManualItems(false);
+      void utils.correctionGuide.getAnalysesForCase.invalidate({ caseId });
+    },
+    onError: (error) => {
+      toast.error(error.message || "저장에 실패했습니다");
+    },
+  });
+
+  // 편집 내용 저장 mutation
+  const saveEditedContentsMutation = api.correctionGuide.saveEditedContents.useMutation({
+    onSuccess: () => {
+      setHasUnsavedEdits(false);
+      void utils.correctionGuide.getAnalysesForCase.invalidate({ caseId });
+    },
+    onError: (error) => {
+      toast.error(error.message || "저장에 실패했습니다");
     },
   });
 
@@ -198,6 +238,31 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
       toast.error(error.message || "링크 생성에 실패했습니다");
     },
   });
+
+  // 모든 변경사항 저장
+  const saveAllChanges = async () => {
+    if (!latestAnalysis) return;
+    
+    try {
+      if (hasUnsavedManualItems || manualItems.length > 0) {
+        await saveManualItemsMutation.mutateAsync({
+          analysisId: latestAnalysis.id,
+          manualItems,
+        });
+      }
+      
+      if (hasUnsavedEdits || Object.keys(editedContents).length > 0) {
+        await saveEditedContentsMutation.mutateAsync({
+          analysisId: latestAnalysis.id,
+          editedContents,
+        });
+      }
+      
+      toast.success("모든 변경사항이 저장되었습니다");
+    } catch (error) {
+      // 에러는 각 mutation에서 처리됨
+    }
+  };
 
   // 파일 처리
   const handleFiles = useCallback(async (files: FileList) => {
@@ -310,8 +375,6 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
     return { bg: "bg-red-100 dark:bg-red-900/30", text: "text-red-700 dark:text-red-400", border: "border-red-200 dark:border-red-800" };
   };
 
-  // 최신 분석 결과
-  const latestAnalysis = analyses?.[0];
   const matchResults = (latestAnalysis?.matchedTemplates as unknown as TemplateMatchResult[]) ?? [];
   const selectedItems = (latestAnalysis?.selectedItems as number[]) ?? [];
 
@@ -355,11 +418,13 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
   };
 
   // 수동 안내사항 추가
-  const addManualItem = () => {
+  const addManualItem = async () => {
     if (!newManualItem.title.trim() || !newManualItem.content.trim()) {
       toast.error("제목과 내용은 필수입니다");
       return;
     }
+    
+    if (!latestAnalysis) return;
     
     const newItem: ManualGuideItem = {
       id: generateId(),
@@ -368,16 +433,40 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
       content: newManualItem.content.trim(),
     };
     
-    setManualItems(prev => [...prev, newItem]);
+    const updatedItems = [...manualItems, newItem];
+    setManualItems(updatedItems);
     setManualAddDialogOpen(false);
     setNewManualItem({ title: "", defectContent: "", content: "" });
-    toast.success("안내사항이 추가되었습니다");
+    
+    // 즉시 저장
+    try {
+      await saveManualItemsMutation.mutateAsync({
+        analysisId: latestAnalysis.id,
+        manualItems: updatedItems,
+      });
+      toast.success("안내사항이 추가되었습니다");
+    } catch {
+      // 에러 처리는 mutation에서
+    }
   };
 
   // 수동 안내사항 삭제
-  const removeManualItem = (id: string) => {
-    setManualItems(prev => prev.filter(item => item.id !== id));
-    toast.success("안내사항이 삭제되었습니다");
+  const removeManualItem = async (id: string) => {
+    if (!latestAnalysis) return;
+    
+    const updatedItems = manualItems.filter(item => item.id !== id);
+    setManualItems(updatedItems);
+    
+    // 즉시 저장
+    try {
+      await saveManualItemsMutation.mutateAsync({
+        analysisId: latestAnalysis.id,
+        manualItems: updatedItems,
+      });
+      toast.success("안내사항이 삭제되었습니다");
+    } catch {
+      // 에러 처리는 mutation에서
+    }
   };
 
   // 편집 시작 (AI 매칭 항목)
@@ -406,28 +495,45 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
     setEditingManualId(null);
   };
 
-  // 편집 완료
-  const saveEditing = () => {
-    // 수동 항목인 경우 실제 저장
+  // 편집 완료 및 저장
+  const saveEditing = async () => {
+    if (!latestAnalysis) return;
+    
+    // 수동 항목인 경우 manualItems도 업데이트
     if (editingManualId) {
       const key = `manual-${editingManualId}`;
       const newContent = editedContents[key];
       if (newContent !== undefined) {
-        setManualItems(prev => prev.map(item => 
+        const updatedManualItems = manualItems.map(item => 
           item.id === editingManualId 
             ? { ...item, content: newContent }
             : item
-        ));
+        );
+        setManualItems(updatedManualItems);
+        
+        // 수동 항목 저장
+        await saveManualItemsMutation.mutateAsync({
+          analysisId: latestAnalysis.id,
+          manualItems: updatedManualItems,
+        });
       }
+    } else {
+      // AI 매칭 항목 편집 저장
+      await saveEditedContentsMutation.mutateAsync({
+        analysisId: latestAnalysis.id,
+        editedContents,
+      });
     }
+    
     setEditingItemNumber(null);
     setEditingManualId(null);
-    toast.success("내용이 수정되었습니다");
+    toast.success("내용이 저장되었습니다");
   };
 
   // 편집 내용 변경
   const handleContentChange = (key: string, value: string) => {
     setEditedContents(prev => ({ ...prev, [key]: value }));
+    setHasUnsavedEdits(true);
   };
 
   // 흠결사항 펼침/접힘 토글
@@ -758,12 +864,22 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
                   );
                 })}
               </div>
+            </div>
 
-              {/* 링크 추출 버튼 */}
-              <div className="pt-4 border-t">
+            {/* 오른쪽: 미리보기 + 편집 */}
+            <div className="border rounded-xl overflow-hidden bg-white dark:bg-gray-900">
+              {/* 미리보기 헤더 - 공유 링크 버튼 포함 */}
+              <div className="bg-gray-100 dark:bg-gray-800 px-4 py-3 border-b flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <Eye className="h-4 w-4" />
+                  안내사항 미리보기
+                  <Badge variant="secondary">{totalPreviewItems}개</Badge>
+                </div>
+                
+                {/* 공유 링크 버튼 */}
                 <Button
-                  className="w-full"
-                  variant="default"
+                  size="sm"
+                  variant={latestAnalysis.shareSlug ? "outline" : "default"}
                   onClick={() => {
                     if (latestAnalysis.shareSlug) {
                       void handleCopyShareLink(latestAnalysis.shareSlug);
@@ -773,27 +889,17 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
                     }
                   }}
                   disabled={createShareLinkMutation.isPending || totalPreviewItems === 0}
+                  className="h-8"
                 >
                   {createShareLinkMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                   ) : latestAnalysis.shareSlug ? (
-                    <Copy className="h-4 w-4 mr-2" />
+                    <Copy className="h-3 w-3 mr-1" />
                   ) : (
-                    <Link2 className="h-4 w-4 mr-2" />
+                    <Link2 className="h-3 w-3 mr-1" />
                   )}
-                  {latestAnalysis.shareSlug ? "공유 링크 복사" : "공유 링크 생성"}
+                  {latestAnalysis.shareSlug ? "링크 복사" : "공유 링크 생성"}
                 </Button>
-              </div>
-            </div>
-
-            {/* 오른쪽: 미리보기 + 편집 */}
-            <div className="border rounded-xl overflow-hidden bg-white dark:bg-gray-900">
-              <div className="bg-gray-100 dark:bg-gray-800 px-4 py-3 border-b flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  <Eye className="h-4 w-4" />
-                  안내사항 미리보기
-                </div>
-                <Badge variant="secondary">{totalPreviewItems}개 항목</Badge>
               </div>
               
               <div className="p-4 max-h-[700px] overflow-y-auto">
@@ -836,9 +942,14 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
                                   variant="ghost"
                                   size="sm"
                                   className="h-7 text-xs text-green-600"
-                                  onClick={saveEditing}
+                                  onClick={() => void saveEditing()}
+                                  disabled={saveEditedContentsMutation.isPending}
                                 >
-                                  <Check className="h-3 w-3 mr-1" />
+                                  {saveEditedContentsMutation.isPending ? (
+                                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                  ) : (
+                                    <Check className="h-3 w-3 mr-1" />
+                                  )}
                                   저장
                                 </Button>
                                 <Button
@@ -961,7 +1072,7 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
                                     variant="ghost"
                                     size="sm"
                                     className="h-7 text-xs text-red-500 hover:text-red-700"
-                                    onClick={() => removeManualItem(item.id)}
+                                    onClick={() => void removeManualItem(item.id)}
                                   >
                                     <Trash2 className="h-3 w-3" />
                                   </Button>
@@ -972,9 +1083,14 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
                                     variant="ghost"
                                     size="sm"
                                     className="h-7 text-xs text-green-600"
-                                    onClick={saveEditing}
+                                    onClick={() => void saveEditing()}
+                                    disabled={saveManualItemsMutation.isPending}
                                   >
-                                    <Check className="h-3 w-3 mr-1" />
+                                    {saveManualItemsMutation.isPending ? (
+                                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                    ) : (
+                                      <Check className="h-3 w-3 mr-1" />
+                                    )}
                                     저장
                                   </Button>
                                   <Button
@@ -1068,6 +1184,7 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
               {selectedItems.length > selectedMatchResults.length && (
                 <span className="text-amber-600"> (중복 제외)</span>
               )}<br />
+              ✓ 편집한 내용도 함께 반영됩니다<br />
               ✓ 이미지와 첨부파일도 함께 확인할 수 있습니다<br />
               ✓ 링크는 영구적으로 유효합니다
             </p>
@@ -1078,13 +1195,26 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
             </Button>
             <Button
               onClick={async () => {
-                if (selectedAnalysisId) {
+                if (selectedAnalysisId && latestAnalysis) {
+                  // 미저장 변경사항이 있으면 먼저 저장
+                  if (manualItems.length > 0) {
+                    await saveManualItemsMutation.mutateAsync({
+                      analysisId: latestAnalysis.id,
+                      manualItems,
+                    });
+                  }
+                  if (Object.keys(editedContents).length > 0) {
+                    await saveEditedContentsMutation.mutateAsync({
+                      analysisId: latestAnalysis.id,
+                      editedContents,
+                    });
+                  }
                   await createShareLinkMutation.mutateAsync({ analysisId: selectedAnalysisId });
                 }
               }}
-              disabled={createShareLinkMutation.isPending}
+              disabled={createShareLinkMutation.isPending || saveManualItemsMutation.isPending || saveEditedContentsMutation.isPending}
             >
-              {createShareLinkMutation.isPending ? (
+              {(createShareLinkMutation.isPending || saveManualItemsMutation.isPending || saveEditedContentsMutation.isPending) ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
                 <Link2 className="h-4 w-4 mr-2" />
@@ -1139,8 +1269,15 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
             <Button variant="outline" onClick={() => setManualAddDialogOpen(false)}>
               취소
             </Button>
-            <Button onClick={addManualItem}>
-              <Plus className="h-4 w-4 mr-2" />
+            <Button 
+              onClick={() => void addManualItem()}
+              disabled={saveManualItemsMutation.isPending}
+            >
+              {saveManualItemsMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4 mr-2" />
+              )}
               추가
             </Button>
           </DialogFooter>

@@ -637,6 +637,10 @@ model CorrectionGuideAnalysis {
     matchedTemplates Json?                               // 매칭된 템플릿 정보 (각 항목별 매칭 결과)
     selectedItems   Json?                                // 사용자가 선택한 항목들
     
+    // 사용자 편집/추가 데이터
+    manualItems     Json?                                // 수동 추가된 안내사항 [{id, title, defectContent, content}]
+    editedContents  Json?                                // 편집된 내용 {key: content}
+    
     // 공유 링크
     shareSlug       String?  @unique                     // 공유용 고유 슬러그 (인증 없이 접근)
     shareExpiresAt  DateTime?                            // 공유 링크 만료일 (null이면 무기한)

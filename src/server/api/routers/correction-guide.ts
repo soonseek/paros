@@ -406,6 +406,67 @@ export const correctionGuideRouter = createTRPCRouter({
       });
     }),
 
+  // 수동 추가 항목 저장
+  saveManualItems: protectedProcedure
+    .input(
+      z.object({
+        analysisId: z.string(),
+        manualItems: z.array(z.object({
+          id: z.string(),
+          title: z.string(),
+          defectContent: z.string(),
+          content: z.string(),
+        })),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const analysis = await db.correctionGuideAnalysis.findUnique({
+        where: { id: input.analysisId },
+      });
+
+      if (!analysis) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "분석 결과를 찾을 수 없습니다",
+        });
+      }
+
+      return db.correctionGuideAnalysis.update({
+        where: { id: input.analysisId },
+        data: {
+          manualItems: input.manualItems as Prisma.InputJsonValue,
+        },
+      });
+    }),
+
+  // 편집된 내용 저장
+  saveEditedContents: protectedProcedure
+    .input(
+      z.object({
+        analysisId: z.string(),
+        editedContents: z.record(z.string(), z.string()),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const analysis = await db.correctionGuideAnalysis.findUnique({
+        where: { id: input.analysisId },
+      });
+
+      if (!analysis) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "분석 결과를 찾을 수 없습니다",
+        });
+      }
+
+      return db.correctionGuideAnalysis.update({
+        where: { id: input.analysisId },
+        data: {
+          editedContents: input.editedContents as Prisma.InputJsonValue,
+        },
+      });
+    }),
+
   // 공유 링크 생성
   createShareLink: protectedProcedure
     .input(

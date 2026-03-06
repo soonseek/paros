@@ -6,6 +6,14 @@
 
 ## 구현 완료
 
+### 2026-03-06: 보정권고 안내사항 데이터 영속성 검증 및 개선
+- [x] 수동 추가/편집 내용 DB 저장 기능 검증 완료 (saveManualItems, saveEditedContents)
+- [x] 공유 링크 페이지에서 수동 추가/편집 내용 올바르게 표시 확인
+- [x] 공유 링크 생성 시 미저장 변경사항 자동 저장 로직 추가
+- [x] 공유 링크 에러 페이지 UX 개선 (retry: false로 즉시 에러 표시)
+- [x] 불필요한 PDF 관련 파일 정리 (public/fonts/ 삭제)
+- [x] 환경 설정: PostgreSQL 설치/구성, Prisma 마이그레이션, Nginx 프록시 설정
+
 ### 2026-03-06: 보정권고 안내사항 만들기 핵심 기능 구현
 - [x] Upstage Document Parse API 연동 (이미지 기반 PDF OCR)
 - [x] "흠결사항" 섹션 추출 로직 (1~99번 항목만 파싱, 100 이상은 날짜 오인식으로 제외)
@@ -17,6 +25,8 @@
   - `updateSelectedItems`: 사용자 선택 항목 업데이트
   - `createShareLink`: 공유 링크 생성
   - `getAnalysisByShareSlug`: 공유 링크로 분석 결과 조회 (인증 불필요)
+  - `saveManualItems`: 수동 추가 항목 저장
+  - `saveEditedContents`: 편집 내용 저장
 - [x] 프론트엔드 분석 컴포넌트 생성 (`CorrectionGuideAnalyzer`)
   - 드래그앤드롭 파일 업로드
   - 2열 레이아웃: 왼쪽(항목 리스트), 오른쪽(미리보기 + 편집)
@@ -27,6 +37,7 @@
   - 링크 복사 기능 (안전한 클립보드 API + fallback)
   - **안내사항 수동 추가 기능** (모달로 제목/흠결사항/내용 입력)
   - 수동 추가 항목 편집/삭제 가능
+  - 공유 링크 생성 전 미저장 데이터 자동 저장
 - [x] 공개 페이지 생성 (`/guide/[slug]`) - 인쇄 최적화
 - [x] Collapsible UI 컴포넌트 추가 (`@radix-ui/react-collapsible`)
 - [x] 공통 타입 정의 파일 생성 (`/src/types/correction-guide.ts`)
@@ -86,7 +97,7 @@
 - **SUPER**: ADMIN과 동일 권한
 
 ## 테스트 계정
-- admin@test.com / admin123 (ADMIN)
+- admin@test.com / test1234 (ADMIN)
 
 ## GNB 아이콘 (ADMIN/SUPER)
 1. 물음표 - 도움말 (/help)
