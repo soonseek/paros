@@ -8,7 +8,6 @@ import { Prisma } from "@prisma/client";
 import { db } from "~/server/db";
 import { uploadFile, deleteFile } from "~/lib/storage";
 import { CorrectionGuideService } from "~/server/services/correction-guide-service";
-import { generateCorrectionGuidePDF } from "~/server/services/pdf-generator";
 import type { FileInfo, TemplateMatchResult } from "~/types/correction-guide";
 
 export const correctionGuideRouter = createTRPCRouter({
@@ -405,50 +404,6 @@ export const correctionGuideRouter = createTRPCRouter({
           selectedItems: input.selectedItemNumbers as Prisma.InputJsonValue,
         },
       });
-    }),
-
-  // PDF 생성 및 다운로드
-  generatePDF: protectedProcedure
-    .input(
-      z.object({
-        analysisId: z.string(),
-        selectedOnly: z.boolean().default(true),
-      })
-    )
-    .mutation(async ({ input }) => {
-      const analysis = await db.correctionGuideAnalysis.findUnique({
-        where: { id: input.analysisId },
-        include: {
-          case: {
-            select: { caseNumber: true, debtorName: true },
-          },
-        },
-      });
-
-      if (!analysis) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "분석 결과를 찾을 수 없습니다",
-        });
-      }
-
-      const matchResults = analysis.matchedTemplates as unknown as TemplateMatchResult[];
-      
-      const pdfBuffer = await generateCorrectionGuidePDF(
-        {
-          caseNumber: analysis.case.caseNumber,
-          debtorName: analysis.case.debtorName,
-        },
-        matchResults,
-        input.selectedOnly
-      );
-
-      // Base64로 반환 (클라이언트에서 다운로드 처리)
-      return {
-        fileName: `보정권고안내_${analysis.case.caseNumber}_${new Date().toISOString().split("T")[0]}.pdf`,
-        data: pdfBuffer.toString("base64"),
-        mimeType: "application/pdf",
-      };
     }),
 
   // 공유 링크 생성

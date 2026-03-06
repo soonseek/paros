@@ -85,9 +85,11 @@ export class CorrectionGuideService {
 
   /**
    * 번호가 붙은 항목들 추출 (1. 2. 3. 또는 ① ② ③ 등)
+   * 번호가 100 이상인 경우는 날짜 등 오인식으로 판단하여 제외
    */
   private extractNumberedItems(text: string): ExtractedDefectItem[] {
     const items: ExtractedDefectItem[] = [];
+    const MAX_VALID_NUMBER = 99;  // 100 이상은 날짜 등 오인식으로 판단
     
     // 다양한 번호 패턴 매칭
     // 1. 숫자. 또는 숫자) 또는 ① ② 등
@@ -119,7 +121,8 @@ export class CorrectionGuideService {
           num = parseInt(numOrCircle ?? "0", 10);
         }
         
-        if (num > 0 && !items.find(i => i.number === num)) {
+        // 유효한 번호 범위 체크 (1~99)
+        if (num > 0 && num <= MAX_VALID_NUMBER && !items.find(i => i.number === num)) {
           items.push({
             number: num,
             content: content.replace(/\s+/g, " ").trim(),
