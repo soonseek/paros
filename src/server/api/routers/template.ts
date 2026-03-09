@@ -129,6 +129,7 @@ export const templateRouter = createTRPCRouter({
           sampleFileName: input.sampleFileName || null,
           sampleFileMimeType: input.sampleFileMimeType || null,
           createdBy: ctx.userId,
+          createdByEmail: await ctx.db.user.findUnique({ where: { id: ctx.userId }, select: { email: true } }).then(u => u?.email ?? null),
         },
       });
 
@@ -271,6 +272,7 @@ export const templateRouter = createTRPCRouter({
           priority: existing.priority,
           isActive: false, // 복제된 템플릿은 비활성화 상태로 시작
           createdBy: ctx.userId,
+          createdByEmail: await ctx.db.user.findUnique({ where: { id: ctx.userId }, select: { email: true } }).then(u => u?.email ?? null),
         },
       });
 
@@ -693,5 +695,76 @@ ${sampleDataStr}
           error: "파일 다운로드 실패",
         };
       }
+    }),
+
+  /**
+   * 전체 템플릿 내보내기 (CSV 데이터)
+   */
+  exportAll: adminProcedure
+    .query(async ({ ctx }) => {
+      const templates = await ctx.db.transactionTemplate.findMany({
+        orderBy: [{ priority: "desc" }, { name: "asc" }],
+      });
+      return templates.map(t => ({
+        name: t.name,
+        bankName: t.bankName || "",
+        description: t.description,
+        identifiers: (t.identifiers as string[]).join("|"),
+        columnSchema: JSON.stringify(t.columnSchema),
+        priority: t.priority,
+        isActive: t.isActive,
+      }));
+    }),
+
+  /**
+   * CSV 일괄 등록
+   */
+  bulkImport: adminProcedure
+    .input(z.object({
+      templates: z.array(z.object({
+        name: z.string(),
+        bankName: z.string().optional(),
+        description: z.string(),
+        identifiers: z.string(),
+        columnSchema: z.string(),
+        priority: z.number().optional(),
+        isActive: z.boolean().optional(),
+      })),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const userEmail = await ctx.db.user.findUnique({ where: { id: ctx.userId }, select: { email: true } }).then(u => u?.email ?? null);
+      const created = [];
+      for (const t of input.templates) {
+        let parsedSchema;
+        try {
+          parsedSchema = JSON.parse(t.columnSchema);
+        } catch {
+          parsedSchema = { columns: {}, parseRules: {} };
+        }
+        const record = await ctx.db.transactionTemplate.create({
+          data: {
+            name: t.name,
+            bankName: t.bankName || null,
+            description: t.description,
+            identifiers: t.identifiers.split("|").map(s => s.trim()).filter(Boolean),
+            columnSchema: parsedSchema,
+            priority: t.priority ?? 0,
+            isActive: t.isActive ?? true,
+            createdBy: ctx.userId,
+            createdByEmail: userEmail,
+          },
+        });
+        created.push(record.id);
+      }
+      return { count: created.length };
+    }),
+
+  /**
+   * 전체 삭제 (초기화)
+   */
+  deleteAll: adminProcedure
+    .mutation(async ({ ctx }) => {
+      const result = await ctx.db.transactionTemplate.deleteMany({});
+      return { count: result.count };
     }),
 });

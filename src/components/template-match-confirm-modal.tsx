@@ -23,7 +23,7 @@ import { Input } from "~/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table";
 import { api } from "~/utils/api";
-import { 
+import {
   FileText, 
   Building2, 
   Check, 
@@ -38,7 +38,9 @@ import {
   Columns,
   Image as ImageIcon,
   RefreshCw,
+  ShieldAlert,
 } from "lucide-react";
+import { useRouter } from "next/router";
 
 interface ColumnSchema {
   columns: Record<string, { index: number; header: string }>;
@@ -93,6 +95,7 @@ interface TemplateMatchConfirmModalProps {
   onSelectTemplate: (templateId: string) => void;
   onUseLLM: () => void;
   isProcessing?: boolean;
+  userRole?: string;
 }
 
 // 컬럼 역할 한글명
@@ -126,11 +129,17 @@ export function TemplateMatchConfirmModal({
   onSelectTemplate,
   onUseLLM,
   isProcessing = false,
+  userRole,
 }: TemplateMatchConfirmModalProps) {
+  const router = useRouter();
   const [showTemplateList, setShowTemplateList] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [previewTemplateId, setPreviewTemplateId] = useState<string | null>(null);
+  const [showMatchFailModal, setShowMatchFailModal] = useState(false);
+  
+  // 매칭 실패 시 자동으로 모달 표시
+  const isAdmin = userRole === "ADMIN" || userRole === "SUPER";
   
   // 재파싱된 샘플 데이터 상태
   const [reparsedData, setReparsedData] = useState<ParsedSampleRow[] | null>(null);
@@ -138,6 +147,30 @@ export function TemplateMatchConfirmModal({
 
   // 현재 표시할 파싱된 데이터 (재파싱 결과 또는 초기 데이터)
   const parsedSampleData = reparsedData || initialParsedData;
+
+  // 파싱 데이터 품질 검증
+  const dataQualityIssues = useMemo(() => {
+    if (!parsedSampleData || parsedSampleData.length === 0) return [];
+    const issues: string[] = [];
+    // 1. 비고가 모두 비어있음 (- 만 존재)
+    const allMemoEmpty = parsedSampleData.every(
+      (row) => !row.memo || row.memo.trim() === "" || row.memo.trim() === "-"
+    );
+    if (allMemoEmpty) issues.push("비고가 모두 비어있습니다.");
+    // 2. 거래일자가 하나라도 비어있음
+    const hasEmptyDate = parsedSampleData.some(
+      (row) => !row.transactionDate || row.transactionDate.trim() === ""
+    );
+    if (hasEmptyDate) issues.push("거래일자가 비어있는 행이 존재합니다.");
+    // 3. 입금과 출금이 아무것도 없는 행이 존재함
+    const hasEmptyAmounts = parsedSampleData.some(
+      (row) => (!row.deposit || row.deposit === 0) && (!row.withdrawal || row.withdrawal === 0)
+    );
+    if (hasEmptyAmounts) issues.push("입금과 출금이 모두 비어있는 행이 존재합니다.");
+    return issues;
+  }, [parsedSampleData]);
+  
+  const hasDataQualityIssue = dataQualityIssues.length > 0;
 
   // 재파싱 API
   const reparseMutation = api.file.reParseWithTemplate.useMutation({
@@ -192,8 +225,16 @@ export function TemplateMatchConfirmModal({
     if (!open) {
       setReparsedData(null);
       setSelectedTemplateId(null);
+      setShowMatchFailModal(false);
     }
   }, [open]);
+
+  // 매칭 실패 시 자동으로 안내 모달 표시
+  React.useEffect(() => {
+    if (open && hasDataQualityIssue) {
+      setShowMatchFailModal(true);
+    }
+  }, [open, hasDataQualityIssue]);
 
   // 신뢰도에 따른 색상
   const getConfidenceColor = (confidence: number) => {
@@ -254,8 +295,8 @@ export function TemplateMatchConfirmModal({
   const hasParsedData = parsedSampleData && parsedSampleData.length > 0;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent 
+    <>
+    <Dialog open={open} onOpenChange={onOpenChange}>      <DialogContent 
         className="max-w-[98vw] w-[1600px] h-[95vh] flex flex-col p-0 gap-0" 
         data-testid="template-match-confirm-modal"
       >
@@ -792,7 +833,7 @@ export function TemplateMatchConfirmModal({
                 {matchResult.matched && (
                   <Button
                     onClick={handleConfirmMatch}
-                    disabled={isProcessing}
+                    disabled={isProcessing || hasDataQualityIssue}
                   >
                     {isProcessing ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -854,6 +895,55 @@ export function TemplateMatchConfirmModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* 양식 매칭 실패 안내 모달 */}
+    <Dialog open={showMatchFailModal} onOpenChange={setShowMatchFailModal}>
+      <DialogContent className="max-w-md" data-testid="template-match-fail-modal">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-amber-700">
+            <ShieldAlert className="h-5 w-5" />
+            양식 매칭 실패
+          </DialogTitle>
+        </DialogHeader>
+        <div className="py-4 space-y-3">
+          {dataQualityIssues.length > 0 && (
+            <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
+              {dataQualityIssues.map((issue, i) => (
+                <li key={i}>{issue}</li>
+              ))}
+            </ul>
+          )}
+          <p className="text-sm text-muted-foreground">
+            {isAdmin
+              ? "양식 매칭에 실패했습니다. 템플릿을 등록해주세요."
+              : "양식 매칭에 실패했습니다. ADMIN 사용자에게 문의하세요."
+            }
+          </p>
+        </div>
+        <DialogFooter className="flex items-center gap-2 sm:justify-end">
+          <Button
+            variant="outline"
+            onClick={() => setShowMatchFailModal(false)}
+            data-testid="match-fail-close-btn"
+          >
+            닫기
+          </Button>
+          {isAdmin && (
+            <Button
+              onClick={() => {
+                setShowMatchFailModal(false);
+                onOpenChange(false);
+                void router.push("/admin/templates");
+              }}
+              data-testid="match-fail-register-btn"
+            >
+              등록
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 

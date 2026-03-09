@@ -53,6 +53,9 @@ import {
   Info,
   ImagePlus,
   Sparkles,
+  Download,
+  Upload,
+  RotateCcw,
 } from "lucide-react";
 
 // 컬럼 타입 옵션
@@ -127,6 +130,7 @@ const TemplatesPage: NextPage = () => {
   const [testResult, setTestResult] = useState<any>(null);
   const [isTestDialogOpen, setIsTestDialogOpen] = useState(false);
   const [detectedHeaders, setDetectedHeaders] = useState<string[]>([]); // AI 분석으로 추출된 헤더
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   // 샘플 파일 정보 (필수)
   const [sampleFileInfo, setSampleFileInfo] = useState<{
     sampleFileKey: string | null;
@@ -229,6 +233,24 @@ const TemplatesPage: NextPage = () => {
         sampleFileMimeType: data.sampleFileMimeType || null,
       });
       toast.success(`AI 분석 완료! (신뢰도: ${Math.round((data.confidence || 0) * 100)}%)`);
+    },
+    onError: (error) => toast.error(error.message),
+  });
+  const exportAllQuery = api.template.exportAll.useQuery(undefined, { enabled: false });
+  const bulkImportMutation = api.template.bulkImport.useMutation({
+    onSuccess: (data) => {
+      toast.success(`${data.count}개 템플릿이 등록되었습니다`);
+      void templatesQuery.refetch();
+      void statsQuery.refetch();
+    },
+    onError: (error) => toast.error(error.message),
+  });
+  const deleteAllMutation = api.template.deleteAll.useMutation({
+    onSuccess: (data) => {
+      toast.success(`${data.count}개 템플릿이 삭제되었습니다`);
+      setIsResetDialogOpen(false);
+      void templatesQuery.refetch();
+      void statsQuery.refetch();
     },
     onError: (error) => toast.error(error.message),
   });
@@ -382,6 +404,113 @@ const TemplatesPage: NextPage = () => {
     if (newName) {
       duplicateMutation.mutate({ id, newName });
     }
+  };
+
+  // 전체 내보내기 (CSV)
+  const handleExportAll = async () => {
+    try {
+      const result = await exportAllQuery.refetch();
+      if (!result.data || result.data.length === 0) {
+        toast.error("내보낼 템플릿이 없습니다");
+        return;
+      }
+      const csvHeaders = ["name", "bankName", "description", "identifiers", "columnSchema", "priority", "isActive"];
+      const escapeCsvField = (value: string | number | boolean) => {
+        const str = String(value);
+        if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+      const csvRows = result.data.map(t =>
+        csvHeaders.map(h => escapeCsvField(t[h as keyof typeof t])).join(",")
+      );
+      const csvContent = [csvHeaders.join(","), ...csvRows].join("\n");
+      const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `templates_export_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("CSV 파일이 다운로드되었습니다");
+    } catch {
+      toast.error("내보내기 실패");
+    }
+  };
+
+  // CSV 파일 가져오기
+  const handleCsvImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        const lines = text.split("\n").filter(l => l.trim());
+        if (lines.length < 2) {
+          toast.error("CSV 파일에 데이터가 없습니다");
+          return;
+        }
+        const headers = lines[0]!.split(",").map(h => h.trim().replace(/^"|"$/g, ""));
+        const templates = [];
+        for (let i = 1; i < lines.length; i++) {
+          const values = parseCsvLine(lines[i]!);
+          if (values.length < headers.length) continue;
+          const row: Record<string, string> = {};
+          headers.forEach((h, idx) => { row[h] = values[idx] ?? ""; });
+          templates.push({
+            name: row.name || `템플릿 ${i}`,
+            bankName: row.bankName || "",
+            description: row.description || "",
+            identifiers: row.identifiers || "",
+            columnSchema: row.columnSchema || '{"columns":{},"parseRules":{}}',
+            priority: parseInt(row.priority || "0") || 0,
+            isActive: row.isActive !== "false",
+          });
+        }
+        if (templates.length === 0) {
+          toast.error("유효한 템플릿 데이터가 없습니다");
+          return;
+        }
+        bulkImportMutation.mutate({ templates });
+      } catch {
+        toast.error("CSV 파일 파싱 실패");
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = "";
+  };
+
+  // CSV 라인 파싱 (따옴표 처리)
+  const parseCsvLine = (line: string): string[] => {
+    const result: string[] = [];
+    let current = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i]!;
+      if (inQuotes) {
+        if (char === '"' && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else if (char === '"') {
+          inQuotes = false;
+        } else {
+          current += char;
+        }
+      } else {
+        if (char === '"') {
+          inQuotes = true;
+        } else if (char === ',') {
+          result.push(current);
+          current = "";
+        } else {
+          current += char;
+        }
+      }
+    }
+    result.push(current);
+    return result;
   };
 
   const handleTestFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -545,7 +674,47 @@ const TemplatesPage: NextPage = () => {
             <h1 className="text-xl sm:text-2xl font-bold">거래내역서 템플릿 관리</h1>
             <p className="text-sm text-muted-foreground">은행별 거래내역서 형식을 정의하고 관리합니다</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={handleExportAll} data-testid="export-all-btn">
+              <Download className="h-4 w-4 mr-1.5" />
+              전체 내보내기
+            </Button>
+            <div>
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                onChange={handleCsvImport}
+                className="hidden"
+                id="csv-import-upload"
+                disabled={bulkImportMutation.isPending}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                asChild
+                disabled={bulkImportMutation.isPending}
+                data-testid="csv-import-btn"
+              >
+                <label htmlFor="csv-import-upload" className="cursor-pointer">
+                  {bulkImportMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                  ) : (
+                    <Upload className="h-4 w-4 mr-1.5" />
+                  )}
+                  CSV 입력하기
+                </label>
+              </Button>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              onClick={() => setIsResetDialogOpen(true)}
+              data-testid="reset-all-btn"
+            >
+              <RotateCcw className="h-4 w-4 mr-1.5" />
+              초기화
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setIsTestDialogOpen(true)}>
               <Play className="h-4 w-4 mr-1.5" />
               매칭 테스트
@@ -602,7 +771,7 @@ const TemplatesPage: NextPage = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-32">ID</TableHead>
+                    <TableHead>작성자</TableHead>
                     <TableHead>이름</TableHead>
                     <TableHead>은행/카드사</TableHead>
                     <TableHead>식별자</TableHead>
@@ -615,8 +784,12 @@ const TemplatesPage: NextPage = () => {
                 <TableBody>
                   {templatesQuery.data?.map((template) => (
                     <TableRow key={template.id}>
-                      <TableCell className="font-mono text-xs text-muted-foreground">
-                        {template.id.slice(0, 8)}...
+                      <TableCell className="text-sm text-muted-foreground">
+                        {template.createdByEmail
+                          ? template.createdByEmail.length > 5
+                            ? template.createdByEmail.slice(0, 5) + "..."
+                            : template.createdByEmail
+                          : ""}
                       </TableCell>
                       <TableCell className="font-medium">{template.name}</TableCell>
                       <TableCell>{template.bankName || "-"}</TableCell>
@@ -1235,6 +1408,37 @@ const TemplatesPage: NextPage = () => {
                 setTestFileName("");
               }}>
                 닫기
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* 초기화 확인 모달 */}
+        <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
+          <DialogContent className="max-w-md" data-testid="reset-confirm-modal">
+            <DialogHeader>
+              <DialogTitle className="text-destructive">전체 템플릿 초기화</DialogTitle>
+              <DialogDescription>
+                등록된 모든 템플릿이 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <p className="text-sm font-medium">
+                정말 모든 템플릿을 삭제하시겠습니까?
+              </p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsResetDialogOpen(false)} data-testid="reset-cancel-btn">
+                취소
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => deleteAllMutation.mutate()}
+                disabled={deleteAllMutation.isPending}
+                data-testid="reset-confirm-btn"
+              >
+                {deleteAllMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                확인
               </Button>
             </DialogFooter>
           </DialogContent>
