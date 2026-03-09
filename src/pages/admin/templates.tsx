@@ -771,7 +771,7 @@ const TemplatesPage: NextPage = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-32">ID</TableHead>
+                    <TableHead>작성자</TableHead>
                     <TableHead>이름</TableHead>
                     <TableHead>은행/카드사</TableHead>
                     <TableHead>식별자</TableHead>
@@ -784,8 +784,12 @@ const TemplatesPage: NextPage = () => {
                 <TableBody>
                   {templatesQuery.data?.map((template) => (
                     <TableRow key={template.id}>
-                      <TableCell className="font-mono text-xs text-muted-foreground">
-                        {template.id.slice(0, 8)}...
+                      <TableCell className="text-sm text-muted-foreground">
+                        {template.createdByEmail
+                          ? template.createdByEmail.length > 5
+                            ? template.createdByEmail.slice(0, 5) + "..."
+                            : template.createdByEmail
+                          : ""}
                       </TableCell>
                       <TableCell className="font-medium">{template.name}</TableCell>
                       <TableCell>{template.bankName || "-"}</TableCell>

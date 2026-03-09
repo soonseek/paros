@@ -16,6 +16,8 @@
 - [x] 거래내역서 템플릿 관리 - 'CSV 입력하기' (일괄 등록)
 - [x] 거래내역서 템플릿 관리 - '초기화' (확인 모달 후 전체 삭제)
 - [x] tRPC 엔드포인트: `template.exportAll`, `template.bulkImport`, `template.deleteAll`
+- [x] 템플릿 작성자 이메일 저장 (`createdByEmail` nullable, FK 없음)
+- [x] 목록 ID 칼럼 → 작성자 칼럼 (이메일 앞 5글자 + ellipsis)
 
 ### 2026-03-06: 보정권고 안내사항 데이터 영속성 검증 및 개선
 - [x] 수동 추가/편집 내용 DB 저장 기능 검증 완료 (saveManualItems, saveEditedContents)

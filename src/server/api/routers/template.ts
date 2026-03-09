@@ -129,6 +129,7 @@ export const templateRouter = createTRPCRouter({
           sampleFileName: input.sampleFileName || null,
           sampleFileMimeType: input.sampleFileMimeType || null,
           createdBy: ctx.userId,
+          createdByEmail: await ctx.db.user.findUnique({ where: { id: ctx.userId }, select: { email: true } }).then(u => u?.email ?? null),
         },
       });
 
@@ -271,6 +272,7 @@ export const templateRouter = createTRPCRouter({
           priority: existing.priority,
           isActive: false, // 복제된 템플릿은 비활성화 상태로 시작
           createdBy: ctx.userId,
+          createdByEmail: await ctx.db.user.findUnique({ where: { id: ctx.userId }, select: { email: true } }).then(u => u?.email ?? null),
         },
       });
 
@@ -730,6 +732,7 @@ ${sampleDataStr}
       })),
     }))
     .mutation(async ({ ctx, input }) => {
+      const userEmail = await ctx.db.user.findUnique({ where: { id: ctx.userId }, select: { email: true } }).then(u => u?.email ?? null);
       const created = [];
       for (const t of input.templates) {
         let parsedSchema;
@@ -747,6 +750,8 @@ ${sampleDataStr}
             columnSchema: parsedSchema,
             priority: t.priority ?? 0,
             isActive: t.isActive ?? true,
+            createdBy: ctx.userId,
+            createdByEmail: userEmail,
           },
         });
         created.push(record.id);

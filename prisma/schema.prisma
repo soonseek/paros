@@ -593,7 +593,8 @@ model TransactionTemplate {
     matchCount  Int      @default(0)                // 매칭 횟수 (통계)
     successRate Float    @default(0.0)              // 성공률 (통계)
     
-    createdBy   String?                             // 생성자
+    createdBy      String?                          // 생성자
+    createdByEmail String?                          // 최초 등록자 이메일 (메모용, FK 없음)
     createdAt   DateTime @default(now())
     updatedAt   DateTime @updatedAt
 
