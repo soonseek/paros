@@ -16,6 +16,7 @@ interface FileUploadProps {
   caseId: string;
   onFilesSelected: (files: File[]) => void;
   onUploadSuccess?: (documentId: string) => void;
+  userRole?: string;
 }
 
 /**
@@ -55,7 +56,7 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: FileUploadProps) {
+export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess, userRole }: FileUploadProps) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [fileErrors, setFileErrors] = useState<string[]>([]);
@@ -897,6 +898,7 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess }: Fil
           onSelectTemplate={handleSelectTemplate}
           onUseLLM={handleUseLLMAnalysis}
           isProcessing={isModalProcessing}
+          userRole={userRole}
         />
       )}
     </>

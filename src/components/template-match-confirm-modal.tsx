@@ -23,7 +23,7 @@ import { Input } from "~/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table";
 import { api } from "~/utils/api";
-import { 
+import {
   FileText, 
   Building2, 
   Check, 
@@ -38,7 +38,9 @@ import {
   Columns,
   Image as ImageIcon,
   RefreshCw,
+  ShieldAlert,
 } from "lucide-react";
+import { useRouter } from "next/router";
 
 interface ColumnSchema {
   columns: Record<string, { index: number; header: string }>;
@@ -93,6 +95,7 @@ interface TemplateMatchConfirmModalProps {
   onSelectTemplate: (templateId: string) => void;
   onUseLLM: () => void;
   isProcessing?: boolean;
+  userRole?: string;
 }
 
 // 컬럼 역할 한글명
@@ -126,11 +129,17 @@ export function TemplateMatchConfirmModal({
   onSelectTemplate,
   onUseLLM,
   isProcessing = false,
+  userRole,
 }: TemplateMatchConfirmModalProps) {
+  const router = useRouter();
   const [showTemplateList, setShowTemplateList] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [previewTemplateId, setPreviewTemplateId] = useState<string | null>(null);
+  const [showMatchFailModal, setShowMatchFailModal] = useState(false);
+  
+  // 매칭 실패 시 자동으로 모달 표시
+  const isAdmin = userRole === "ADMIN" || userRole === "SUPER";
   
   // 재파싱된 샘플 데이터 상태
   const [reparsedData, setReparsedData] = useState<ParsedSampleRow[] | null>(null);
@@ -192,8 +201,16 @@ export function TemplateMatchConfirmModal({
     if (!open) {
       setReparsedData(null);
       setSelectedTemplateId(null);
+      setShowMatchFailModal(false);
     }
   }, [open]);
+
+  // 매칭 실패 시 자동으로 안내 모달 표시
+  React.useEffect(() => {
+    if (open && !matchResult.matched) {
+      setShowMatchFailModal(true);
+    }
+  }, [open, matchResult.matched]);
 
   // 신뢰도에 따른 색상
   const getConfidenceColor = (confidence: number) => {
@@ -254,8 +271,8 @@ export function TemplateMatchConfirmModal({
   const hasParsedData = parsedSampleData && parsedSampleData.length > 0;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent 
+    <>
+    <Dialog open={open} onOpenChange={onOpenChange}>      <DialogContent 
         className="max-w-[98vw] w-[1600px] h-[95vh] flex flex-col p-0 gap-0" 
         data-testid="template-match-confirm-modal"
       >
@@ -854,6 +871,48 @@ export function TemplateMatchConfirmModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* 양식 매칭 실패 안내 모달 */}
+    <Dialog open={showMatchFailModal} onOpenChange={setShowMatchFailModal}>
+      <DialogContent className="max-w-md" data-testid="template-match-fail-modal">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-amber-700">
+            <ShieldAlert className="h-5 w-5" />
+            양식 매칭 실패
+          </DialogTitle>
+        </DialogHeader>
+        <div className="py-4">
+          <p className="text-sm text-muted-foreground">
+            {isAdmin
+              ? "양식 매칭에 실패했습니다. 템플릿을 등록해주세요."
+              : "양식 매칭에 실패했습니다. ADMIN 사용자에게 문의하세요."
+            }
+          </p>
+        </div>
+        <DialogFooter className="flex items-center gap-2 sm:justify-end">
+          <Button
+            variant="outline"
+            onClick={() => setShowMatchFailModal(false)}
+            data-testid="match-fail-close-btn"
+          >
+            닫기
+          </Button>
+          {isAdmin && (
+            <Button
+              onClick={() => {
+                setShowMatchFailModal(false);
+                onOpenChange(false);
+                void router.push("/admin/templates");
+              }}
+              data-testid="match-fail-register-btn"
+            >
+              등록
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 

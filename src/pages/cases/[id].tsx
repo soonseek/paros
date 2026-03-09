@@ -657,6 +657,7 @@ const CaseDetailPage: NextPage = () => {
 
                 <FileUploadZone
                   caseId={id as string}
+                  userRole={user?.role}
                   onFilesSelected={(files) => {
                     if (files.length > 0) {
                       toast.success(
