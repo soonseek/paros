@@ -148,6 +148,30 @@ export function TemplateMatchConfirmModal({
   // 현재 표시할 파싱된 데이터 (재파싱 결과 또는 초기 데이터)
   const parsedSampleData = reparsedData || initialParsedData;
 
+  // 파싱 데이터 품질 검증
+  const dataQualityIssues = useMemo(() => {
+    if (!parsedSampleData || parsedSampleData.length === 0) return [];
+    const issues: string[] = [];
+    // 1. 비고가 모두 비어있음 (- 만 존재)
+    const allMemoEmpty = parsedSampleData.every(
+      (row) => !row.memo || row.memo.trim() === "" || row.memo.trim() === "-"
+    );
+    if (allMemoEmpty) issues.push("비고가 모두 비어있습니다.");
+    // 2. 거래일자가 하나라도 비어있음
+    const hasEmptyDate = parsedSampleData.some(
+      (row) => !row.transactionDate || row.transactionDate.trim() === ""
+    );
+    if (hasEmptyDate) issues.push("거래일자가 비어있는 행이 존재합니다.");
+    // 3. 입금과 출금이 아무것도 없는 행이 존재함
+    const hasEmptyAmounts = parsedSampleData.some(
+      (row) => (!row.deposit || row.deposit === 0) && (!row.withdrawal || row.withdrawal === 0)
+    );
+    if (hasEmptyAmounts) issues.push("입금과 출금이 모두 비어있는 행이 존재합니다.");
+    return issues;
+  }, [parsedSampleData]);
+  
+  const hasDataQualityIssue = dataQualityIssues.length > 0;
+
   // 재파싱 API
   const reparseMutation = api.file.reParseWithTemplate.useMutation({
     onSuccess: (data) => {
@@ -207,10 +231,10 @@ export function TemplateMatchConfirmModal({
 
   // 매칭 실패 시 자동으로 안내 모달 표시
   React.useEffect(() => {
-    if (open && !matchResult.matched) {
+    if (open && hasDataQualityIssue) {
       setShowMatchFailModal(true);
     }
-  }, [open, matchResult.matched]);
+  }, [open, hasDataQualityIssue]);
 
   // 신뢰도에 따른 색상
   const getConfidenceColor = (confidence: number) => {
@@ -809,7 +833,7 @@ export function TemplateMatchConfirmModal({
                 {matchResult.matched && (
                   <Button
                     onClick={handleConfirmMatch}
-                    disabled={isProcessing}
+                    disabled={isProcessing || hasDataQualityIssue}
                   >
                     {isProcessing ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -881,7 +905,14 @@ export function TemplateMatchConfirmModal({
             양식 매칭 실패
           </DialogTitle>
         </DialogHeader>
-        <div className="py-4">
+        <div className="py-4 space-y-3">
+          {dataQualityIssues.length > 0 && (
+            <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
+              {dataQualityIssues.map((issue, i) => (
+                <li key={i}>{issue}</li>
+              ))}
+            </ul>
+          )}
           <p className="text-sm text-muted-foreground">
             {isAdmin
               ? "양식 매칭에 실패했습니다. 템플릿을 등록해주세요."
