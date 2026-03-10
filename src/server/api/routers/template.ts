@@ -538,8 +538,8 @@ ${sampleDataStr}
   "identifiers": ["식별자1", "식별자2", "식별자3"],
   "columnMapping": {
     "date": { "index": 0, "header": "거래일자 컬럼명" },
-    "deposit": { "index": 1, "header": "입금 컬럼명", "whenDeposit": "amount", "whenWithdrawal": "memo" },
-    "withdrawal": { "index": 2, "header": "출금 컬럼명", "whenDeposit": "memo", "whenWithdrawal": "amount" },
+    "deposit": { "index": 1, "header": "입금 컬럼명", "whenDeposit": "amount", "whenWithdrawal": "skip" },
+    "withdrawal": { "index": 2, "header": "출금 컬럼명", "whenDeposit": "skip", "whenWithdrawal": "amount" },
     "balance": { "index": 3, "header": "잔액 컬럼명" },
     "memo": { "index": 4, "header": "비고 컬럼명" }
   },
@@ -554,7 +554,7 @@ ${sampleDataStr}
   예: "[3] 입금금액"이면 deposit의 index는 3
 - **header**: 위의 "테이블 헤더" 섹션에 표시된 컬럼명을 정확히 복사 (띄어쓰기 제거된 상태)
 - 해당 없는 컬럼은 columnMapping에서 생략
-- whenDeposit/whenWithdrawal은 입금/출금에 따라 역할이 바뀌는 특수 케이스에서만 사용
+- whenDeposit/whenWithdrawal은 입금/출금에 따라 역할이 바뀌는 특수 케이스에서만 사용 (기본값은 "skip"이며, 해당 컬럼에 비고가 들어가는 경우에만 "memo" 사용)
 - JSON만 반환
 
 예시 (위 헤더가 "[0] 거래일자, [1] 구분, [2] 출금금액, [3] 입금금액, [4] 잔액"인 경우):
