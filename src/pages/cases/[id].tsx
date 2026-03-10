@@ -241,6 +241,7 @@ const CaseDetailPage: NextPage = () => {
         balance: tx.balance ? Number(tx.balance) : 0,
         memo: tx.memo ?? '',
         documentName,
+        rowNumber: (tx as { rowNumber?: number | null }).rowNumber ?? null,
       };
     });
   }, [transactionsData?.transactions, documents]);

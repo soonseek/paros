@@ -419,6 +419,7 @@ export const transactionRouter = createTRPCRouter({
             originalSubcategory: true,
             manualClassificationDate: true,
             manualClassifiedBy: true,
+            rowNumber: true, // 같은 날짜 내 정렬 순서 유지용
             // Story 4.6: 태그 관계
             tags: {
               select: {
@@ -1304,7 +1305,7 @@ export const transactionRouter = createTRPCRouter({
       const [transactions, totalCount] = await Promise.all([
         ctx.db.transaction.findMany({
           where,
-          orderBy: [{ transactionDate: "desc" }, { rowNumber: "asc" }], // 거래일자 최신순, 같은 날짜 내 원본 순서 유지
+          orderBy: [{ transactionDate: "asc" }, { rowNumber: "asc" }], // 거래일자 오름차순 + 원본 순서 (프론트엔드에서 정렬 처리)
           skip: (page - 1) * pageSize,
           take: pageSize,
           select: {
@@ -1329,6 +1330,7 @@ export const transactionRouter = createTRPCRouter({
             manualClassificationDate: true,
             manualClassifiedBy: true,
             version: true,
+            rowNumber: true, // 같은 날짜 내 정렬 순서 유지용
             // 태그는 필터 시에만 포함 (N+1 방지)
             ...(includeTags && {
               tags: {
@@ -1347,8 +1349,80 @@ export const transactionRouter = createTRPCRouter({
         ctx.db.transaction.count({ where }),
       ]);
 
+      // ===== 같은 날짜 그룹 내 잔액 기반 순서 보정 (기존 데이터 호환) =====
+      // rowNumber가 올바르지 않은 기존 데이터를 위해 잔액 연속성을 검증하고 필요시 그룹 내 순서를 뒤집는다
+      const reorderedTransactions = (() => {
+        if (transactions.length <= 1) return transactions;
+
+        // 날짜별 그룹핑 (날짜 부분만 사용)
+        const dateGroups = new Map<string, typeof transactions>();
+        for (const tx of transactions) {
+          const dateKey = new Date(tx.transactionDate).toISOString().slice(0, 10);
+          if (!dateGroups.has(dateKey)) dateGroups.set(dateKey, []);
+          dateGroups.get(dateKey)!.push(tx);
+        }
+
+        // 날짜 순서대로 처리 (ASC)
+        const sortedDates = [...dateGroups.keys()].sort();
+        const result: typeof transactions = [];
+        let prevGroupLastBalance: number | null = null;
+
+        for (const dateKey of sortedDates) {
+          const group = dateGroups.get(dateKey)!;
+          
+          if (group.length <= 1) {
+            if (group[0]?.balance != null) prevGroupLastBalance = Number(group[0].balance);
+            result.push(...group);
+            continue;
+          }
+
+          // 정순/역순 잔액 연속성 점수 계산
+          const calcScore = (txs: typeof group, prevBal: number | null) => {
+            let score = 0;
+            let prev = prevBal;
+            for (const tx of txs) {
+              const dep = Number(tx.depositAmount ?? 0);
+              const wit = Number(tx.withdrawalAmount ?? 0);
+              const bal = tx.balance != null ? Number(tx.balance) : null;
+              if (prev != null && bal != null) {
+                const expected = prev + dep - wit;
+                if (Math.abs(expected - bal) < 1) score++;
+              }
+              if (bal != null) prev = bal;
+            }
+            return score;
+          };
+
+          const forwardScore = calcScore(group, prevGroupLastBalance);
+          const reversedGroup = [...group].reverse();
+          const reverseScore = calcScore(reversedGroup, prevGroupLastBalance);
+
+          if (reverseScore > forwardScore) {
+            // 역순이 잔액 연속성이 더 높음 → 순서 뒤집기 + rowNumber 재할당
+            console.log(`[transaction.search] Date ${dateKey}: 역순 보정 (정순: ${forwardScore}, 역순: ${reverseScore}, ${group.length}건)`);
+            const baseRow = group[0]?.rowNumber ?? 0;
+            for (let i = 0; i < reversedGroup.length; i++) {
+              (reversedGroup[i] as { rowNumber: number | null }).rowNumber = baseRow + i;
+            }
+            result.push(...reversedGroup);
+            const lastTx = reversedGroup[reversedGroup.length - 1];
+            if (lastTx?.balance != null) prevGroupLastBalance = Number(lastTx.balance);
+          } else {
+            result.push(...group);
+            const lastTx = group[group.length - 1];
+            if (lastTx?.balance != null) prevGroupLastBalance = Number(lastTx.balance);
+          }
+        }
+
+        // rowNumber 전체 재할당 (1부터)
+        for (let i = 0; i < result.length; i++) {
+          (result[i] as { rowNumber: number | null }).rowNumber = i + 1;
+        }
+        return result;
+      })();
+
       return {
-        transactions,
+        transactions: reorderedTransactions,
         pagination: {
           page,
           pageSize,

@@ -108,6 +108,8 @@ interface Transaction {
   originalSubcategory: string | null;
   manualClassificationDate: Date | null;
   manualClassifiedBy: string | null;
+  // 같은 날짜 내 정렬 순서 유지용
+  rowNumber?: number | null;
   // Story 4.6: 태그 필드
   tags?: Array<{
     tag: {
@@ -246,10 +248,21 @@ export function TransactionTable({ transactions, pagination, onPageChange, onTag
       let bValue: number;
 
       switch (sortField) {
-        case "date":
-          aValue = new Date(a.transactionDate).getTime();
-          bValue = new Date(b.transactionDate).getTime();
-          break;
+        case "date": {
+          // 날짜만 비교 (시간 정보 무시) - 같은 날짜 내 rowNumber로 정렬
+          const aDate = new Date(a.transactionDate);
+          const bDate = new Date(b.transactionDate);
+          aValue = new Date(aDate.getFullYear(), aDate.getMonth(), aDate.getDate()).getTime();
+          bValue = new Date(bDate.getFullYear(), bDate.getMonth(), bDate.getDate()).getTime();
+          
+          if (aValue !== bValue) {
+            return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
+          }
+          // 같은 날짜: rowNumber로 보조 정렬 (항상 ASC = 시간순)
+          const aRow = a.rowNumber ?? 0;
+          const bRow = b.rowNumber ?? 0;
+          return aRow - bRow;
+        }
         case "depositAmount":
           aValue = a.depositAmount ? Number(a.depositAmount) : 0;
           bValue = b.depositAmount ? Number(b.depositAmount) : 0;
