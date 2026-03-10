@@ -10,6 +10,7 @@
 - [x] **핵심 버그 수정: 매칭 불일치** - 실제 업로드에서 `matchByIdentifiers`(Layer 1만) → `classifyTransaction`(3단계 파이프라인) 사용으로 변경
 - [x] **핵심 버그 수정: AI 칼럼 매핑 비고 누락** - `findColumnIndex`에서 `index`와 `header` 교차 검증 추가. AI가 잘못된 index를 줘도 header 이름으로 올바른 인덱스 재탐색
 - [x] **핵심 버그 수정: AI 프롬프트 기본값 오류** - 입금/출금 서브컬럼 예시가 `"memo"`로 되어있어 AI가 항상 memo로 설정 → `"skip"`(무시)으로 수정 (template.ts, template-image-analyzer.ts 모두)
+- [x] **핵심 버그 수정: 동일 일자 내 거래 순서 뒤바뀜** - 조회 시 `rowNumber: "desc"` → `"asc"` 수정 + 데이터 추출 시 잔액 연속성 기반 순서 보정 로직 추가 (`calculateBalanceConsistency`)
 - [x] 새 템플릿 생성 모달 AI 자동 분석 영역에 드래그앤드롭 지원 추가
 - [x] 템플릿 매칭 실패 시 '맞음, 진행' 버튼 비활성화 (이미 숨김 처리됨)
 - [x] 매칭 실패 판단 기준 (파싱 데이터 품질 검증):

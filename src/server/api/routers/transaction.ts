@@ -394,7 +394,7 @@ export const transactionRouter = createTRPCRouter({
       const [transactions, totalCount] = await Promise.all([
         ctx.db.transaction.findMany({
           where: whereCondition,
-          orderBy: [{ transactionDate: "desc" }, { rowNumber: "desc" }],
+          orderBy: [{ transactionDate: "desc" }, { rowNumber: "asc" }],
           skip: (page - 1) * pageSize,
           take: pageSize,
           select: {
@@ -1304,7 +1304,7 @@ export const transactionRouter = createTRPCRouter({
       const [transactions, totalCount] = await Promise.all([
         ctx.db.transaction.findMany({
           where,
-          orderBy: [{ transactionDate: "desc" }, { rowNumber: "desc" }], // 기본 정렬: 거래일자 최신순, 같은 날짜 내 역순
+          orderBy: [{ transactionDate: "desc" }, { rowNumber: "asc" }], // 거래일자 최신순, 같은 날짜 내 원본 순서 유지
           skip: (page - 1) * pageSize,
           take: pageSize,
           select: {

@@ -23,6 +23,32 @@
 
 import { Prisma, PrismaClient } from "@prisma/client";
 
+
+/**
+ * 잔액 연속성 점수 계산
+ * 이전 잔액 + 입금 - 출금 = 현재 잔액이 맞는 연속 쌍의 개수를 반환
+ */
+function calculateBalanceConsistency(
+  txs: Prisma.TransactionCreateManyInput[],
+  prevBalance: number | null,
+): number {
+  let score = 0;
+  let prev = prevBalance;
+  for (const tx of txs) {
+    const dep = Number(tx.depositAmount ?? 0);
+    const wit = Number(tx.withdrawalAmount ?? 0);
+    const bal = tx.balance != null ? Number(tx.balance) : null;
+    if (prev != null && bal != null) {
+      const expected = prev + dep - wit;
+      if (Math.abs(expected - bal) < 1) {
+        score++;
+      }
+    }
+    if (bal != null) prev = bal;
+  }
+  return score;
+}
+
 /**
  * Column mapping interface from Story 3.4 (FileAnalysisResult)
  *
@@ -563,6 +589,72 @@ export async function extractAndSaveTransactions(
         row: i + 1,
         error: error instanceof Error ? error.message : String(error),
       });
+    }
+  }
+
+  // ===== 같은 날짜 그룹 내 잔액 기반 순서 보정 =====
+  // OCR 결과가 같은 날짜 내에서 순서가 뒤바뀌는 경우가 있으므로
+  // 잔액 연속성(이전 잔액 + 입금 - 출금 = 현재 잔액)을 기준으로 순서를 검증하고 보정한다
+  if (transactions.length > 1) {
+    // 날짜별 그룹핑
+    const dateGroups = new Map<string, typeof transactions>();
+    for (const tx of transactions) {
+      const dateKey = tx.transactionDate instanceof Date 
+        ? tx.transactionDate.toISOString().slice(0, 10) 
+        : String(tx.transactionDate);
+      if (!dateGroups.has(dateKey)) dateGroups.set(dateKey, []);
+      dateGroups.get(dateKey)!.push(tx);
+    }
+
+    let needsReorder = false;
+    const reorderedTransactions: typeof transactions = [];
+    let prevGroupLastBalance: number | null = null;
+
+    // 날짜 순서대로 처리
+    const sortedDates = [...dateGroups.keys()].sort();
+    for (const dateKey of sortedDates) {
+      const group = dateGroups.get(dateKey)!;
+      
+      if (group.length <= 1) {
+        // 1건이면 보정 불필요
+        if (group[0]?.balance != null) prevGroupLastBalance = Number(group[0].balance);
+        reorderedTransactions.push(...group);
+        continue;
+      }
+
+      // 현재 순서의 잔액 연속성 점수 계산
+      const forwardScore = calculateBalanceConsistency(group, prevGroupLastBalance);
+      // 역순의 잔액 연속성 점수 계산
+      const reversedGroup = [...group].reverse();
+      const reverseScore = calculateBalanceConsistency(reversedGroup, prevGroupLastBalance);
+
+      if (reverseScore > forwardScore) {
+        // 역순이 더 맞으면 순서 뒤집기
+        console.log(`[Data Extractor] Date ${dateKey}: 역순이 잔액 연속성이 더 높음 (정순: ${forwardScore}/${group.length - 1}, 역순: ${reverseScore}/${group.length - 1}) → 순서 보정`);
+        // rowNumber 재할당 (역순 → 정순)
+        const baseRowNumber = Number(group[0]!.rowNumber ?? 0);
+        for (let i = 0; i < reversedGroup.length; i++) {
+          reversedGroup[i]!.rowNumber = baseRowNumber + i;
+        }
+        reorderedTransactions.push(...reversedGroup);
+        needsReorder = true;
+        const lastTx = reversedGroup[reversedGroup.length - 1];
+        if (lastTx?.balance != null) prevGroupLastBalance = Number(lastTx.balance);
+      } else {
+        reorderedTransactions.push(...group);
+        const lastTx = group[group.length - 1];
+        if (lastTx?.balance != null) prevGroupLastBalance = Number(lastTx.balance);
+      }
+    }
+
+    if (needsReorder) {
+      // rowNumber 전체 재할당
+      for (let i = 0; i < reorderedTransactions.length; i++) {
+        reorderedTransactions[i]!.rowNumber = i + 1;
+      }
+      transactions.length = 0;
+      transactions.push(...reorderedTransactions);
+      console.log(`[Data Extractor] 순서 보정 완료: ${transactions.length}건`);
     }
   }
 
