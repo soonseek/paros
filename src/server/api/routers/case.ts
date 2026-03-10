@@ -217,7 +217,7 @@ export const caseRouter = createTRPCRouter({
         where: { id: ctx.userId },
         select: { role: true },
       });
-      const isSuperOrAdmin = currentUser?.role === Role.SUPER || currentUser?.role === Role.ADMIN;
+      const isSuper = currentUser?.role === Role.SUPER;
 
       // Build where clause with RBAC enforcement
       const where: {
@@ -230,8 +230,8 @@ export const caseRouter = createTRPCRouter({
         courtName?: string;
         filingDate?: { gte?: Date; lte?: Date };
       } = {
-        // SUPER/ADMIN: 모든 사건 조회, 그 외: 본인 사건만
-        ...(isSuperOrAdmin ? {} : { lawyerId: ctx.userId }),
+        // SUPER: 모든 사건 조회, 그 외(ADMIN 포함): 본인 사건만
+        ...(isSuper ? {} : { lawyerId: ctx.userId }),
         ...(showArchived !== undefined && { isArchived: showArchived }),
         ...(showArchived === undefined && { isArchived: false }),
       };
