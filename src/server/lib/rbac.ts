@@ -54,6 +54,11 @@ export interface RBACResult {
 export function checkTransactionAccess(params: TransactionAccessParams): RBACResult {
   const { userId, userRole, caseLawyerId } = params;
 
+  // SUPER: Full access
+  if (userRole === "SUPER") {
+    return { allowed: true };
+  }
+
   // ADMIN: Full access
   if (userRole === "ADMIN") {
     return { allowed: true };
@@ -108,6 +113,11 @@ export function checkTransactionReadAccess(
   params: TransactionAccessParams
 ): RBACResult {
   const { userId, userRole, caseLawyerId } = params;
+
+  // SUPER: Full read access
+  if (userRole === "SUPER") {
+    return { allowed: true };
+  }
 
   // ADMIN: Full read access
   if (userRole === "ADMIN") {
