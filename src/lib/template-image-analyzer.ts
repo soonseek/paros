@@ -94,12 +94,12 @@ export async function analyzeTemplateImage(
       "index": 1, 
       "header": "맡기신금액",
       "whenDeposit": "amount",
-      "whenWithdrawal": "memo"
+      "whenWithdrawal": "skip"
     },
     "withdrawal": { 
       "index": 2, 
       "header": "찾으신금액",
-      "whenDeposit": "memo",
+      "whenDeposit": "skip",
       "whenWithdrawal": "amount"
     },
     "balance": { "index": 3, "header": "잔액" },
@@ -113,7 +113,7 @@ export async function analyzeTemplateImage(
 - 이미지에서 보이는 실제 컬럼명을 정확히 사용하세요
 - 인덱스는 0부터 시작합니다
 - 해당하지 않는 컬럼은 columnMapping에서 생략하세요
-- whenDeposit/whenWithdrawal은 특수 케이스에서만 사용합니다
+- whenDeposit/whenWithdrawal은 특수 케이스에서만 사용합니다. 기본값은 "skip"(무시)이며, 해당 컬럼에 비고가 실제로 들어가는 것이 확인된 경우에만 "memo"를 사용하세요
 - JSON만 반환하고 다른 텍스트는 포함하지 마세요`;
 
   try {
