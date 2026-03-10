@@ -218,6 +218,7 @@ export const caseRouter = createTRPCRouter({
         select: { role: true },
       });
       const isSuper = currentUser?.role === Role.SUPER;
+      const isSuperOrAdmin = isSuper || currentUser?.role === Role.ADMIN;
 
       // Build where clause with RBAC enforcement
       const where: {
