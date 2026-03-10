@@ -104,7 +104,7 @@ async function parsePdfInChunks(
   pagesPerChunk: number
 ): Promise<TableData> {
   // PDF 로드
-  const pdfDoc = await PDFDocument.load(pdfBuffer);
+  const pdfDoc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
   const totalPages = pdfDoc.getPageCount();
   
   console.log(`[PDF Chunking] 총 ${totalPages}페이지, ${pagesPerChunk}페이지씩 분할 처리`);

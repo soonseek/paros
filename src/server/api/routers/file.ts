@@ -1254,7 +1254,7 @@ export const fileRouter = createTRPCRouter({
         const upstageApiKey = await settingsService.getSetting('UPSTAGE_API_KEY');
         
         // PDF 로드 및 페이지 수 확인
-        const pdfDoc = await PDFDocument.load(fileBuffer);
+        const pdfDoc = await PDFDocument.load(fileBuffer, { ignoreEncryption: true });
         const totalPdfPages = pdfDoc.getPageCount();
         const previewPages = Math.min(3, totalPdfPages); // 최대 3페이지
         
