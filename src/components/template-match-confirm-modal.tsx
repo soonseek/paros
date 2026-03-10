@@ -162,9 +162,9 @@ export function TemplateMatchConfirmModal({
       (row) => !row.transactionDate || row.transactionDate.trim() === ""
     );
     if (hasEmptyDate) issues.push("거래일자가 비어있는 행이 존재합니다.");
-    // 3. 입금과 출금이 아무것도 없는 행이 존재함
+    // 3. 입금과 출금이 아무것도 없는 행이 존재함 (null/undefined만 체크, 0은 유효한 값)
     const hasEmptyAmounts = parsedSampleData.some(
-      (row) => (!row.deposit || row.deposit === 0) && (!row.withdrawal || row.withdrawal === 0)
+      (row) => (row.deposit === null || row.deposit === undefined) && (row.withdrawal === null || row.withdrawal === undefined)
     );
     if (hasEmptyAmounts) issues.push("입금과 출금이 모두 비어있는 행이 존재합니다.");
     return issues;
