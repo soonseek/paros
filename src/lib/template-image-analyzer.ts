@@ -144,7 +144,7 @@ export async function analyzeTemplateImage(
     console.log("[Template Image Analyzer] Raw response:", content.substring(0, 500));
 
     // JSON 파싱
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    const jsonMatch = /\{[\s\S]*\}/.exec(content);
     if (!jsonMatch) {
       console.error("[Template Image Analyzer] Failed to parse JSON from response");
       return {

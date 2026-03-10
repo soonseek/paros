@@ -4,7 +4,7 @@
 import { z } from "zod";
 import { createTRPCRouter, adminProcedure, protectedProcedure, publicProcedure } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
-import { Prisma } from "@prisma/client";
+import { type Prisma } from "@prisma/client";
 import { db } from "~/server/db";
 import { uploadFile, deleteFile } from "~/lib/storage";
 import { CorrectionGuideService } from "~/server/services/correction-guide-service";

@@ -143,7 +143,7 @@ export const userRouter = createTRPCRouter({
         ",",
       )[0] ||
         (ctx.req?.headers["x-real-ip"] as string) ||
-        (ctx.req?.socket?.remoteAddress as string) ||
+        (ctx.req?.socket?.remoteAddress) ||
         "unknown";
 
       // Check rate limit

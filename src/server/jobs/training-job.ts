@@ -20,7 +20,7 @@
  * @module server/jobs/training-job
  */
 
-import { PrismaClient, ClassificationRulePatternType } from "@prisma/client";
+import { type PrismaClient, type ClassificationRulePatternType } from "@prisma/client";
 import cron from "node-cron";
 
 /**

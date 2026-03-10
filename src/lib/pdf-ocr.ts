@@ -297,7 +297,7 @@ async function parseSinglePdf(
     console.log("[Upstage API] Using fallback: checking top-level content field...");
 
     // Check top-level content.html field (contains full HTML including table images)
-    if (data.content?.html && data.content.html.trim()) {
+    if (data.content?.html?.trim()) {
       console.log(`[Upstage API] Found top-level content.html (${data.content.html.length} chars)`);
       console.log("[Upstage API] Content.html preview:", data.content.html.substring(0, 500));
 
@@ -312,7 +312,7 @@ async function parseSinglePdf(
 
     // Next, try text content from elements
     console.log("[Upstage API] Trying element text fields...");
-    const textElements = data.elements.filter(el => el.content?.text && el.content.text.trim());
+    const textElements = data.elements.filter(el => el.content?.text?.trim());
     if (textElements.length > 0) {
       const allText = textElements.map(el => el.content?.text || "").join("\n");
       console.log(`[Upstage API] Extracted ${allText.length} characters from text fields`);
@@ -590,7 +590,7 @@ function extractFromTableElementsHTML(tableElements: Array<{
   // 핵심 개선: 컬럼 수 차이 허용을 더 관대하게 + 모든 테이블 포함 시도
   const allRows: string[][] = [...mainTable.rows];
   let continuationCount = 0;
-  let skippedTables: number[] = [];
+  const skippedTables: number[] = [];
 
   for (const table of parsedTables) {
     // 메인 테이블은 스킵
@@ -662,7 +662,7 @@ const datePatterns = [
  */
 function parseHTMLTable(html: string): TableData {
   // First, try to find <table> tag content
-  const tableMatch = html.match(/<table[^>]*>(.*?)<\/table>/is);
+  const tableMatch = /<table[^>]*>(.*?)<\/table>/is.exec(html);
   const tableContent = tableMatch?.[1] ?? html;
 
   // Extract table rows using regex
@@ -735,7 +735,7 @@ function parseHTMLTable(html: string): TableData {
  */
 function extractCellsFromHTML(rowHTML: string): string[] {
   // Remove <tr> tags
-  let cleanRow = rowHTML.replace(/<\/?tr[^>]*>/gi, "");
+  const cleanRow = rowHTML.replace(/<\/?tr[^>]*>/gi, "");
 
   // Extract <td> or <th> content
   const cellRegex = /<t[hd][^>]*>(.*?)<\/t[hd]>/gs;

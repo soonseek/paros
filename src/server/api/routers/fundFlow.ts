@@ -149,7 +149,7 @@ export const fundFlowRouter = createTRPCRouter({
           responseTimeMs: Math.round(responseTime),
         },
         ipAddress: ctx.req.headers["x-forwarded-for"] as string | undefined,
-        userAgent: ctx.req.headers["user-agent"] as string | undefined,
+        userAgent: ctx.req.headers["user-agent"],
       });
 
       // HIGH #1: 서버 사이드 필터링 적용
@@ -298,7 +298,7 @@ export const fundFlowRouter = createTRPCRouter({
           responseTimeMs: Math.round(responseTime),
         },
         ipAddress: ctx.req.headers["x-forwarded-for"] as string | undefined,
-        userAgent: ctx.req.headers["user-agent"] as string | undefined,
+        userAgent: ctx.req.headers["user-agent"],
       });
 
       // HIGH #1: 서버 사이드 필터링 적용

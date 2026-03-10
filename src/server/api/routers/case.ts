@@ -238,7 +238,7 @@ export const caseRouter = createTRPCRouter({
       };
 
       // Add search filter (case number or debtor name)
-      if (search && search.trim()) {
+      if (search?.trim()) {
         where.OR = [
           { caseNumber: { contains: search.trim(), mode: 'insensitive' } },
           { debtorName: { contains: search.trim(), mode: 'insensitive' } },
@@ -246,7 +246,7 @@ export const caseRouter = createTRPCRouter({
       }
 
       // Add court name filter
-      if (courtName && courtName.trim()) {
+      if (courtName?.trim()) {
         where.courtName = courtName.trim();
       }
 

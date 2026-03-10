@@ -7,7 +7,7 @@
  * Layer 3: 기존 LLM 컬럼 매핑 (현재 방식)
  */
 
-import { PrismaClient } from "@prisma/client";
+import { type PrismaClient } from "@prisma/client";
 import { env } from "~/env";
 
 /**
@@ -190,7 +190,7 @@ ${templateDescriptions}
     const content = response.choices[0]?.message?.content?.trim() || "";
     
     // JSON 파싱
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    const jsonMatch = /\{[\s\S]*\}/.exec(content);
     if (!jsonMatch) {
       console.warn("[Template Classifier] Layer 2: Invalid JSON response");
       return null;

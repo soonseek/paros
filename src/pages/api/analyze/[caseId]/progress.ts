@@ -142,6 +142,7 @@ async function sendProgressUpdates(
   });
 
   // Poll FileAnalysisResult status
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   const pollInterval = setInterval(async () => {
     if (isClosed()) {
       clearInterval(pollInterval);

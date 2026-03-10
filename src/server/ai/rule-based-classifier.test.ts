@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { PrismaClient } from "@prisma/client";
+import { type PrismaClient } from "@prisma/client";
 import {
   classifyWithRules,
   matchKeywordRule,

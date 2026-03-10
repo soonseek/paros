@@ -552,7 +552,7 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
   // 상태 판단
   const showUploadArea = !latestAnalysis || latestAnalysis.analysisStatus === "failed";
   const isProcessing = isUploading || analyzeMutation.isPending;
-  const hasResults = latestAnalysis && latestAnalysis.analysisStatus === "completed" && matchResults.length > 0;
+  const hasResults = latestAnalysis?.analysisStatus === "completed" && matchResults.length > 0;
 
   // 미리보기에 표시할 전체 항목 수
   const totalPreviewItems = selectedMatchResults.length + manualItems.length;
@@ -657,7 +657,7 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
         )}
 
         {/* 분석 실패 */}
-        {latestAnalysis && latestAnalysis.analysisStatus === "failed" && !isProcessing && (
+        {latestAnalysis?.analysisStatus === "failed" && !isProcessing && (
           <div className="py-12 text-center bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800 mb-4">
             <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
             <p className="font-medium text-gray-700 dark:text-gray-300 mb-2">

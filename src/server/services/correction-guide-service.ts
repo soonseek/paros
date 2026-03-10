@@ -71,7 +71,7 @@ export class CorrectionGuideService {
     const items: ExtractedDefectItem[] = [];
     
     // "흠결사항" 키워드 이후의 텍스트 찾기
-    const defectSectionMatch = text.match(/흠결사항[\s\S]*?(?=(?:\n\n[가-힣]+\s*$|$))/i);
+    const defectSectionMatch = /흠결사항[\s\S]*?(?=(?:\n\n[가-힣]+\s*$|$))/i.exec(text);
     
     if (!defectSectionMatch) {
       console.log("[CorrectionGuideService] '흠결사항' 섹션을 찾을 수 없음, 전체 텍스트에서 번호 항목 추출 시도");

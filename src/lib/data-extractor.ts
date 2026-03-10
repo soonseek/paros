@@ -21,7 +21,7 @@
  * // Returns: { success: 998, skipped: 2, errors: [...] }
  */
 
-import { Prisma, PrismaClient } from "@prisma/client";
+import { type Prisma, type PrismaClient } from "@prisma/client";
 
 
 /**
@@ -363,7 +363,7 @@ export async function extractAndSaveTransactions(
 
   // 잔액 검증을 위한 이전 잔액 추적
   let previousBalance: number | null = null;
-  let balanceValidationWarnings: string[] = [];
+  const balanceValidationWarnings: string[] = [];
 
   for (let i = 0; i < processRows.length; i++) {
     const row = processRows[i];

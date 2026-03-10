@@ -4,7 +4,7 @@
  * Story 4.4: 거래 성격 판단
  */
 
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+ 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { describe, it, expect } from "vitest";

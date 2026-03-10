@@ -11,7 +11,7 @@
  * @module server/services/transaction-chain-service
  */
 
-import { Prisma, PrismaClient } from "@prisma/client";
+import { type Prisma, type PrismaClient } from "@prisma/client";
 
 /**
  * 체인 유형 Enum

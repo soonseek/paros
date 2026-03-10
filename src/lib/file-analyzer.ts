@@ -14,10 +14,10 @@
  * MVP Scope: Excel/CSV + PDF with Upstage OCR
  */
 
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
+ 
+ 
+ 
+ 
 
 import * as XLSX from "xlsx";
 import {

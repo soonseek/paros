@@ -16,7 +16,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { env } from "~/env";
-import { type PrismaClient, Prisma } from "@prisma/client";
+import { type PrismaClient, type Prisma } from "@prisma/client";
 
 // Function definitions for OpenAI
 const functions = [

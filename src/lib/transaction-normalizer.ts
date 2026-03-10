@@ -274,7 +274,7 @@ function normalizeDate(value: any): string {
   
   // YYYYMMDD 형식
   if (/^\d{8}/.test(str)) {
-    const match = str.match(/^(\d{4})(\d{2})(\d{2})/);
+    const match = /^(\d{4})(\d{2})(\d{2})/.exec(str);
     if (match) {
       return `${match[1]}-${match[2]}-${match[3]}`;
     }

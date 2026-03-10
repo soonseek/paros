@@ -20,7 +20,7 @@
  * @module server/ai/rule-based-classifier
  */
 
-import { PrismaClient, ClassificationRulePatternType } from "@prisma/client";
+import { type PrismaClient, type ClassificationRulePatternType } from "@prisma/client";
 import type { ClassificationResult } from "./types";
 
 /**
@@ -129,7 +129,7 @@ export function matchAmountRangeRule(
 
   for (const rule of sortedRules) {
     // 패턴 파싱: "MIN-MAX" 형식
-    const match = rule.pattern.match(/^(\d+)-(\d+)$/);
+    const match = /^(\d+)-(\d+)$/.exec(rule.pattern);
     if (!match) {
       console.warn(`[rule-based-classifier] Invalid amount range pattern: ${rule.pattern}`);
       continue;

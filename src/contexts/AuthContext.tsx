@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof window !== "undefined") {
       // 먼저 sessionStorage 시도
-      let storedUser = sessionStorage.getItem("user");
+      const storedUser = sessionStorage.getItem("user");
       let storedToken = sessionStorage.getItem("access_token");
 
       // sessionStorage에 토큰이 없으면 쿠키에서 시도

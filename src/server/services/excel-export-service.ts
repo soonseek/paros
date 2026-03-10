@@ -6,7 +6,7 @@
  * @module server/services/excel-export-service
  */
 
-import ExcelJS from 'exceljs';
+import type ExcelJS from 'exceljs';
 import { db } from '~/server/db';
 import {
   createWorkbook,

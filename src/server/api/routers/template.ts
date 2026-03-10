@@ -572,7 +572,7 @@ ${sampleDataStr}
           });
           
           const content = response.choices[0]?.message?.content?.trim() || "";
-          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          const jsonMatch = /\{[\s\S]*\}/.exec(content);
           
           if (!jsonMatch) {
             throw new Error("LLM 응답 파싱 실패");
@@ -670,7 +670,7 @@ ${sampleDataStr}
         },
       });
 
-      if (!template || !template.sampleFileKey) {
+      if (!template?.sampleFileKey) {
         return {
           success: false,
           error: "샘플 파일이 없습니다",
@@ -709,7 +709,7 @@ ${sampleDataStr}
         name: t.name,
         bankName: t.bankName || "",
         description: t.description,
-        identifiers: (t.identifiers as string[]).join("|"),
+        identifiers: (t.identifiers).join("|"),
         columnSchema: JSON.stringify(t.columnSchema),
         priority: t.priority,
         isActive: t.isActive,

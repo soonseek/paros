@@ -1307,7 +1307,7 @@ export const fileRouter = createTRPCRouter({
         }
         
         // 매칭된 템플릿이 있으면 파싱된 샘플 데이터 생성
-        let parsedSampleData: {
+        const parsedSampleData: {
           transactionDate: string;
           deposit: number;
           withdrawal: number;
@@ -1442,7 +1442,7 @@ export const fileRouter = createTRPCRouter({
             templateName: matchedTemplate.name,
             bankName: matchedTemplate.bankName,
             confidence,
-            identifiers: matchedTemplate.identifiers as string[],
+            identifiers: matchedTemplate.identifiers,
             columnSchema: matchedTemplate.columnSchema as {
               columns: Record<string, { index: number; header: string }>;
             } | null,
@@ -1506,7 +1506,7 @@ export const fileRouter = createTRPCRouter({
         const rawData = XLSX.utils.sheet_to_json(worksheet, {
           header: 1,
           defval: "",
-        }) as string[][];
+        });
         
         if (rawData.length === 0) {
           throw new TRPCError({
@@ -1792,7 +1792,7 @@ export const fileRouter = createTRPCRouter({
           throw new TRPCError({ code: "BAD_REQUEST", message: "워크시트를 찾을 수 없습니다" });
         }
         
-        const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" }) as string[][];
+        const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
         headers = (rawData[0] || []).map(h => String(h));
         rows = rawData.slice(1);
       }
@@ -2009,7 +2009,7 @@ async function performExtraction(
     rawData = XLSX.utils.sheet_to_json(worksheet, {
       header: 1,
       defval: "",
-    }) as unknown[][];
+    });
 
     headerRow = rawData[0] as string[];
   }

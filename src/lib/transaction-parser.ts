@@ -222,8 +222,8 @@ function parseTransactionType(value: unknown): "입금" | "출금" | null {
   if (text.includes("[출금]") || text.includes("-")) return "출금";
 
   // Check for slash format: 입금/, 출금/
-  if (/^입금\//.test(text)) return "입금";
-  if (/^출금\//.test(text)) return "출금";
+  if (text.startsWith("입금/")) return "입금";
+  if (text.startsWith("출금/")) return "출금";
 
   return null;
 }

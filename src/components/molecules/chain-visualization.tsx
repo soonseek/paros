@@ -165,7 +165,7 @@ export default function ChainVisualization({
             <div className="text-sm text-amber-800">
               <p className="font-medium">불확실한 체인입니다</p>
               <p className="text-xs mt-1">
-                신뢰도가 {getConfidencePercent(confidenceScore!)}로 낮습니다. 검토가
+                신뢰도가 {getConfidencePercent(confidenceScore)}로 낮습니다. 검토가
                 필요합니다.
               </p>
             </div>

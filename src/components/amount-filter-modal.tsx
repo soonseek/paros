@@ -239,7 +239,7 @@ export function AmountFilterModal({ isOpen, onClose, caseId }: AmountFilterModal
           )}
 
           {/* 결과 없음 */}
-          {searchTriggered && !isLoading && data && data.transactions.length === 0 && (
+          {searchTriggered && !isLoading && data?.transactions.length === 0 && (
             <div className="flex-1 flex items-center justify-center text-muted-foreground">
               <div className="text-center">
                 <Filter className="h-12 w-12 mx-auto mb-4 opacity-30" />

@@ -41,8 +41,8 @@ export const auditLog = {
 
     await db.auditLog.create({
       data: {
-        entityType: entityType as string,
-        action: action as string,
+        entityType: entityType,
+        action: action,
         entityId: caseId,
         userId,
         changes: JSON.stringify(details),
