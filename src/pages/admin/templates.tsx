@@ -131,6 +131,49 @@ const TemplatesPage: NextPage = () => {
   const [isTestDialogOpen, setIsTestDialogOpen] = useState(false);
   const [detectedHeaders, setDetectedHeaders] = useState<string[]>([]); // AI 분석으로 추출된 헤더
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // 드래그앤드롭 핸들러
+  const processFile = (file: File) => {
+    const isImage = file.type.startsWith("image/");
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    if (!isImage && !isPdf) {
+      toast.error("이미지 또는 PDF 파일만 업로드할 수 있습니다");
+      return;
+    }
+    if (file.size > 1024 * 1024 * 1024) {
+      toast.error("파일 크기는 1GB 이하여야 합니다");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = (reader.result as string).split(",")[1];
+      if (base64) {
+        analyzeFileMutation.mutate({ fileBase64: base64, fileName: file.name, mimeType: file.type });
+      }
+    };
+    reader.onerror = () => toast.error("파일을 읽는 중 오류가 발생했습니다");
+    reader.readAsDataURL(file);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (analyzeFileMutation.isPending) return;
+    const file = e.dataTransfer.files[0];
+    if (file) processFile(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
   // 샘플 파일 정보 (필수)
   const [sampleFileInfo, setSampleFileInfo] = useState<{
     sampleFileKey: string | null;
@@ -555,41 +598,7 @@ const TemplatesPage: NextPage = () => {
 
   const handleTemplateFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
-
-    // 이미지 또는 PDF 파일 검증
-    const isImage = file.type.startsWith("image/");
-    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-    
-    if (!isImage && !isPdf) {
-      toast.error("이미지 또는 PDF 파일만 업로드할 수 있습니다");
-      return;
-    }
-
-    // 파일 크기 제한 (1GB)
-    if (file.size > 1024 * 1024 * 1024) {
-      toast.error("파일 크기는 1GB 이하여야 합니다");
-      return;
-    }
-
-    // FileReader로 Base64 변환
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = (reader.result as string).split(",")[1];
-      if (base64) {
-        analyzeFileMutation.mutate({
-          fileBase64: base64,
-          fileName: file.name,
-          mimeType: file.type,
-        });
-      }
-    };
-    reader.onerror = () => {
-      toast.error("파일을 읽는 중 오류가 발생했습니다");
-    };
-    reader.readAsDataURL(file);
-
-    // input 초기화
+    if (file) processFile(file);
     event.target.value = "";
   };
 
@@ -863,7 +872,17 @@ const TemplatesPage: NextPage = () => {
             <div className="space-y-6 py-4">
               {/* AI 파일 분석 */}
               {!editingId && (
-                <div className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                <div
+                  className={`p-4 rounded-lg border-2 border-dashed transition-colors ${
+                    isDragging
+                      ? "border-purple-500 bg-purple-100 dark:bg-purple-900/40"
+                      : "border-purple-200 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 dark:border-purple-800"
+                  }`}
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  data-testid="ai-analysis-dropzone"
+                >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-purple-100 dark:bg-purple-800 rounded-lg">
@@ -872,7 +891,9 @@ const TemplatesPage: NextPage = () => {
                       <div>
                         <h3 className="font-medium text-purple-800 dark:text-purple-200">AI 자동 분석</h3>
                         <p className="text-sm text-purple-600 dark:text-purple-400">
-                          거래내역서 PDF 또는 스크린샷을 업로드하면 자동으로 템플릿 초안을 생성합니다
+                          {isDragging
+                            ? "여기에 파일을 놓으세요"
+                            : "파일을 드래그하거나 버튼으로 업로드하세요"}
                         </p>
                       </div>
                     </div>
@@ -900,7 +921,7 @@ const TemplatesPage: NextPage = () => {
                           ) : (
                             <>
                               <ImagePlus className="h-4 w-4 mr-2" />
-                              파일 업로드
+                              파일 선택
                             </>
                           )}
                         </label>
