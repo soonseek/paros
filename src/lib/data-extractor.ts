@@ -215,9 +215,9 @@ export function parseDate(dateValue: unknown): Date | null {
  * parseAmount("invalid"); // Returns null
  */
 export function parseAmount(amountValue: unknown): number | null {
-  if (!amountValue) return null;
+  if (amountValue === null || amountValue === undefined || amountValue === "") return null;
 
-  // Number (pass through)
+  // Number (pass through) - 0 포함
   if (typeof amountValue === "number") {
     return amountValue;
   }
@@ -247,7 +247,7 @@ export function parseAmount(amountValue: unknown): number | null {
  * @returns Parsed last number or null if invalid
  */
 export function parseBalance(balanceValue: unknown): number | null {
-  if (!balanceValue) return null;
+  if (balanceValue === null || balanceValue === undefined || balanceValue === "") return null;
 
   if (typeof balanceValue === "number") {
     return balanceValue;
