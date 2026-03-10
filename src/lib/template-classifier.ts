@@ -298,11 +298,31 @@ export function convertSchemaToMapping(
 
 /**
  * 컬럼 정의에서 실제 인덱스 찾기
- * 띄어쓰기를 제거하고 비교
+ * index가 있어도 header가 실제로 일치하는지 검증
  */
 function findColumnIndex(colDef: ColumnDefinition, headers: string[]): number {
-  // 1. index가 지정되어 있고 유효하면 사용
+  // 1. index가 지정되어 있고 유효하면, header와 교차 검증
   if (colDef.index !== undefined && colDef.index >= 0 && colDef.index < headers.length) {
+    // header도 지정되어 있으면 교차 검증
+    if (colDef.header) {
+      const normalizedTarget = normalizeText(colDef.header);
+      const normalizedActual = normalizeText(headers[colDef.index] || "");
+      // 해당 인덱스의 헤더가 기대하는 헤더와 일치하면 신뢰
+      if (normalizedActual.includes(normalizedTarget) || normalizedTarget.includes(normalizedActual)) {
+        return colDef.index;
+      }
+      // 불일치: header 이름으로 정확한 인덱스 재탐색
+      console.log(`[findColumnIndex] Index ${colDef.index} header mismatch: expected "${colDef.header}", got "${headers[colDef.index]}". Searching by header name...`);
+      const correctedIdx = headers.findIndex(h => {
+        const nh = normalizeText(h);
+        return nh.includes(normalizedTarget) || normalizedTarget.includes(nh);
+      });
+      if (correctedIdx !== -1) {
+        console.log(`[findColumnIndex] Corrected: "${colDef.header}" → index ${correctedIdx} ("${headers[correctedIdx]}")`);
+        return correctedIdx;
+      }
+    }
+    // header 미지정이면 index 그대로 사용
     return colDef.index;
   }
 

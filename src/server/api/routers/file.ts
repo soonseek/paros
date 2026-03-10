@@ -1279,41 +1279,31 @@ export const fileRouter = createTRPCRouter({
         // Upstage API로 앞 3페이지 분석
         const tableData = await parsePdfWithUpstage(previewBuffer, upstageApiKey || undefined);
         
-        // 템플릿 매칭 시도
-        const { matchByIdentifiers } = await import("~/lib/template-classifier");
+        // 템플릿 매칭 시도 (3단계 파이프라인: 키워드 → LLM 유사도 → 폴백)
+        const { classifyTransaction, convertSchemaToMapping } = await import("~/lib/template-classifier");
         
-        const templates = await ctx.db.transactionTemplate.findMany({
-          where: { isActive: true },
-          orderBy: { priority: "desc" },
-        });
+        const classificationResult = await classifyTransaction(ctx.db, tableData.headers, tableData.rows.slice(0, 10), tableData.pageTexts);
         
-        const parsedTemplates = templates.map(t => ({
-          ...t,
-          columnSchema: t.columnSchema as {
-            columns: Record<string, { index: number; header: string }>;
-            parseRules?: { rowMergePattern?: "pair" | "none" };
-          },
-        }));
+        // 매칭된 템플릿 조회
+        let matchedTemplate: {
+          id: string;
+          name: string;
+          bankName: string | null;
+          identifiers: string[];
+          columnSchema: unknown;
+        } | null = null;
         
-        const matchedTemplate = matchByIdentifiers(
-          tableData.headers, 
-          parsedTemplates,
-          tableData.pageTexts
-        );
-        
-        // 매칭 신뢰도 계산
         let confidence = 0;
-        if (matchedTemplate) {
-          // 식별자 매칭 개수 기반 신뢰도
-          const identifiers = matchedTemplate.identifiers || [];
-          const pageTextContent = (tableData.pageTexts || []).join(" ").toLowerCase();
-          const headersContent = tableData.headers.join(" ").toLowerCase();
-          const matchedIdentifiers = identifiers.filter(id => 
-            pageTextContent.includes(id.toLowerCase()) || headersContent.includes(id.toLowerCase())
-          );
-          confidence = identifiers.length > 0 
-            ? Math.round((matchedIdentifiers.length / identifiers.length) * 100) 
-            : 50;
+        
+        if (classificationResult?.templateId) {
+          const tmpl = await ctx.db.transactionTemplate.findUnique({
+            where: { id: classificationResult.templateId },
+            select: { id: true, name: true, bankName: true, identifiers: true, columnSchema: true },
+          });
+          if (tmpl) {
+            matchedTemplate = tmpl;
+            confidence = Math.round(classificationResult.confidence * 100);
+          }
         }
         
         // 매칭된 템플릿이 있으면 파싱된 샘플 데이터 생성
@@ -1326,7 +1316,6 @@ export const fileRouter = createTRPCRouter({
         }[] = [];
         
         if (matchedTemplate) {
-          const { convertSchemaToMapping } = await import("~/lib/template-classifier");
           const templateSchema = matchedTemplate.columnSchema as {
             columns: Record<string, { index: number; header: string }>;
             parseRules?: { rowMergePattern?: "pair" | "none" };
@@ -1453,14 +1442,14 @@ export const fileRouter = createTRPCRouter({
             templateName: matchedTemplate.name,
             bankName: matchedTemplate.bankName,
             confidence,
-            identifiers: matchedTemplate.identifiers,
+            identifiers: matchedTemplate.identifiers as string[],
             columnSchema: matchedTemplate.columnSchema as {
               columns: Record<string, { index: number; header: string }>;
             } | null,
-            description: matchedTemplate.description,
-            sampleFileKey: (matchedTemplate as { sampleFileKey?: string | null }).sampleFileKey ?? null,
-            sampleFileName: (matchedTemplate as { sampleFileName?: string | null }).sampleFileName ?? null,
-            sampleFileMimeType: (matchedTemplate as { sampleFileMimeType?: string | null }).sampleFileMimeType ?? null,
+            description: undefined as string | undefined,
+            sampleFileKey: null as string | null,
+            sampleFileName: null as string | null,
+            sampleFileMimeType: null as string | null,
           } : {
             matched: false,
             templateId: null,
@@ -1475,19 +1464,25 @@ export const fileRouter = createTRPCRouter({
             sampleFileMimeType: null,
           },
           // 전체 템플릿 목록 (선택용) - columnSchema 및 샘플 파일 포함
-          availableTemplates: templates.map(t => ({
-            id: t.id,
-            name: t.name,
-            bankName: t.bankName,
-            description: t.description,
-            identifiers: t.identifiers,
-            columnSchema: t.columnSchema as {
-              columns: Record<string, { index: number; header: string }>;
-            } | null,
-            sampleFileKey: t.sampleFileKey,
-            sampleFileName: t.sampleFileName,
-            sampleFileMimeType: t.sampleFileMimeType,
-          })),
+          availableTemplates: await (async () => {
+            const allTemplates = await ctx.db.transactionTemplate.findMany({
+              where: { isActive: true },
+              orderBy: { priority: "desc" },
+            });
+            return allTemplates.map(t => ({
+              id: t.id,
+              name: t.name,
+              bankName: t.bankName,
+              description: t.description,
+              identifiers: t.identifiers,
+              columnSchema: t.columnSchema as {
+                columns: Record<string, { index: number; header: string }>;
+              } | null,
+              sampleFileKey: t.sampleFileKey,
+              sampleFileName: t.sampleFileName,
+              sampleFileMimeType: t.sampleFileMimeType,
+            }));
+          })(),
         };
       } else {
         // Excel/CSV
@@ -1548,19 +1543,25 @@ export const fileRouter = createTRPCRouter({
             columnSchema: null,
             description: undefined,
           },
-          availableTemplates: templates.map(t => ({
-            id: t.id,
-            name: t.name,
-            bankName: t.bankName,
-            description: t.description,
-            identifiers: t.identifiers,
-            columnSchema: t.columnSchema as {
-              columns: Record<string, { index: number; header: string }>;
-            } | null,
-            sampleFileKey: t.sampleFileKey,
-            sampleFileName: t.sampleFileName,
-            sampleFileMimeType: t.sampleFileMimeType,
-          })),
+          availableTemplates: await (async () => {
+            const allTemplates = await ctx.db.transactionTemplate.findMany({
+              where: { isActive: true },
+              orderBy: { priority: "desc" },
+            });
+            return allTemplates.map(t => ({
+              id: t.id,
+              name: t.name,
+              bankName: t.bankName,
+              description: t.description,
+              identifiers: t.identifiers,
+              columnSchema: t.columnSchema as {
+                columns: Record<string, { index: number; header: string }>;
+              } | null,
+              sampleFileKey: t.sampleFileKey,
+              sampleFileName: t.sampleFileName,
+              sampleFileMimeType: t.sampleFileMimeType,
+            }));
+          })(),
         };
       }
     }),
