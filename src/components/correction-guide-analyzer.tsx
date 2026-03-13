@@ -303,9 +303,9 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
     const file = files[0];
     if (!file) return;
     
-    const allowedTypes = ["application/pdf", "image/jpeg", "image/png", "image/gif", "image/webp"];
-    if (!allowedTypes.includes(file.type)) {
-      toast.error("PDF 또는 이미지 파일만 업로드할 수 있습니다");
+    const allowedTypes = ["application/pdf"];
+    if (!allowedTypes.includes(file.type) && !file.name.toLowerCase().endsWith(".pdf")) {
+      toast.error("PDF 파일만 업로드할 수 있습니다");
       return;
     }
 
@@ -646,7 +646,7 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
             <input
               ref={fileInputRef}
               type="file"
-              accept=".pdf,image/*"
+              accept=".pdf"
               className="hidden"
               onChange={(e) => e.target.files && void handleFiles(e.target.files)}
             />
@@ -659,7 +659,7 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
                   보정권고/명령서 업로드
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  파일을 드래그하거나 클릭하여 선택하세요
+                  PDF 파일을 드래그하거나 클릭하여 선택하세요
                 </p>
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -733,7 +733,7 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".pdf,image/*"
+                    accept=".pdf"
                     className="hidden"
                     onChange={(e) => e.target.files && void handleFiles(e.target.files)}
                   />
