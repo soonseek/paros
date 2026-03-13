@@ -89,7 +89,10 @@ export const fileRouter = createTRPCRouter({
       }
 
       // 2. MIME type validation (MEDIUM-3: Check against allowed types)
+      // PDF 확장자 파일은 MIME 타입이 비표준이어도 허용 (ePapyrus 등)
+      const isPdfByExtension = fileName.toLowerCase().endsWith(".pdf");
       if (
+        !isPdfByExtension &&
         !FILE_VALIDATION.ALLOWED_MIME_TYPES.includes(
           fileType as (typeof FILE_VALIDATION.ALLOWED_MIME_TYPES)[number]
         )
@@ -318,7 +321,10 @@ export const fileRouter = createTRPCRouter({
         }
 
         // MIME type validation
+        // PDF 확장자 파일은 MIME 타입이 비표준이어도 허용 (ePapyrus 등)
+        const isPdfByExtension = fileName.toLowerCase().endsWith(".pdf");
         if (
+          !isPdfByExtension &&
           !FILE_VALIDATION.ALLOWED_MIME_TYPES.includes(
             fileType as (typeof FILE_VALIDATION.ALLOWED_MIME_TYPES)[number]
           )

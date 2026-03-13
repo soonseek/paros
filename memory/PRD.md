@@ -139,6 +139,28 @@
 - [x] `user.ts`의 `no-non-null-asserted-optional-chain` 에러 수정
 - [x] `progress.ts`의 `no-misused-promises` 에러 eslint-disable 처리
 
+### 2026-03-10: 거래 순서 수정 (프론트엔드 보강)
+- [x] 백엔드 `transaction.search`에 잔액 기반 순서 보정 후처리 추가 (기존 데이터 호환)
+- [x] `rowNumber` 필드를 select에 추가하여 프론트엔드에 전달
+- [x] `SimplifiedTransactionTable` + `TransactionTable` 정렬 시 같은 날짜 내 `rowNumber` 보조 정렬
+
+### 2026-03-10: 보정권고 안내사항 504 타임아웃 수정 + AI 맞춤 안내문
+- [x] `analyzeDocument` 비동기 처리 (즉시 응답 + 백그라운드 처리 + 프론트엔드 폴링)
+- [x] GPT 프롬프트 변경: 템플릿 원문의 어투/간결함 유지, 최소한의 사실 대입만 수행
+- [x] `originalContent` 필드 추가: 매칭된 템플릿 원본과 수정본 동시 표시
+- [x] 기본 선택 로직: 신뢰도 50% 기준 제거 → 매칭된 항목은 전부 기본 선택
+
+### 2026-03-10: 보정권고 흠결사항 추출 GPT 기반 전환
+- [x] 기존 regex 기반 "흠결사항" 키워드 의존 → GPT 기반 추출로 전환
+- [x] 표 형태, 평문, 다양한 제목("보정할 사항", "보완사항" 등) 대응
+- [x] regex 기반 추출은 폴백으로 유지
+
+### 2026-03-10: 거래내역서 업로드 PDF 전용 + Upstage OCR 최적화
+- [x] 거래내역서 업로드: PDF만 허용 (Excel, CSV 제거)
+- [x] Upstage API `ocr: "force"` → `"auto"` (텍스트 기반 PDF는 직접 파싱, 이미지만 OCR)
+- [x] `application/vnd.epapyrus.plugin.pdf` MIME 타입 지원 추가
+- [x] `.pdf` 확장자 파일은 MIME 타입 무관하게 허용
+
 ## 백로그
 - P1: 비고 컬럼 미리보기 버그 (S3 설정 후 재현 테스트)
 - P1: 도움말 검색 기능

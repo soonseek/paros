@@ -326,15 +326,15 @@ export const correctionGuideRouter = createTRPCRouter({
             input.fileType
           );
 
-          // 5. 흠결사항 항목 추출
-          const defectItems = service.extractDefectItems(extractedText);
+          // 5. 보정사항 항목 추출 (GPT 기반 - 표/다양한 포맷 대응)
+          const defectItems = await service.extractDefectItemsWithAI(extractedText);
 
           if (defectItems.length === 0) {
             await db.correctionGuideAnalysis.update({
               where: { id: analysis.id },
               data: {
                 analysisStatus: "failed",
-                errorMessage: "흠결사항 항목을 찾을 수 없습니다. 문서 형식을 확인해주세요.",
+                errorMessage: "보정사항 항목을 찾을 수 없습니다. 문서 형식을 확인해주세요.",
               },
             });
             return;

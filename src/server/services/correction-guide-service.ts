@@ -36,11 +36,13 @@ export class CorrectionGuideService {
     const uint8Array = new Uint8Array(fileBuffer);
     const blob = new Blob([uint8Array], { type: mimeType });
     formData.append("document", blob, fileName);
-    formData.append("mode", "enhanced");  // 이미지/복잡한 문서용
-    formData.append("ocr", "force");      // OCR 강제 적용
-    formData.append("output_format", "text");  // 텍스트 추출
+    
+    // PDF 텍스트 기반이면 auto (직접 파싱), 이미지면 force (OCR 강제)
+    const isPdf = mimeType.includes("pdf") || fileName.toLowerCase().endsWith(".pdf");
+    formData.append("ocr", isPdf ? "auto" : "force");
+    formData.append("output_formats", '["text"]');
 
-    const response = await fetch("https://api.upstage.ai/v1/document-ai/document-parse", {
+    const response = await fetch("https://api.upstage.ai/v1/document-digitization", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
@@ -54,10 +56,24 @@ export class CorrectionGuideService {
       throw new Error(`Upstage API 오류: ${response.status} - ${errorText}`);
     }
 
-    const result = await response.json() as { content?: { text?: string }, text?: string };
+    const result = await response.json() as { 
+      content?: { text?: string };
+      elements?: Array<{ content?: { text?: string }; category?: string }>;
+      text?: string;
+    };
     
-    // 응답에서 텍스트 추출
-    const extractedText = result.content?.text ?? result.text ?? "";
+    // 응답에서 텍스트 추출 (elements 기반 또는 content 기반)
+    let extractedText = "";
+    if (result.elements && result.elements.length > 0) {
+      // elements에서 텍스트 추출 (표 포함)
+      extractedText = result.elements
+        .map(el => el.content?.text ?? "")
+        .filter(t => t.length > 0)
+        .join("\n");
+    }
+    if (!extractedText) {
+      extractedText = result.content?.text ?? result.text ?? "";
+    }
     
     console.log(`[CorrectionGuideService] OCR 완료: ${extractedText.length}자 추출`);
     
@@ -65,9 +81,99 @@ export class CorrectionGuideService {
   }
 
   /**
-   * 텍스트에서 "흠결사항" 섹션의 항목들 추출
+   * 텍스트에서 보정권고/명령 항목들 추출
+   * - GPT 기반: 표 형태, 다양한 포맷, 비정형 문서 대응
+   * - 폴백: regex 기반 추출
    */
-  extractDefectItems(text: string): ExtractedDefectItem[] {
+  async extractDefectItemsWithAI(text: string): Promise<ExtractedDefectItem[]> {
+    // 텍스트가 너무 짧으면 regex로 폴백
+    if (text.length < 30) {
+      return this.extractNumberedItems(text);
+    }
+
+    try {
+      const apiKey = process.env.OPENAI_API_KEY;
+      if (!apiKey) {
+        console.log("[CorrectionGuideService] OpenAI 키 없음, regex 폴백");
+        return this.extractDefectItemsRegex(text);
+      }
+
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: `당신은 법원 보정권고/보정명령 문서에서 보정사항(흠결사항, 보완사항, 보정항목 등)을 추출하는 전문가입니다.
+
+문서 형식은 매우 다양합니다:
+- "흠결사항" 제목 아래 번호 목록
+- 표(테이블) 형태
+- 평문 서술형
+- "보정할 사항", "보완할 사항", "보정명령 사항" 등 다양한 제목
+- 번호 없이 "-" 또는 "·" 로 나열
+- 혼합 형태
+
+**규칙:**
+1. 각 보정사항을 개별 항목으로 분리하세요
+2. 표에서는 각 행을 하나의 항목으로 추출하세요
+3. 항목 번호가 없으면 순서대로 1, 2, 3... 부여하세요
+4. 항목 내용은 원문 그대로 유지하세요 (요약하지 마세요)
+5. 사건번호, 법원명, 날짜 등 메타정보는 제외하세요
+
+JSON 응답:
+{ "items": [ { "number": 1, "content": "항목 원문" } ] }`
+            },
+            {
+              role: "user",
+              content: `다음 문서에서 보정사항/흠결사항을 추출하세요:\n\n${text.substring(0, 6000)}`
+            }
+          ],
+          temperature: 0.1,
+          max_tokens: 3000,
+          response_format: { type: "json_object" },
+        }),
+      });
+
+      if (!response.ok) {
+        console.error("[CorrectionGuideService] GPT 항목 추출 실패, regex 폴백");
+        return this.extractDefectItemsRegex(text);
+      }
+
+      const gptResult = await response.json() as {
+        choices?: Array<{ message?: { content?: string } }>;
+      };
+      const content = gptResult.choices?.[0]?.message?.content ?? "{}";
+      const parsed = JSON.parse(content) as { items?: Array<{ number: number; content: string }> };
+      
+      const items = (parsed.items ?? [])
+        .filter(item => item.content && item.content.length >= 5)
+        .map((item, idx) => ({
+          number: item.number || (idx + 1),
+          content: item.content.trim(),
+        }));
+
+      console.log(`[CorrectionGuideService] GPT 기반 ${items.length}개 항목 추출됨`);
+      
+      if (items.length > 0) return items;
+      
+      // GPT가 항목을 못 찾으면 regex 폴백
+      return this.extractDefectItemsRegex(text);
+    } catch (error) {
+      console.error("[CorrectionGuideService] GPT 항목 추출 에러:", error);
+      return this.extractDefectItemsRegex(text);
+    }
+  }
+
+  /**
+   * regex 기반 항목 추출 (폴백)
+   */
+  extractDefectItemsRegex(text: string): ExtractedDefectItem[] {
     const items: ExtractedDefectItem[] = [];
     
     // "흠결사항" 키워드 이후의 텍스트 찾기
@@ -75,12 +181,19 @@ export class CorrectionGuideService {
     
     if (!defectSectionMatch) {
       console.log("[CorrectionGuideService] '흠결사항' 섹션을 찾을 수 없음, 전체 텍스트에서 번호 항목 추출 시도");
-      // 흠결사항 섹션이 없으면 전체 텍스트에서 번호 패턴 찾기
       return this.extractNumberedItems(text);
     }
 
     const defectSection = defectSectionMatch[0];
     return this.extractNumberedItems(defectSection);
+  }
+
+  /**
+   * 기존 extractDefectItems - 하위 호환용 (GPT 기반으로 우회)
+   */
+  extractDefectItems(text: string): ExtractedDefectItem[] {
+    // 동기 호출 필요 시 regex 폴백
+    return this.extractDefectItemsRegex(text);
   }
 
   /**

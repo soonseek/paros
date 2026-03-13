@@ -422,7 +422,7 @@ export const templateRouter = createTRPCRouter({
     }))
     .mutation(async ({ ctx, input }) => {
       const fileBuffer = Buffer.from(input.fileBase64, "base64");
-      const isPdf = input.mimeType === "application/pdf" || input.fileName.toLowerCase().endsWith(".pdf");
+      const isPdf = input.mimeType === "application/pdf" || input.mimeType.includes("pdf") || input.fileName.toLowerCase().endsWith(".pdf");
       
       console.log(`[Template Analyze] Processing ${isPdf ? "PDF" : "Image"}: ${input.fileName}`);
       

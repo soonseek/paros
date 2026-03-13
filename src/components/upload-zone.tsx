@@ -474,8 +474,6 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess, userR
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     onDrop,
     accept: {
-      "application/vnd.ms-excel": [".xlsx", ".xls"],
-      "text/csv": [".csv"],
       "application/pdf": [".pdf"],
     },
     multiple: true,
@@ -741,7 +739,7 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess, userR
                         <>파일을 드래그하거나 <span className="text-primary underline">클릭</span></>
                       )}
                     </p>
-                    <p className="text-xs text-muted-foreground">Excel, CSV, PDF • 최대 1GB</p>
+                    <p className="text-xs text-muted-foreground">PDF • 최대 1GB</p>
                   </div>
                 </div>
               )}

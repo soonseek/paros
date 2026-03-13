@@ -189,12 +189,12 @@ async function parseSinglePdf(
   // Add Upstage API parameters (based on official Python guide)
   // Reference: https://console.upstage.ai/docs/capabilities/digitize/document-parsing
   formData.append("model", "document-parse-nightly");
-  formData.append("ocr", "force"); // Auto OCR mode
+  formData.append("ocr", "auto"); // auto: 텍스트 PDF는 직접 파싱, 이미지 PDF만 OCR
   formData.append("chart_recognition", "true"); // Enable chart recognition
   formData.append("coordinates", "true"); // Enable coordinate extraction
   formData.append("output_formats", '["html","text"]'); // Request both HTML and text
   formData.append("base64_encoding", '["figure"]'); // Base64 encode figures
-  formData.append("merge_multipage_tables", "true"); // Base64 encode figures
+  formData.append("merge_multipage_tables", "true"); // 다중 페이지 테이블 병합
 
   try {
     console.log("[Upstage API] Calling document-digitization endpoint...");

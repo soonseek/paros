@@ -32,6 +32,7 @@ export const FILE_VALIDATION = {
     "text/csv",
     "application/csv",
     "application/pdf",
+    "application/vnd.epapyrus.plugin.pdf", // ePapyrus PDF
   ] as const,
 
   /** Maximum PDF pages to prevent parsing timeout */
