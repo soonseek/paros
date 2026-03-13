@@ -294,17 +294,32 @@ function normalizeDate(value: any): string {
 function determineTypeAndAmount(
   row: Record<string, any>,
   mapping: ColumnMapping
-): { type: '입금' | '출금'; amount: number } {
+): { type: '입금' | '출금'; amount: number } | null {
   // 카카오페이 방식 (거래구분 컬럼 사용)
   if (mapping.transactionType) {
     const typeValue = String(row[mapping.transactionType] || '');
     const isDeposit = typeValue.includes('+') || typeValue.includes('입금') || typeValue.includes('충전') || typeValue.includes('받기') || typeValue.includes('적립');
+    const isWithdrawal = typeValue.includes('-') || typeValue.includes('출금') || typeValue.includes('보내기') || typeValue.includes('차감') || typeValue.includes('이체') || typeValue.includes('결제') || typeValue.includes('지급') || typeValue.includes('인출');
+    
+    // 매도/매수 등 비입출금 거래 → 필터링 (null 반환)
+    if (!isDeposit && !isWithdrawal && typeValue.trim().length > 0) {
+      return null;
+    }
+    
     const amount = parseAmount(row[mapping.withdrawalAmount || ''] || row['거래금액'] || 0);
     
     return {
       type: isDeposit ? '입금' : '출금',
       amount: isDeposit ? amount : -amount
     };
+  }
+  
+  // D형: 단일 금액 컬럼에 부호 포함 (거래구분 없음)
+  // 금액이 양수면 입금, 음수면 출금
+  const singleAmount = parseAmount(row['거래금액'] || row['금액'] || 0);
+  if (singleAmount !== 0 && !mapping.withdrawalAmount && !mapping.depositAmount) {
+    if (singleAmount > 0) return { type: '입금', amount: singleAmount };
+    if (singleAmount < 0) return { type: '출금', amount: singleAmount };
   }
   
   // 일반 방식 (입금/출금 컬럼 분리)
@@ -400,8 +415,11 @@ export function normalizeTransactions(
       const transactionDate = normalizeDate(row[mapping.date || ''] || '');
       if (!transactionDate) continue; // 날짜 없으면 스킵
       
-      // 타입 및 금액 결정
-      const { type, amount } = determineTypeAndAmount(row, mapping);
+      // 타입 및 금액 결정 (매도/매수 등 비입출금은 null 반환)
+      const typeAndAmount = determineTypeAndAmount(row, mapping);
+      if (!typeAndAmount) continue; // 비입출금 거래 스킵
+      
+      const { type, amount } = typeAndAmount;
       
       // 잔액
       const balance = parseAmount(row[mapping.balance || ''] || 0);

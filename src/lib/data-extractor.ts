@@ -432,7 +432,7 @@ export async function extractAndSaveTransactions(
           withdrawalAmount = parseAmount(withdrawalRaw);
         }
       }
-      // Case 2: 단일 금액 + 거래구분 ([+]/[-])
+      // Case 2: 단일 금액 컬럼 (거래구분 있거나 금액 부호로 판단)
       else if (columnMapping.amount !== undefined) {
         const amount = parseAmount(row[columnMapping.amount]);
         const transactionTypeRaw = columnMapping.transaction_type !== undefined
@@ -442,26 +442,68 @@ export async function extractAndSaveTransactions(
         // 병합된 행 대응: 첫 단어만 추출 ("출금 NH올원뱅크" → "출금")
         const transactionType = extractFirstWord(transactionTypeRaw);
 
-        // 1. 금액 부호 기반 판단 (토스뱅크 등: 양수=입금, 음수=출금)
-        if (amount !== null && amount !== 0) {
+        // D형: 금액 자체에 +/- 부호 포함 (거래구분 컬럼 없음)
+        if (!columnMapping.transaction_type && amount !== null) {
           if (amount > 0) {
-            // 양수 금액 = 입금
             depositAmount = amount;
-          } else {
-            // 음수 금액 = 출금 (절대값으로 저장)
+          } else if (amount < 0) {
             withdrawalAmount = Math.abs(amount);
+          } else {
+            // 금액이 0인 경우 스킵
+            skipped++;
+            errors.push({ row: i + 1, error: "Amount is 0" });
+            continue;
           }
         }
-        // 2. 거래구분 키워드 기반 판단 (금액이 0이거나 없는 경우)
-        else if (amount !== null) {
-          // [+] 또는 입금 관련 키워드면 입금, [-] 또는 출금 관련 키워드면 출금
+        // 거래구분 컬럼이 있는 경우: 입금/출금만 처리, 매도/매수 등 비입출금 필터링
+        else if (columnMapping.transaction_type) {
+          // 입금 관련 키워드
           const isDeposit = transactionType.includes("+") ||
             transactionType.includes("입금") ||
             transactionType.includes("받기") ||
             transactionType.includes("충전") ||
             transactionType.includes("적립");
+          
+          // 출금 관련 키워드
+          const isWithdrawal = transactionType.includes("-") ||
+            transactionType.includes("출금") ||
+            transactionType.includes("보내기") ||
+            transactionType.includes("차감") ||
+            transactionType.includes("이체") ||
+            transactionType.includes("결제") ||
+            transactionType.includes("지급") ||
+            transactionType.includes("인출");
 
-          if (isDeposit) {
+          // 입출금도 아닌 경우 (매도, 매수, 체결, 배당 등) → 스킵
+          if (!isDeposit && !isWithdrawal) {
+            skipped++;
+            errors.push({ row: i + 1, error: `Non-deposit/withdrawal transaction type: "${transactionType}"` });
+            continue;
+          }
+
+          // 금액 부호 기반 판단 (양수=입금, 음수=출금)
+          if (amount !== null && amount !== 0) {
+            if (amount > 0) {
+              depositAmount = isDeposit ? amount : null;
+              withdrawalAmount = isWithdrawal ? amount : null;
+            } else {
+              depositAmount = isDeposit ? Math.abs(amount) : null;
+              withdrawalAmount = isWithdrawal ? Math.abs(amount) : null;
+            }
+            // 키워드 기반으로 결정이 안 된 경우 부호로 판단
+            if (!depositAmount && !withdrawalAmount) {
+              if (amount > 0) depositAmount = amount;
+              else withdrawalAmount = Math.abs(amount);
+            }
+          } else if (amount !== null) {
+            // 금액이 0인 경우
+            if (isDeposit) depositAmount = Math.abs(amount);
+            else withdrawalAmount = Math.abs(amount);
+          }
+        }
+        // 거래구분도 없고 금액 부호도 없는 경우 (폴백)
+        else if (amount !== null && amount !== 0) {
+          if (amount > 0) {
             depositAmount = amount;
           } else {
             withdrawalAmount = Math.abs(amount);

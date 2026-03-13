@@ -161,6 +161,12 @@
 - [x] `application/vnd.epapyrus.plugin.pdf` MIME 타입 지원 추가
 - [x] `.pdf` 확장자 파일은 MIME 타입 무관하게 허용
 
+### 2026-03-10: 거래내역서 D형 + C형 확장
+- [x] D형 지원: 거래금액에 +/- 부호가 포함된 형식 (거래구분 컬럼 없이 금액 부호로 입출금 판단)
+- [x] C형 확장: 매도/매수/체결 등 비입출금 거래 자동 필터링 (입금/출금만 처리)
+- [x] LLM 프롬프트에 D형(amount_sign) 설명 추가
+- [x] data-extractor.ts, template-classifier.ts, transaction-normalizer.ts 동시 수정
+
 ## 백로그
 - P1: 비고 컬럼 미리보기 버그 (S3 설정 후 재현 테스트)
 - P1: 도움말 검색 기능
