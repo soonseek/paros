@@ -287,7 +287,7 @@ ${defectItems.map(item => `${item.number}. ${item.content}`).join("\n")}
         } : null,
         confidenceScore: match?.confidenceScore ?? 0,
         matchReason: match?.reason ?? "매칭 결과를 찾을 수 없습니다",
-        isSelected: (match?.confidenceScore ?? 0) >= 50,  // 50% 이상이면 기본 선택
+        isSelected: !!(template ?? match?.customizedContent),  // 매칭 또는 AI 생성 안내문이 있으면 기본 선택
       };
     });
 
