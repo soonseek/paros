@@ -664,8 +664,6 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Badge variant="secondary">PDF</Badge>
-                <Badge variant="secondary">JPG</Badge>
-                <Badge variant="secondary">PNG</Badge>
                 <span>최대 20MB</span>
               </div>
             </div>
