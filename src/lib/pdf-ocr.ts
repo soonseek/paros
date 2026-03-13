@@ -188,7 +188,7 @@ async function parseSinglePdf(
 
   // Add Upstage API parameters (based on official Python guide)
   // Reference: https://console.upstage.ai/docs/capabilities/digitize/document-parsing
-  formData.append("model", "document-parse-nightly");
+  formData.append("model", "document-parse");
   formData.append("ocr", "auto"); // auto: 텍스트 PDF는 직접 파싱, 이미지 PDF만 OCR
   formData.append("chart_recognition", "true"); // Enable chart recognition
   formData.append("coordinates", "true"); // Enable coordinate extraction

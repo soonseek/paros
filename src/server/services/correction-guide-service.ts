@@ -36,6 +36,7 @@ export class CorrectionGuideService {
     const uint8Array = new Uint8Array(fileBuffer);
     const blob = new Blob([uint8Array], { type: mimeType });
     formData.append("document", blob, fileName);
+    formData.append("model", "document-parse");
     
     // PDF 텍스트 기반이면 auto (직접 파싱), 이미지면 force (OCR 강제)
     const isPdf = mimeType.includes("pdf") || fileName.toLowerCase().endsWith(".pdf");
