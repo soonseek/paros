@@ -175,13 +175,11 @@ export class CorrectionGuideService {
     }));
 
     // GPT 프롬프트 구성
-    const systemPrompt = `당신은 법률 문서 분석 전문가입니다. 보정권고/명령서의 흠결사항과 미리 준비된 안내 템플릿을 매칭하는 작업을 수행합니다.
+    const systemPrompt = `당신은 법률 문서 분석 전문가입니다. 보정권고/명령서의 흠결사항 각각에 대해:
+1. 가장 적절한 안내 템플릿을 매칭하고
+2. 템플릿의 내용을 **실제 흠결사항 내용에 맞게 수정**하여 의뢰인이 이해할 수 있는 맞춤 안내문을 작성하세요.
 
-주어진 흠결사항 각각에 대해 가장 적절한 템플릿을 찾아 매칭하세요. 
-매칭 시 다음을 고려하세요:
-1. 흠결사항의 내용과 템플릿의 제목/내용의 관련성
-2. 템플릿의 specialNotes(특이사항)에 명시된 조건
-3. 법률 용어와 맥락의 일치도
+중요: 템플릿 내용을 그대로 복사하지 마세요! 템플릿은 "지침/가이드라인"이고, 실제 보정권고의 구체적인 내용(채무자명, 서류명, 기한 등)을 반영하여 의뢰인이 무엇을 준비해야 하는지 명확하게 안내해야 합니다.
 
 응답 형식 (JSON):
 {
@@ -190,24 +188,34 @@ export class CorrectionGuideService {
       "itemNumber": 1,
       "templateId": "template-uuid 또는 null",
       "confidenceScore": 85,
-      "reason": "매칭 판단 근거를 한국어로 설명"
+      "reason": "매칭 판단 근거",
+      "customizedContent": "실제 흠결사항에 맞게 수정된 안내문 (의뢰인이 무엇을 준비/제출해야 하는지 구체적으로)"
     }
   ]
 }
 
-confidenceScore는 0-100 사이이며:
+confidenceScore는 0-100 사이:
 - 90 이상: 매우 확실한 매칭
-- 70-89: 높은 확률의 매칭
+- 70-89: 높은 확률
 - 50-69: 중간 확률
-- 50 미만: 낮은 확률 (null 반환 권장)`;
+- 50 미만: 낮은 확률 (null 반환 권장)
 
-    const userPrompt = `## 템플릿 목록
+customizedContent 작성 지침:
+- 의뢰인(비전문가)이 읽고 바로 행동할 수 있도록 쉽게 작성
+- 흠결사항에 언급된 구체적 서류, 기한, 조건을 반영
+- 준비물, 제출 방법, 주의사항을 포함
+- 템플릿에 없는 내용이라도 흠결사항에서 요구하는 것이면 추가`;
+
+    const userPrompt = `## 안내 템플릿 목록 (지침/가이드라인)
 ${JSON.stringify(templateSummary, null, 2)}
 
-## 흠결사항 목록
+## 보정권고서 흠결사항 목록 (실제 내용)
 ${defectItems.map(item => `${item.number}. ${item.content}`).join("\n")}
 
-각 흠결사항에 가장 적합한 템플릿을 매칭해주세요.`;
+각 흠결사항에 대해:
+1. 가장 적합한 템플릿을 매칭하고
+2. 해당 템플릿의 내용을 이 흠결사항의 구체적 내용에 맞게 수정하여 의뢰인용 안내문(customizedContent)을 작성해주세요.
+매칭되는 템플릿이 없더라도, 흠결사항 내용을 바탕으로 의뢰인이 해야 할 일을 안내해주세요.`;
 
     // OpenAI API 호출
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -223,7 +231,7 @@ ${defectItems.map(item => `${item.number}. ${item.content}`).join("\n")}
           { role: "user", content: userPrompt },
         ],
         temperature: 0.3,
-        max_tokens: 2000,
+        max_tokens: 4000,
         response_format: { type: "json_object" },
       }),
     });
@@ -239,7 +247,7 @@ ${defectItems.map(item => `${item.number}. ${item.content}`).join("\n")}
     };
     const content = gptResult.choices?.[0]?.message?.content ?? "{}";
 
-    let matchData: { matches?: Array<{ itemNumber: number; templateId?: string | null; confidenceScore: number; reason: string }> };
+    let matchData: { matches?: Array<{ itemNumber: number; templateId?: string | null; confidenceScore: number; reason: string; customizedContent?: string }> };
     try {
       matchData = JSON.parse(content) as typeof matchData;
     } catch {
@@ -247,12 +255,17 @@ ${defectItems.map(item => `${item.number}. ${item.content}`).join("\n")}
       matchData = { matches: [] };
     }
 
-    // 결과 조합
+    // 결과 조합 - customizedContent 우선 사용
     const results: TemplateMatchResult[] = defectItems.map(item => {
       const match = matchData.matches?.find(m => m.itemNumber === item.number);
       const template = match?.templateId 
         ? templates.find(t => t.id === match.templateId) 
         : null;
+
+      // GPT가 생성한 맞춤 안내문이 있으면 사용, 없으면 템플릿 원문 사용
+      const finalContent = match?.customizedContent 
+        ?? template?.content 
+        ?? "";
 
       return {
         itemNumber: item.number,
@@ -260,9 +273,16 @@ ${defectItems.map(item => `${item.number}. ${item.content}`).join("\n")}
         matchedTemplate: template ? {
           id: template.id,
           title: template.title,
-          content: template.content,
+          content: finalContent,
           images: (template.images as unknown as FileInfo[]) ?? [],
           files: (template.files as unknown as FileInfo[]) ?? [],
+        } : match?.customizedContent ? {
+          // 템플릿 매칭이 없어도 GPT가 안내문을 생성한 경우
+          id: "ai-generated",
+          title: `흠결사항 ${item.number} 안내`,
+          content: match.customizedContent,
+          images: [],
+          files: [],
         } : null,
         confidenceScore: match?.confidenceScore ?? 0,
         matchReason: match?.reason ?? "매칭 결과를 찾을 수 없습니다",

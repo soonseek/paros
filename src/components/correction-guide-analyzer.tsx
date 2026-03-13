@@ -175,16 +175,48 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
     }
   }, [latestAnalysis?.id]);
 
-  // 분석 실행 mutation
+  // 분석 실행 mutation (비동기 - 즉시 반환 후 폴링)
+  const [pollingAnalysisId, setPollingAnalysisId] = useState<string | null>(null);
+  
   const analyzeMutation = api.correctionGuide.analyzeDocument.useMutation({
-    onSuccess: () => {
-      toast.success("보정권고서 분석이 완료되었습니다");
-      void utils.correctionGuide.getAnalysesForCase.invalidate({ caseId });
+    onSuccess: (data) => {
+      // 분석이 비동기로 시작됨 - 폴링 시작
+      setPollingAnalysisId(data.id);
+      toast.info("보정권고서 분석을 시작합니다...");
     },
     onError: (error) => {
       toast.error(error.message || "분석에 실패했습니다");
     },
   });
+
+  // 분석 상태 폴링
+  const { data: pollingData } = api.correctionGuide.getAnalysis.useQuery(
+    { id: pollingAnalysisId! },
+    {
+      enabled: !!pollingAnalysisId,
+      refetchInterval: (query) => {
+        const status = query.state.data?.analysisStatus;
+        if (status === "completed" || status === "failed") return false;
+        return 2000; // 2초마다 폴링
+      },
+    }
+  );
+
+  // 폴링 결과 처리
+  useEffect(() => {
+    if (!pollingData || !pollingAnalysisId) return;
+    
+    if (pollingData.analysisStatus === "completed") {
+      toast.success("보정권고서 분석이 완료되었습니다");
+      void utils.correctionGuide.getAnalysesForCase.invalidate({ caseId });
+      setPollingAnalysisId(null);
+      setIsUploading(false);
+    } else if (pollingData.analysisStatus === "failed") {
+      toast.error(pollingData.errorMessage || "분석에 실패했습니다");
+      setPollingAnalysisId(null);
+      setIsUploading(false);
+    }
+  }, [pollingData?.analysisStatus, pollingAnalysisId]);
 
   // 선택 항목 업데이트 mutation
   const updateSelectionMutation = api.correctionGuide.updateSelectedItems.useMutation({
@@ -302,9 +334,9 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
         fileData,
         fileType: file.type,
       });
+      // isUploading은 폴링 완료 시 false로 변경됨
     } catch (error) {
       console.error("파일 업로드 실패:", error);
-    } finally {
       setIsUploading(false);
     }
   }, [caseId, analyzeMutation]);
