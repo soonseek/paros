@@ -177,9 +177,15 @@ export class CorrectionGuideService {
     // GPT 프롬프트 구성
     const systemPrompt = `당신은 법률 문서 분석 전문가입니다. 보정권고/명령서의 흠결사항 각각에 대해:
 1. 가장 적절한 안내 템플릿을 매칭하고
-2. 템플릿의 내용을 **실제 흠결사항 내용에 맞게 수정**하여 의뢰인이 이해할 수 있는 맞춤 안내문을 작성하세요.
+2. 템플릿 원문을 **최소한으로만 수정**하여 흠결사항의 구체적 사실을 대입하세요.
 
-중요: 템플릿 내용을 그대로 복사하지 마세요! 템플릿은 "지침/가이드라인"이고, 실제 보정권고의 구체적인 내용(채무자명, 서류명, 기한 등)을 반영하여 의뢰인이 무엇을 준비해야 하는지 명확하게 안내해야 합니다.
+**수정 원칙 (매우 중요):**
+- 템플릿의 어투, 문체, 간결함을 그대로 유지하세요
+- 확대 해석하거나 친절한 설명을 추가하지 마세요
+- 수정은 오직 "특수 사실의 대입" 수준만 허용합니다
+  예: "XX 은행" → "하나은행", "해당 서류" → "주민등록등본" 등
+- 템플릿에 없는 문장이나 안내를 새로 만들지 마세요
+- 템플릿 원문이 3줄이면 수정본도 3줄 이내로 유지하세요
 
 응답 형식 (JSON):
 {
@@ -189,7 +195,7 @@ export class CorrectionGuideService {
       "templateId": "template-uuid 또는 null",
       "confidenceScore": 85,
       "reason": "매칭 판단 근거",
-      "customizedContent": "실제 흠결사항에 맞게 수정된 안내문 (의뢰인이 무엇을 준비/제출해야 하는지 구체적으로)"
+      "customizedContent": "템플릿 원문에서 특수 사실만 대입한 수정본"
     }
   ]
 }
@@ -200,22 +206,15 @@ confidenceScore는 0-100 사이:
 - 50-69: 중간 확률
 - 50 미만: 낮은 확률 (null 반환 권장)
 
-customizedContent 작성 지침:
-- 의뢰인(비전문가)이 읽고 바로 행동할 수 있도록 쉽게 작성
-- 흠결사항에 언급된 구체적 서류, 기한, 조건을 반영
-- 준비물, 제출 방법, 주의사항을 포함
-- 템플릿에 없는 내용이라도 흠결사항에서 요구하는 것이면 추가`;
+매칭되는 템플릿이 없으면 templateId를 null로, customizedContent는 흠결사항 원문을 그대로 넣으세요.`;
 
-    const userPrompt = `## 안내 템플릿 목록 (지침/가이드라인)
+    const userPrompt = `## 안내 템플릿 목록
 ${JSON.stringify(templateSummary, null, 2)}
 
-## 보정권고서 흠결사항 목록 (실제 내용)
+## 보정권고서 흠결사항 목록
 ${defectItems.map(item => `${item.number}. ${item.content}`).join("\n")}
 
-각 흠결사항에 대해:
-1. 가장 적합한 템플릿을 매칭하고
-2. 해당 템플릿의 내용을 이 흠결사항의 구체적 내용에 맞게 수정하여 의뢰인용 안내문(customizedContent)을 작성해주세요.
-매칭되는 템플릿이 없더라도, 흠결사항 내용을 바탕으로 의뢰인이 해야 할 일을 안내해주세요.`;
+각 흠결사항에 대해 가장 적합한 템플릿을 매칭하고, 템플릿 원문에서 흠결사항의 구체적 사실(기관명, 서류명, 기한, 인명 등)만 대입하여 customizedContent를 작성하세요. 어투와 분량은 템플릿 원문 그대로 유지하세요.`;
 
     // OpenAI API 호출
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -255,7 +254,7 @@ ${defectItems.map(item => `${item.number}. ${item.content}`).join("\n")}
       matchData = { matches: [] };
     }
 
-    // 결과 조합 - customizedContent 우선 사용
+    // 결과 조합 - customizedContent 우선 사용, originalContent도 함께 반환
     const results: TemplateMatchResult[] = defectItems.map(item => {
       const match = matchData.matches?.find(m => m.itemNumber === item.number);
       const template = match?.templateId 
@@ -274,6 +273,7 @@ ${defectItems.map(item => `${item.number}. ${item.content}`).join("\n")}
           id: template.id,
           title: template.title,
           content: finalContent,
+          originalContent: template.content, // 템플릿 원본 내용
           images: (template.images as unknown as FileInfo[]) ?? [],
           files: (template.files as unknown as FileInfo[]) ?? [],
         } : match?.customizedContent ? {
@@ -281,6 +281,7 @@ ${defectItems.map(item => `${item.number}. ${item.content}`).join("\n")}
           id: "ai-generated",
           title: `흠결사항 ${item.number} 안내`,
           content: match.customizedContent,
+          originalContent: null,
           images: [],
           files: [],
         } : null,

@@ -852,11 +852,26 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
 
                           {/* 템플릿 내용 미리보기 또는 수동 추가 버튼 */}
                           {hasTemplate ? (
-                            <div>
-                              <h4 className="text-xs font-semibold text-gray-500 mb-1.5">안내 내용</h4>
-                              <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap line-clamp-4">
-                                {item.matchedTemplate?.content}
-                              </p>
+                            <div className="space-y-3">
+                              {/* 매칭된 템플릿 정보 */}
+                              {item.matchedTemplate?.originalContent && (
+                                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-md p-3 border border-gray-200 dark:border-gray-700">
+                                  <h4 className="text-xs font-semibold text-gray-400 mb-1.5 flex items-center gap-1">
+                                    <FileText className="h-3 w-3" />
+                                    매칭 템플릿: {item.matchedTemplate?.title}
+                                  </h4>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 whitespace-pre-wrap line-clamp-4">
+                                    {item.matchedTemplate.originalContent}
+                                  </p>
+                                </div>
+                              )}
+                              {/* 수정된 안내 내용 */}
+                              <div>
+                                <h4 className="text-xs font-semibold text-gray-500 mb-1.5">안내 내용 (흠결사항 반영)</h4>
+                                <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap line-clamp-4">
+                                  {item.matchedTemplate?.content}
+                                </p>
+                              </div>
                             </div>
                           ) : (
                             <Button
