@@ -2041,11 +2041,10 @@ export const fileRouter = createTRPCRouter({
       
       // PDF: extractedData를 저장하지 않음 → performExtraction이 전체 PDF를 페이지별로 파싱
       // Excel: extractedData를 저장 (전체 데이터가 이미 있으므로)
-      // 미리보기 데이터(3페이지)를 extractedData로 저장
-      // → performExtraction이 Upstage API 없이 즉시 처리 (504 방지)
-      const extractedDataToStore = { headers, rows };
+      const isPdf = document.mimeType.includes("pdf");
+      const extractedDataToStore = isPdf ? null : { headers, rows };
       
-      console.log(`[analyzeWithTemplate] Storing ${rows.length} preview rows, columnMapping:`, JSON.stringify(columnMapping));
+      console.log(`[analyzeWithTemplate] isPdf=${isPdf}, extractedData=${isPdf ? 'NOT stored (performExtraction will parse full PDF)' : `stored (${rows.length} rows)`}`);
 
       // Create/update FileAnalysisResult
       const analysisResult = await ctx.db.fileAnalysisResult.upsert({
@@ -2057,7 +2056,7 @@ export const fileRouter = createTRPCRouter({
           columnMapping: columnMapping as Prisma.InputJsonValue,
           headerRowIndex: 0,
           totalRows: rows.length,
-          detectedFormat: document.mimeType.includes("pdf") ? "pdf" : "excel",
+          detectedFormat: isPdf ? "pdf" : "excel",
           hasHeaders: true,
           confidence: 1.0,
           extractedData: extractedDataToStore as Prisma.InputJsonValue,
@@ -2193,21 +2192,20 @@ async function performExtraction(
 }> {
   const { id: documentId, s3Key, caseId } = document;
 
+  // Download file from S3
+  const fileBuffer = await downloadFile(s3Key);
+
   let rawData: unknown[][];
   let headerRow: string[];
 
   // Check if we have extractedData from analyzeFile (reuse to avoid calling Upstage API again)
   if (analysisResult.extractedData) {
-    console.log("[Extract Data] Reusing extracted data (no S3 download or Upstage API needed)");
+    console.log("[Extract Data] Reusing extracted data from analyzeFile...");
     const extractedData = analysisResult.extractedData as { headers: string[]; rows: string[][] };
     rawData = [extractedData.headers, ...extractedData.rows];
     headerRow = extractedData.headers;
-    console.log(`[Extract Data] Reused ${extractedData.rows.length} rows`);
-  } else {
-    // extractedData가 없는 경우에만 파일 다운로드
-    const fileBuffer = await downloadFile(s3Key);
-    
-    if (mimeType.includes("pdf")) {
+    console.log(`[Extract Data] Reused ${extractedData.rows.length} rows from previous extraction`);
+  } else if (mimeType.includes("pdf")) {
     // PDF: 전체 파일을 3페이지씩 분할 처리 (504 타임아웃 방지 + 컬럼 구조 일관성)
     console.log("[PDF Extraction] Parsing full PDF page by page...");
     const { parsePdfWithUpstage } = await import("~/lib/pdf-ocr");
@@ -2295,7 +2293,6 @@ async function performExtraction(
 
     headerRow = rawData[0] as string[];
   }
-  } // end of else (no extractedData)
 
   if (rawData.length === 0) {
     throw new Error("파일에 데이터가 없습니다");
