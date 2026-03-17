@@ -440,7 +440,13 @@ export async function extractAndSaveTransactions(
       const dateValue = row[columnMapping.date];
       let transactionDate = parseDate(dateValue);
 
-      // 날짜 이어받기: 합쳐진 "거래일시적요" 컬럼에서 날짜가 없는 행은 앞 행 날짜 사용
+      // Fallback: OCR이 날짜를 행번호 컬럼(col[0])에 합쳐서 넣는 경우 대응
+      // 예: col[0]="2 2025.01.09", col[1]="11:01: 자동이체"
+      if (!transactionDate && columnMapping.date !== 0) {
+        transactionDate = parseDate(row[0]);
+      }
+
+      // 날짜 이어받기: 위 두 컬럼 모두에서 날짜를 못 찾으면 앞 행 날짜 사용
       let dateCarriedForward = false;
       if (transactionDate) {
         lastKnownDate = transactionDate;
@@ -453,13 +459,12 @@ export async function extractAndSaveTransactions(
       if (i < 10) {
         console.log(`[Data Extractor] ===== Row ${i + 1} DATE PARSING =====`);
         console.log(`[Data Extractor] Row ${i + 1} dateColumnIndex: ${columnMapping.date}`);
-        console.log(`[Data Extractor] Row ${i + 1} dateValue raw:`, JSON.stringify(dateValue));
-        console.log(`[Data Extractor] Row ${i + 1} dateValue type: ${typeof dateValue}`);
-        console.log(`[Data Extractor] Row ${i + 1} parseDate result:`, parseDate(dateValue)?.toISOString() ?? 'null');
+        console.log(`[Data Extractor] Row ${i + 1} dateValue (col[${columnMapping.date}]):`, JSON.stringify(dateValue));
+        console.log(`[Data Extractor] Row ${i + 1} col[0] value:`, JSON.stringify(row[0]));
+        console.log(`[Data Extractor] Row ${i + 1} parseDate(col[${columnMapping.date}]):`, parseDate(dateValue)?.toISOString() ?? 'null');
+        console.log(`[Data Extractor] Row ${i + 1} parseDate(col[0]):`, columnMapping.date !== 0 ? (parseDate(row[0])?.toISOString() ?? 'null') : 'same as dateCol');
         console.log(`[Data Extractor] Row ${i + 1} dateCarriedForward: ${dateCarriedForward}`);
-        console.log(`[Data Extractor] Row ${i + 1} lastKnownDate:`, lastKnownDate?.toISOString() ?? 'null');
         console.log(`[Data Extractor] Row ${i + 1} final transactionDate:`, transactionDate?.toISOString() ?? 'null');
-        console.log(`[Data Extractor] Row ${i + 1} full row data:`, JSON.stringify(row));
         console.log(`[Data Extractor] ===================================`);
       }
 

@@ -1354,14 +1354,23 @@ export const fileRouter = createTRPCRouter({
             const balanceValue = balanceIdx !== undefined && balanceIdx >= 0 ? row[balanceIdx] : '';
             const memoValue = memoIdx !== undefined && memoIdx >= 0 ? String(row[memoIdx] || '') : '';
             
+            // 날짜 파싱: col[dateIdx]에서 날짜를 못 찾으면 col[0]에서도 시도
+            const parsedDate = parseDate(rawDateValue);
+            const fallbackDate = (!parsedDate && dateIdx !== 0) ? parseDate(row[0]) : null;
+            const resolvedDateStr = parsedDate 
+              ? formatDateForPreview(parsedDate) 
+              : fallbackDate 
+                ? formatDateForPreview(fallbackDate)
+                : dateValue; // 파싱 실패 시 원본 그대로
+            
             // 날짜 파싱 디버깅 (모든 샘플 행)
             console.log(`[PreAnalyze] ===== Sample Row ${rowIdx + 1} DATE PARSING =====`);
             console.log(`[PreAnalyze] Row ${rowIdx + 1} dateColumnIndex: ${dateIdx}`);
             console.log(`[PreAnalyze] Row ${rowIdx + 1} rawDateValue:`, JSON.stringify(rawDateValue));
-            console.log(`[PreAnalyze] Row ${rowIdx + 1} rawDateValue type: ${typeof rawDateValue}`);
-            console.log(`[PreAnalyze] Row ${rowIdx + 1} dateValue (toString): "${dateValue}"`);
-            console.log(`[PreAnalyze] Row ${rowIdx + 1} parseDate result:`, parseDate(rawDateValue)?.toISOString() ?? 'null');
-            console.log(`[PreAnalyze] Row ${rowIdx + 1} full row:`, JSON.stringify(row));
+            console.log(`[PreAnalyze] Row ${rowIdx + 1} col[0] value:`, JSON.stringify(row[0]));
+            console.log(`[PreAnalyze] Row ${rowIdx + 1} parseDate(col[${dateIdx}]):`, parsedDate?.toISOString() ?? 'null');
+            console.log(`[PreAnalyze] Row ${rowIdx + 1} parseDate(col[0]) fallback:`, fallbackDate?.toISOString() ?? 'null');
+            console.log(`[PreAnalyze] Row ${rowIdx + 1} resolvedDateStr: "${resolvedDateStr}"`);
             console.log(`[PreAnalyze] ==========================================`);
             
             // 첫 번째 행에서 memo 값 로깅
@@ -1431,9 +1440,9 @@ export const fileRouter = createTRPCRouter({
             const balance = parseAmount(balanceValue);
             
             // 유효한 거래만 추가 (날짜 또는 금액이 있어야 함)
-            if (dateValue || deposit > 0 || withdrawal > 0) {
+            if (dateValue || resolvedDateStr || deposit > 0 || withdrawal > 0) {
               parsedSampleData.push({
-                transactionDate: dateValue,
+                transactionDate: resolvedDateStr || dateValue,
                 deposit,
                 withdrawal,
                 balance,
@@ -1951,6 +1960,14 @@ export const fileRouter = createTRPCRouter({
       return documents;
     }),
 });
+
+
+function formatDateForPreview(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}.${m}.${d}`;
+}
 
 /**
  * MEDIUM-2 FIX: Separate function for extraction logic to enable timeout
