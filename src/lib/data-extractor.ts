@@ -226,10 +226,12 @@ export function parseDate(dateValue: unknown): Date | null {
  * Extract date and description from a merged "거래일시적요" column
  * 
  * Handles formats like:
- * - "2025.01.08 17:10: F/B출금" → { date: 2025-01-08, memo: "F/B출금" }
- * - "11:01: 자동이체"           → { date: null, memo: "자동이체" }
- * - "2025.01.09 14:30: 부가세"  → { date: 2025-01-09, memo: "부가세" }
- * - "대출이자"                  → { date: null, memo: "대출이자" }
+ * - "2025/01/01 15:24:33 토스 임숙자"  → { date: 2025-01-01, memo: "토스 임숙자" }
+ * - "2025.01.08 17:10: F/B출금"       → { date: 2025-01-08, memo: "F/B출금" }
+ * - "2025/01/01 16:23:01 4860 (주)영풍문고" → { date: 2025-01-01, memo: "4860 (주)영풍문고" }
+ * - "11:01: 자동이체"                  → { date: null, memo: "자동이체" }
+ * - "2025.01.09 14:30: 부가세"         → { date: 2025-01-09, memo: "부가세" }
+ * - "대출이자"                         → { date: null, memo: "대출이자" }
  */
 export function extractDateAndMemo(value: unknown): { date: Date | null; extractedMemo: string } {
   if (!value || typeof value !== "string") return { date: null, extractedMemo: "" };
@@ -238,13 +240,12 @@ export function extractDateAndMemo(value: unknown): { date: Date | null; extract
   const date = parseDate(trimmed);
 
   // 날짜+시간 패턴 제거 후 나머지를 적요로 추출
-  // "2025.01.08 17:10: F/B출금" → "F/B출금"
   let memo = trimmed;
 
-  // 날짜 부분 제거 (YYYY.MM.DD or YYYY-MM-DD)
+  // 날짜 부분 제거 (YYYY.MM.DD or YYYY-MM-DD or YYYY/MM/DD)
   memo = memo.replace(/\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}\s*/, "");
-  // 시간 부분 제거 (HH:MM: or HH:MM)
-  memo = memo.replace(/\d{1,2}:\d{2}:?\s*/, "");
+  // 시간 부분 제거 (HH:MM:SS or HH:MM: or HH:MM) - 초(seconds)까지 처리
+  memo = memo.replace(/\d{1,2}:\d{2}(?::\d{2})?\s*/, "");
   memo = memo.trim();
 
   // 콜론으로 시작하면 제거
@@ -440,10 +441,24 @@ export async function extractAndSaveTransactions(
       const dateValue = row[columnMapping.date];
       let transactionDate = parseDate(dateValue);
 
+      // 날짜+적요 합쳐진 셀에서 적요 추출 (예: "2025/01/01 15:24:33 토스 임숙자")
+      let dateColumnMemo = "";
+      if (typeof dateValue === "string") {
+        const { extractedMemo } = extractDateAndMemo(dateValue);
+        if (extractedMemo) {
+          dateColumnMemo = extractedMemo;
+        }
+      }
+
       // Fallback: OCR이 날짜를 행번호 컬럼(col[0])에 합쳐서 넣는 경우 대응
       // 예: col[0]="2 2025.01.09", col[1]="11:01: 자동이체"
       if (!transactionDate && columnMapping.date !== 0) {
         transactionDate = parseDate(row[0]);
+        // col[0]에서도 적요 추출 시도
+        if (!dateColumnMemo && typeof row[0] === "string") {
+          const { extractedMemo } = extractDateAndMemo(row[0]);
+          if (extractedMemo) dateColumnMemo = extractedMemo;
+        }
       }
 
       // 날짜 이어받기: 위 두 컬럼 모두에서 날짜를 못 찾으면 앞 행 날짜 사용
@@ -650,6 +665,18 @@ export async function extractAndSaveTransactions(
       }
 
       // MEDIUM-3 FIX: Validate metadata size before adding
+      // 날짜 컬럼에서 추출된 적요 통합
+      // (날짜+적요 합쳐진 셀에서 추출된 "토스 임숙자" 같은 값)
+      if (dateColumnMemo) {
+        if (!memo) {
+          // 비고가 없으면 날짜 컬럼에서 추출된 적요 사용
+          memo = dateColumnMemo;
+        } else if (!memo.includes(dateColumnMemo)) {
+          // 비고에 이미 다른 값이 있고, 날짜컬럼 적요가 중복되지 않으면 앞에 추가
+          memo = `${dateColumnMemo} ${memo}`;
+        }
+      }
+
       const metadata = {
         rowNumber: i + 1,
         originalData: row as Prisma.JsonValue,
