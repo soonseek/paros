@@ -2347,7 +2347,7 @@ export const transactionRouter = createTRPCRouter({
             return (typeOrder[a.type] ?? 99) - (typeOrder[b.type] ?? 99);
           });
 
-          // remainingLoan 재계산: 대출실행 → 유지, 이동 → 유지, 출금 → 차감
+          // remainingLoan 재계산: 대출실행 → 유지, 이동 → 유지, 출금 → 차감 (0 이하로 내려가지 않음)
           let runningLoan = loanAmount;
           for (const item of trackedItems) {
             if (item.type === "대출실행") {
@@ -2356,7 +2356,8 @@ export const transactionRouter = createTRPCRouter({
               item.remainingLoan = runningLoan; // 이동은 잔여액 변동 없음
             } else {
               runningLoan -= item.amount;
-              item.remainingLoan = Math.max(0, runningLoan);
+              if (runningLoan < 0) runningLoan = 0;
+              item.remainingLoan = runningLoan;
             }
           }
 
