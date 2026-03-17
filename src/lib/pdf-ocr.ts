@@ -605,6 +605,14 @@ function extractFromTableElementsHTML(tableElements: Array<{
   const skippedTables: number[] = [];
   let alignedRowCount = 0;
 
+  // 날짜 패턴 체크: 테이블의 행 중 날짜 데이터가 있는지 확인
+  const datePatternCheck = /\d{4}[-./]\d{1,2}[-./]\d{1,2}/;
+  const tableHasDateData = (rows: string[][]): boolean => {
+    // 첫 5개 행 중 하나라도 날짜가 있으면 거래 데이터 테이블로 판단
+    const checkRows = rows.slice(0, 5);
+    return checkRows.some(row => row.some(cell => datePatternCheck.test(cell || '')));
+  };
+
   // 메인 테이블 자체를 먼저 포함 대상에 추가
   includedTables.push({ index: mainTable.index, rows: mainTable.rows });
 
@@ -615,6 +623,17 @@ function extractFromTableElementsHTML(tableElements: Array<{
     const isSimilarStructure = columnDiff <= 3;
 
     if (isSimilarStructure) {
+      // 메인 테이블 이전에 나오는 테이블: 날짜 데이터가 있어야만 포함
+      // (페이지 상단 정보 테이블 - 고객전화번호, 계좌번호 등 - 제외)
+      if (table.index < mainTable.index) {
+        const allTableRows = [table.headers, ...table.rows];
+        if (!tableHasDateData(allTableRows)) {
+          skippedTables.push(table.index);
+          console.log(`[HTML Table] ⚠️ Table ${table.index} skipped (before main table, no date data → likely info/header table)`);
+          continue;
+        }
+      }
+
       const needsAlignment = table.columnCount !== mainTable.columnCount;
       
       const alignRow = (row: string[]): string[] => {
