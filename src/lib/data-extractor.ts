@@ -522,9 +522,9 @@ export async function extractAndSaveTransactions(
             // 입금 거래: 입금금액에 숫자, 출금금액 컬럼에 비고
             depositAmount = depositParsed;
             memo = withdrawalRaw && !parseAmount(withdrawalRaw) ? String(withdrawalRaw) : "";
-          } else if (withdrawalParsed !== null && withdrawalParsed > 0) {
-            // 출금 거래: 출금금액에 숫자, 입금금액 컬럼에 비고
-            withdrawalAmount = withdrawalParsed;
+          } else if (withdrawalParsed !== null && withdrawalParsed !== 0) {
+            // 출금 거래: 출금금액에 숫자, 입금금액 컬럼에 비고 (음수 절대값 처리)
+            withdrawalAmount = Math.abs(withdrawalParsed);
             memo = depositRaw && !parseAmount(depositRaw) ? String(depositRaw) : "";
           } else {
             // 둘 다 숫자가 아니면 그냥 파싱
@@ -532,9 +532,10 @@ export async function extractAndSaveTransactions(
             withdrawalAmount = withdrawalParsed;
           }
         } else {
-          // 일반 케이스
+          // 일반 케이스: 출금 금액에 음수 부호가 있을 수 있으므로 절대값 처리
           depositAmount = parseAmount(depositRaw);
-          withdrawalAmount = parseAmount(withdrawalRaw);
+          const rawWithdrawal = parseAmount(withdrawalRaw);
+          withdrawalAmount = rawWithdrawal !== null ? Math.abs(rawWithdrawal) : null;
         }
       }
       // Case 2: 단일 금액 컬럼 (거래구분 있거나 금액 부호로 판단)

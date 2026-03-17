@@ -1494,7 +1494,7 @@ export const fileRouter = createTRPCRouter({
               const depositValue = depositIdx !== undefined && depositIdx >= 0 ? row[depositIdx] : '';
               const withdrawalValue = withdrawalIdx !== undefined && withdrawalIdx >= 0 ? row[withdrawalIdx] : '';
               deposit = parseAmount(depositValue);
-              withdrawal = parseAmount(withdrawalValue);
+              withdrawal = Math.abs(parseAmount(withdrawalValue) || 0) || 0;
               console.log(`[PreAnalyze Parse] depositValue="${depositValue}", withdrawalValue="${withdrawalValue}"`);
             }
             
@@ -1842,7 +1842,7 @@ export const fileRouter = createTRPCRouter({
           const depositValue = depositIdx !== undefined && depositIdx >= 0 ? row[depositIdx] : '';
           const withdrawalValue = withdrawalIdx !== undefined && withdrawalIdx >= 0 ? row[withdrawalIdx] : '';
           deposit = parseAmount(depositValue);
-          withdrawal = parseAmount(withdrawalValue);
+          withdrawal = Math.abs(parseAmount(withdrawalValue) || 0) || 0;
           console.log(`[ReParse] Row ${rowIdx + 1} deposit/withdrawal mode: depositValue="${depositValue}"(${deposit}), withdrawalValue="${withdrawalValue}"(${withdrawal})`);
         }
 
