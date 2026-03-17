@@ -2209,12 +2209,13 @@ export const transactionRouter = createTRPCRouter({
             documentName: string;
             // 이동인 경우 추가 정보
             transferTo?: string; // 이동 대상 계좌(문서명)
+            transferFrom?: string; // 이동 출발 계좌(문서명)
             transferMemo?: string; // 이동 대상의 비고
           }
 
           const trackedItems: TrackedItem[] = [];
           let remainingLoan = loanAmount;
-          const usedDepositKeys = new Set<string>(); // 이미 매칭된 이동건 추적
+          const usedDepositKeys = new Set<string>();
 
           // 대출 실행건 추가
           trackedItems.push({
@@ -2223,24 +2224,58 @@ export const transactionRouter = createTRPCRouter({
             amount: loanAmount,
             balance: Number(loan.balance) || 0,
             memo: loan.memo || "",
-            remainingLoan: remainingLoan,
+            remainingLoan,
             documentName: loan.document?.originalFileName || "",
           });
 
-          // 출금 내역 추적
-          for (const tx of withdrawals) {
+          // === 계좌별 예산 추적 (대출금이 흘러간 경로만 추적) ===
+          // 대출 계좌에서 시작하여 이동된 계좌만 추적
+          const accountBudgets = new Map<string, number>(); // documentId → 추적 가능 예산
+          accountBudgets.set(loanDocumentId || "__loan__", loanAmount);
+
+          // 1단계: 대출 계좌의 출금만 먼저 처리
+          const loanAccountWithdrawals = await ctx.db.transaction.findMany({
+            where: {
+              caseId,
+              transactionDate: { gte: loan.transactionDate },
+              withdrawalAmount: { gt: 0 },
+              id: { not: loan.id },
+              documentId: loanDocumentId, // 대출 계좌만
+            },
+            orderBy: [{ transactionDate: "asc" }, { rowNumber: "asc" }],
+            take: 500,
+            select: {
+              id: true,
+              transactionDate: true,
+              withdrawalAmount: true,
+              balance: true,
+              memo: true,
+              document: {
+                select: { id: true, originalFileName: true },
+              },
+            },
+          });
+
+          // 이동 대상 계좌 ID 수집
+          const transferDestinations = new Map<string, number>(); // docId → 이동 총액
+
+          for (const tx of loanAccountWithdrawals) {
+            if (remainingLoan <= 0) break;
             const withdrawal = Number(tx.withdrawalAmount);
             const memo = tx.memo || "";
             const dateStr = tx.transactionDate.toISOString().split('T')[0];
             const matchKey = `${dateStr}_${withdrawal}`;
 
-            // 동일 일자 + 동일 금액의 입금이 다른 계좌에 있는지 확인 (이동 매칭)
             const matchedDeposit = depositMatchMap.get(matchKey);
-            const isTransferToOtherAccount = matchedDeposit && !usedDepositKeys.has(matchKey);
+            const isTransfer = matchedDeposit && !usedDepositKeys.has(matchKey);
 
-            if (isTransferToOtherAccount) {
-              // 이동: 대출금 잔여액에서 차감하지 않음 (상쇄)
-              usedDepositKeys.add(matchKey); // 중복 매칭 방지
+            if (isTransfer) {
+              usedDepositKeys.add(matchKey);
+              
+              // 이동 대상 계좌의 예산 증가
+              const destDocId = matchedDeposit.depositId;
+              const prevBudget = transferDestinations.get(destDocId) || 0;
+              transferDestinations.set(destDocId, prevBudget + withdrawal);
 
               trackedItems.push({
                 date: tx.transactionDate.toISOString(),
@@ -2248,15 +2283,13 @@ export const transactionRouter = createTRPCRouter({
                 amount: withdrawal,
                 balance: Number(tx.balance) || 0,
                 memo,
-                remainingLoan: remainingLoan, // 잔여액 변동 없음
+                remainingLoan, // 잔여액 변동 없음
                 documentName: tx.document?.originalFileName || "",
                 transferTo: matchedDeposit.depositDocumentName,
                 transferMemo: matchedDeposit.depositMemo,
               });
             } else {
-              // 실제 사용: 대출금 잔여액에서 차감
               remainingLoan -= withdrawal;
-
               trackedItems.push({
                 date: tx.transactionDate.toISOString(),
                 type: "출금",
@@ -2266,8 +2299,76 @@ export const transactionRouter = createTRPCRouter({
                 remainingLoan: Math.max(0, remainingLoan),
                 documentName: tx.document?.originalFileName || "",
               });
+            }
+          }
 
+          // 2단계: 이동 대상 계좌의 출금 추적 (이동된 금액 범위 내에서만)
+          // otherDeposits에서 이동 대상 문서 ID 추출
+          const transferDestDocIds = new Set<string>();
+          for (const dep of otherDeposits) {
+            const dateStr = dep.transactionDate.toISOString().split('T')[0];
+            const amount = Number(dep.depositAmount);
+            const key = `${dateStr}_${amount}`;
+            if (usedDepositKeys.has(key) && dep.document?.id) {
+              transferDestDocIds.add(dep.document.id);
+            }
+          }
+
+          if (transferDestDocIds.size > 0 && remainingLoan > 0) {
+            // 이동 대상 계좌들의 출금 조회
+            const destWithdrawals = await ctx.db.transaction.findMany({
+              where: {
+                caseId,
+                transactionDate: { gte: loan.transactionDate },
+                withdrawalAmount: { gt: 0 },
+                documentId: { in: [...transferDestDocIds] },
+              },
+              orderBy: [{ transactionDate: "asc" }, { rowNumber: "asc" }],
+              take: 500,
+              select: {
+                id: true,
+                transactionDate: true,
+                withdrawalAmount: true,
+                balance: true,
+                memo: true,
+                document: {
+                  select: { id: true, originalFileName: true },
+                },
+              },
+            });
+
+            // 이동 대상 계좌별 남은 예산 관리
+            const destBudgets = new Map<string, number>();
+            for (const dep of otherDeposits) {
+              const dateStr = dep.transactionDate.toISOString().split('T')[0];
+              const amount = Number(dep.depositAmount);
+              const key = `${dateStr}_${amount}`;
+              if (usedDepositKeys.has(key) && dep.document?.id) {
+                const prev = destBudgets.get(dep.document.id) || 0;
+                destBudgets.set(dep.document.id, prev + amount);
+              }
+            }
+
+            for (const tx of destWithdrawals) {
               if (remainingLoan <= 0) break;
+              const docId = tx.document?.id || "";
+              const budget = destBudgets.get(docId) || 0;
+              if (budget <= 0) continue; // 이 계좌의 이동 예산 소진됨
+
+              const withdrawal = Math.min(Number(tx.withdrawalAmount), budget, remainingLoan);
+              destBudgets.set(docId, budget - withdrawal);
+              remainingLoan -= withdrawal;
+
+              trackedItems.push({
+                date: tx.transactionDate.toISOString(),
+                type: "출금",
+                amount: Number(tx.withdrawalAmount),
+                balance: Number(tx.balance) || 0,
+                memo: tx.memo || "",
+                remainingLoan: Math.max(0, remainingLoan),
+                documentName: tx.document?.originalFileName || "",
+                transferFrom: loan.document?.originalFileName || "", // 원래 대출 계좌에서 이동된 자금
+              });
             }
           }
 

@@ -1,156 +1,123 @@
 <analysis>**original_problem_statement:**
-The user initially requested a Correction Recommendation Guide feature, which was largely completed. The focus then shifted to implementing new features and fixing numerous bugs for a Transaction History module.
+The user's primary goal is to build and refine a legal tech application focused on bankruptcy and rehabilitation cases. The initial work involved a Correction Recommendation Guide and a Transaction History module.
 
-The latest user requests and bug reports were:
-1.  **Feature: Template Matching Failure Logic:** When transaction parsing/matching fails due to poor data quality (empty remarks, date, or amounts), display a role-specific modal. For ADMINs, it should prompt to register a new template; for other users, it should advise contacting an admin.
-2.  **Feature: Template Management Tools:** Add 'Export All (CSV)', 'Import from CSV', and 'Reset' (delete all) buttons to the transaction template management page.
-3.  **Feature: Creator Info:** Store the creator's email when a template is made and display a masked version of it in the templates list.
-4.  **Feature: Drag-and-Drop Upload:** Add drag-and-drop functionality to the file upload area in the template creation modal.
-5.  **Bug: Inconsistent Matching:** The template matching logic in the test environment was different from the production upload flow, causing templates to be found in tests but not in actual use.
-6.  **Bug: Flawed AI Analysis:**
-    *   The column mapping logic incorrectly trusted AI-provided column indexes, ignoring header names.
-    *   The AI prompt contained incorrect examples, causing memo (비고) to be the default for deposit/withdrawal sub-columns instead of skip (무시).
-7.  **Bug: Transaction Order Reversal:** Transactions within the same day were displayed in reverse chronological order.
-8.  **Bug:  Value Parsing:** The parser treated  in amount fields as an empty value, causing validation to fail.
-9.  **Bug: Role-Based Access Control (RBAC):**
-    *    users could see all cases, but the requirement was for only  users to have that access.
-    *    users were getting a 403 Forbidden error when accessing transaction data because their role wasn't handled.
-10. **Bug: Encrypted PDF Failure:** Uploading encrypted PDFs caused the server to crash.
+During this session, the user reported numerous bugs and requested several significant enhancements:
+1.  **Loan Usage Tracking Bug:** The system incorrectly calculates loan usage by treating internal account transfers (이동) as expenses, leading to flawed financial summaries.
+2.  **Transaction Order Bug (Recurring):** Transactions within the same day are displayed in reverse chronological order.
+3.  **Correction Recommendation Guide Overhaul:**
+    *   **504 Timeout:** The analysis process was too slow and resulted in timeouts.
+    *   **Poor AI Generation:** The AI was just copying templates instead of generating customized guidance based on the case's specific details. The tone was also not right.
+    *   **Limited Document Parsing:** The system only recognized simple plain-text formats with the keyword 흠결사항 and failed on complex, multi-page, table-based documents like 자료제출목록 (document submission checklists).
+    *   **UI/UX Issues:** The UI didn't show which template was matched, and the default selection logic for recommended items was incorrect.
+4.  **New Transaction Types:** The parser needed to be updated to handle:
+    *   **D-Type:** Transactions where 입금/출금 (deposit/withdrawal) is indicated by a +/- sign in the amount column.
+    *   **C-Type Expansion:** Filter out non-financial rows like 매수/매도 (buy/sell) in cryptocurrency or stock transaction histories.
+5.  **File Handling & Validation:**
+    *   The Upstage API model being used was deprecated, causing errors.
+    *   Text-based PDFs were being sent for OCR instead of more efficient document parsing.
+    *   A specific PDF MIME type () was causing upload failures.
+    *   UI components incorrectly suggested that non-PDF files could be uploaded.
+6.  **Case List UI:** The list of cases needed to be sorted by the most recently registered, and the registration date needed to be displayed.
 
 **User's preferred language**: Korean
 
 **what currently exists?**
-The application is a full-stack Next.js monolith using tRPC, Prisma, and a PostgreSQL database. The Correction Recommendation Guide feature is functionally complete. The agent has implemented all the new features and bug fixes requested by the user for the Transaction History module. This included significant work on environment setup (fixing supervisor/proxy configs, setting up PostgreSQL), data parsing logic, RBAC (Role-Based Access Control), and UI enhancements. However, a persistent deployment mismatch between the agent's environment and the user's EC2 server has complicated verification.
+The application is a full-stack Next.js monolith using tRPC, Prisma, and PostgreSQL. The agent has addressed almost all the user's requests from this session. The long-standing ESLint configuration issue has been completely resolved. The Correction Recommendation Guide feature was significantly overhauled to be asynchronous, use more intelligent AI prompts, and handle a wider variety of document formats. The transaction parsing logic was enhanced for new types, and numerous file handling and UI bugs were fixed. The agent was in the process of fixing the final reported bug related to loan usage tracking.
 
 **Last working item**:
-- **Last item agent was working:** The user reported that the transaction order was still reversed, even for newly uploaded files. The agent had previously fixed the database query's  clause and added balance-based reordering logic during data ingestion. To create a more robust solution that also fixes existing data, the agent added the same reordering logic as a post-processing step to the  tRPC endpoint, ensuring data is correctly sorted upon retrieval.
-- **Status:** USER VERIFICATION PENDING
-- **Agent Testing Done:** Y (Agent verified the code logic locally but cannot test on the user's production server).
-- **Which testing method agent to use?** Manual testing by the user on their production environment.
+- **Last item agent was working:** Fixing a critical bug in the loan usage tracking logic. The user reported that internal account transfers were being incorrectly counted as expenses. The agent investigated and found the root cause: the  function in the backend was decrementing the remaining loan amount for *all* withdrawals, including internal transfers, and the data query was too broad. The agent was about to modify the backend code to fix this.
+- **Status:** IN PROGRESS
+- **Agent Testing Done:** N
+- **Which testing method agent to use?** backend testing agent. The fix requires modifying core business logic in the backend. The testing agent should be used to create a test case that replicates the user's scenario (a loan deposit followed by an internal transfer) and verifies that the remaining loan amount is calculated correctly.
 - **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
-- **Issue 1 (P0): Transaction Order Reversal**
-- **Issue 2 (P1): Production Deployment Mismatch**
-- **Issue 3 (P2): Broken ESLint Configuration**
+- **Issue 1 (P0): Incorrect Loan Usage Tracking**
+- **Issue 2 (P1): Transaction Order Reversal**
+- **Issue 3 (P2): Correction Recommendation Guide Full Workflow Verification**
+- **Issue 4 (P3): Production Deployment Mismatch**
 
 **Issues Detail:**
-- **Issue 1: Transaction Order Reversal**
-    - **Attempted fixes:**
-        1. Changed  in all relevant queries from  to .
-        2. Added a  function in  to sort transactions before saving them to the database.
-        3. As a final, comprehensive fix, added a call to  in the  endpoint to sort data upon retrieval, correcting both new and existing records.
+- **Issue 1: Incorrect Loan Usage Tracking**
+    - **Attempted fixes:** None yet. The agent only completed the investigation.
     - **Next debug checklist:**
-        - User must pull the latest code from GitHub to their EC2 server.
-        - User should confirm the new code is present on their server by running .
-        - User should test by viewing an existing problematic record and by uploading a new one.
-    - **Why fix this issue and what will be achieved with the fix?** Correct transaction order is fundamental for the feature's usability. This bug makes financial analysis impossible.
+        1.  **Modify Backend Logic:** Locate the  function (likely in a file like  or a related utility file).
+        2.  **Differentiate Transfers:** Update the logic to distinguish between an actual expense withdrawal and an internal transfer (이동). Internal transfers should not decrease the  amount.
+        3.  **Scope Data Query:** The database query that fetches withdrawals ( from the logs) must be narrowed to only include transactions from the loan account and its specific transfer destinations, not all accounts associated with the user.
+    - **Why fix this issue and what will be achieved with the fix?** This is a critical business logic bug that produces incorrect and misleading financial summaries, making the feature unusable.
+    - **Status:** IN PROGRESS
+    - **Is recurring issue?** N
+    - **Should Test frontend/backend/both after fix?** Both. The core logic is backend, but the result must be verified in the frontend summary table.
+    - **Blocked on other issue:** None
+
+- **Issue 2: Transaction Order Reversal**
+    - **Attempted fixes:** A comprehensive, multi-layered fix was implemented.
+        1.  **Backend ():** The  query was changed to sort by ,  was added to the selection, and a post-processing function was added to re-order same-day transactions based on balance continuity, correcting both new and existing data.
+        2.  **Frontend ():** The table's sorting logic was updated to use  as a secondary sort key when transaction dates are identical.
+    - **Next debug checklist:** The user needs to deploy the latest code and test. They should be instructed to check the browser's developer console for the debugging logs the agent added to trace the sorting process.
+    - **Why fix this issue and what will be achieved with the fix?** Correct transaction order is fundamental for financial analysis. This bug makes the feature's primary purpose unreliable.
     - **Status:** USER VERIFICATION PENDING
     - **Is recurring issue?** Y
-    - **Should Test frontend/backend/both after fix?** Both (primarily backend logic, verified on the frontend).
-    - **Blocked on other issue:** Issue 2: Production Deployment Mismatch
+    - **Should Test frontend/backend/both after fix?** User testing on their production environment is required.
+    - **Blocked on other issue:** Issue 4: Production Deployment Mismatch
 
-- **Issue 2: Production Deployment Mismatch**
-    - **Attempted fixes:** The agent repeatedly identified that errors reported by the user were due to outdated code on their EC2 server. The agent provided clear deployment instructions (, ,    ▲ Next.js 15.5.9
-   - Environments: .env
-   - Experiments (use with caution):
-     · serverComponentsExternalPackages
+- **Issue 3: Correction Recommendation Guide Full Workflow Verification**
+    - **Attempted fixes:** The entire feature was overhauled. Key changes include asynchronous processing, new AI prompts for extraction and customization, support for table-based documents, and UI fixes.
+    - **Next debug checklist:** The user needs to perform end-to-end testing, covering:
+        1.  Uploading a large/complex document and verifying it doesn't time out (no 504 error).
+        2.  Confirming the generated guidance is customized and reflects the content of the uploaded document.
+        3.  Checking that the UI correctly displays the matched template's name and original content.
+        4.  Verifying that all matched items are checked by default.
+    - **Why fix this issue and what will be achieved with the fix?** This confirms that a major feature set requested by the user is working as intended after a significant rewrite.
+    - **Status:** USER VERIFICATION PENDING
+    - **Is recurring issue?** N
+    - **Should Test frontend/backend/both after fix?** User testing on their production environment is required.
+    - **Blocked on other issue:** Issue 4: Production Deployment Mismatch
 
-   Creating an optimized production build ...
- ✓ Compiled successfully in 13.8s
-   Skipping validation of types
-   Skipping linting
-   Collecting page data ...
-   Generating static pages (0/37) ...
-   Generating static pages (9/37) 
-   Generating static pages (18/37) 
-   Generating static pages (27/37) 
- ✓ Generating static pages (37/37)
-   Finalizing page optimization ...
-   Collecting build traces ...
-
-Route (app)                                        Size  First Load JS
-─ ƒ /api/classification/progress                    0 B         101 kB
-+ First Load JS shared by all                    101 kB
-  ├ chunks/4bd1b696-c023c6e3521b1417.js         54.2 kB
-  ├ chunks/58-da22815550f8ba0f.js               44.9 kB
-  └ other shared chunks (total)                 2.03 kB
-
-Route (pages)                                      Size  First Load JS
-┌ ○ /                                             497 B         142 kB
-├   /_app                                           0 B         142 kB
-├ ○ /404                                          180 B         142 kB
-├ ○ /admin/correction-guide-templates (546 ms)   7.8 kB         196 kB
-├ ○ /admin/settings (554 ms)                    4.14 kB         186 kB
-├ ○ /admin/templates                            11.3 kB         199 kB
-├ ƒ /api/analyze/[caseId]/progress                  0 B         142 kB
-├ ƒ /api/correction-guide/download                  0 B         142 kB
-├ ƒ /api/trpc/[trpc]                                0 B         142 kB
-├ ○ /cases (546 ms)                             3.79 kB         186 kB
-├ ○ /cases/[id] (319 ms)                         170 kB         359 kB
-├ ○ /cases/[id]/edit (546 ms)                   3.27 kB         208 kB
-├ ƒ /cases/new                                  2.04 kB         207 kB
-├ ○ /dashboard (344 ms)                         1.27 kB         143 kB
-├ ○ /dashboard/profile (545 ms)                 3.67 kB         209 kB
-├ ○ /forgot-password (545 ms)                   3.65 kB         176 kB
-├ ○ /guide/[slug] (501 ms)                      7.46 kB         160 kB
-├ ○ /help                                       17.8 kB         196 kB
-├ ○ /login                                      3.76 kB         205 kB
-├ ○ /register                                   3.97 kB         176 kB
-├ ○ /reset-password                             4.17 kB         177 kB
-└ ○ /verify-email                               1.82 kB         151 kB
-+ First Load JS shared by all                    157 kB
-  ├ chunks/framework-d7de93249215fb06.js        59.7 kB
-  ├ chunks/main-aa36b1ee87981c99.js             37.5 kB
-  ├ chunks/pages/_app-4b4b39c3ae71f4e6.js       42.6 kB
-  ├ css/b433a370c4155840.css                    15.2 kB
-  └ other shared chunks (total)                 1.79 kB
-
-○  (Static)   prerendered as static content
-ƒ  (Dynamic)  server-rendered on demand, ) and guided the user to use  to verify the code on their server.
-    - **Next debug checklist:** This is a process issue on the user's end. The user must establish a reliable deployment workflow from GitHub to their EC2 instance.
-    - **Why fix this issue and what will be achieved with the fix?** This is the highest priority blocker. Without a reliable deployment process, no bug fix can be verified, stalling all progress.
+- **Issue 4: Production Deployment Mismatch**
+    - **Attempted fixes:** This is a recurring process issue on the user's side. The agent has repeatedly guided the user on the correct deployment steps (, build, restart).
+    - **Next debug checklist:** The user must establish a reliable deployment workflow. Before any further bug diagnosis, the agent must insist the user verifies that the code on their EC2 server matches the latest commit on GitHub.
+    - **Why fix this issue and what will be achieved with the fix?** This is a critical blocker that prevents verification of any and all fixes, stalling the project.
     - **Status:** BLOCKED (on user action)
     - **Is recurring issue?** Y
     - **Should Test frontend/backend/both after fix?** N/A
-    - **Blocked on other issue:** This issue blocks all other verification.
-
-- **Issue 3: Broken ESLint Configuration**
-    - **Attempted fixes:** None in this session.
-    - **Next debug checklist:** Review  and its interaction with  and .
-    - **Why fix this issue and what will be achieved with the fix?** Improves code quality and helps prevent future bugs.
-    - **Status:** NOT STARTED
-    - **Is recurring issue?** Y
-    - **Should Test frontend/backend/both after fix?** Frontend.
-    - **Blocked on other issue:** None.
+    - **Blocked on other issue:** This issue blocks verification for all other issues.
 
 **In progress Task List**:
-None. All development tasks are complete and awaiting user verification.
+- **Task 1: Fix Incorrect Loan Usage Tracking**
+    - **Where to resume:** The agent needs to start implementing the fix in the backend logic, likely within a file such as  or , focusing on the  function and its related data queries.
+    - **What will be achieved with this?** The loan usage summary will accurately reflect how loan funds are spent, correctly ignoring internal account transfers.
+    - **Status:** IN PROGRESS
+    - **Should Test frontend/backend/both after fix?** Both.
+    - **Blocked on something:** None.
 
 **Upcoming and Future Tasks**
-- **Upcoming Tasks:**
-    - **P0: Full User Acceptance Testing:** The user needs to verify all the recent bug fixes and features on their production server, especially the transaction order fix.
+- **P0: Full User Acceptance Testing:** Once the loan tracking bug is fixed, the user must conduct a thorough review of all features and fixes implemented in this session to ensure they meet requirements and are stable on their production server.
 
 **Completed work in this session**
-- **Environment & Build Fixes:** Corrected supervisor/proxy configuration, installed and configured PostgreSQL, fixed multiple RBAC bugs, and resolved a critical build issue caused by a dangling variable reference.
-- **Transaction History Features:**
-    - Implemented role-based modals for template matching failures.
-    - Added CSV Export/Import and Reset functionalities for templates.
-    - Added  to templates and updated the UI.
-    - Implemented drag-and-drop for the template creation modal.
-- **Critical Bug Fixes:**
-    - **Transaction Order:** Implemented a robust, two-layer fix for the reversed transaction order.
-    - **Data Parsing:** Fixed logic to correctly handle  values, aligned production/test matching logic, corrected flawed AI column mapping, and fixed the AI prompt that was causing incorrect defaults.
-    - **Security/RBAC:** Patched multiple access control holes for  and  roles.
-    - **File Handling:** Enabled the processing of encrypted PDFs.
+- **ESLint Configuration Fix:** Resolved a persistent issue by overhauling , eliminating ~1900 linting errors.
+- **Correction Recommendation Guide Overhaul:**
+    - Fixed 504 timeouts by converting the analysis process to an asynchronous-polling mechanism.
+    - Rewrote AI prompts to handle complex table-based and plain-text documents, and to generate customized, fact-based guidance instead of just copying templates.
+    - Improved the UI to show the matched template name and original content, and fixed the default selection logic.
+- **Transaction Parsing Engine Improvements:**
+    - Added support for D-Type (amount with +/- sign) and expanded C-Type (filtering non-financial rows like buy/sell) transactions.
+- **File Handling & API Integration Fixes:**
+    - Updated Upstage API calls to use the correct model () and parameters (), resolving 400 errors.
+    - Fixed backend validation to support the non-standard  MIME type.
+    - Enforced PDF-only uploads in the UI for relevant features.
+- **Case List UI Enhancement:**
+    - Changed the default sorting to show the most recently registered cases first ().
+    - Added a Registration Date column to the case list table for better visibility.
+- **Transaction Sort Order (Implementation):** Implemented a robust, multi-layered fix for the recurring transaction sorting bug, which is now pending user verification.
 
 **Earlier issues found/mentioned but not fixed**
-- **ESLint Configuration**: A broken ESLint configuration, carried over from the previous session, was not addressed.
+- None. The outstanding ESLint issue from the previous fork was resolved in this session.
 
 **Known issue recurrence from previous fork**
-- **ESLint Configuration**: This issue was reported in the previous fork and remains unfixed.
-    - **Recurrence count**: 3+
-    - **Status**: NOT STARTED
+- **ESLint Configuration**: This issue recurred and was **RESOLVED** in this session.
+- **Transaction Order Reversal**: This issue recurred. A new, more robust fix was implemented. **Status: USER VERIFICATION PENDING**.
+- **Production Deployment Mismatch**: This user-side process issue continues to be a major blocker for verifying fixes. **Status: BLOCKED**.
 
 **Code Architecture**
 
@@ -159,129 +126,78 @@ None. All development tasks are complete and awaiting user verification.
 - **Framework**: Next.js (Monolith)
 - **API**: tRPC
 - **Database**: PostgreSQL with Prisma
-- **Authentication**: NextAuth.js
-- **Deployment**: User-managed AWS EC2 with PM2
+- **AI/LLM**: OpenAI GPT-4o for complex data extraction and content generation.
+- **OCR/Document Parsing**: Upstage API.
+- **Key Patterns**: Asynchronous processing with frontend polling, advanced prompt engineering, robust financial data parsing.
 
 **key DB schema**
-- **TransactionTemplate**: Added .
-- **Transaction**: Contains  used for original ordering.
+- No database schema changes were made in this session.
 
 **All files of reference**
-- : Added logic to re-sort transactions on retrieval.
-- : Fixed -value parsing and added initial balance-based sorting.
-- : Fixed a critical bug where the  role was not handled.
-- : Fixed an RBAC bug that allowed s to see all cases.
-- : Implemented data quality validation.
-- : Implemented new template management features.
+- ****: Rewritten to fix all linting errors.
+- ****:  endpoint was overhauled to fix transaction sorting.
+- ****: Updated frontend sorting logic to complement the backend fix.
+- ****:  endpoint was converted to be asynchronous. AI prompts were updated.
+- ****: AI prompts were significantly improved to handle table-based documents and generate customized content.
+- ****: Implemented the frontend polling logic for the asynchronous analysis.
+- ****: Updated to parse new transaction types (D-Type and expanded C-Type).
+- ****: Updated the Upstage API model from  to .
+- ****: Default sorting for  was changed to .
+- ****: UI was updated to show the Registration Date and reflect the new default sort order.
+- ****: File validation logic was updated to accept .
 
 **Areas that need refactoring**:
-- None identified; focus should be on stabilizing the production environment.
+- None identified. The agent successfully refactored the Correction Recommendation Guide analysis to be asynchronous.
 
 **key api endpoints**
-- ****: RBAC logic was fixed to differentiate  and  roles.
-- ****: Added post-retrieval reordering logic to fix transaction sort order for all data.
-- ****: Fixed to handle encrypted PDFs.
-- ** /  / **: New endpoints for template management.
+- ****: Now asynchronous. Initiates a background job and returns immediately.
+- ****: Used by the frontend to poll for the result of the analysis.
+- ****: Logic was heavily modified to ensure correct transaction sort order upon retrieval.
+- ****: Default sort order changed to .
 
 **Critical Info for New Agent**
-- **Deployment Mismatch is the Core Blocker:** The user runs the application on a separate AWS EC2 instance. Code changes made in this environment are **not** automatically deployed. The user must be reminded to , rebuild (   ▲ Next.js 15.5.9
-   - Environments: .env
-   - Experiments (use with caution):
-     · serverComponentsExternalPackages
-
-   Creating an optimized production build ...
- ✓ Compiled successfully in 13.7s
-   Skipping validation of types
-   Skipping linting
-   Collecting page data ...
-   Generating static pages (0/37) ...
-   Generating static pages (9/37) 
-   Generating static pages (18/37) 
-   Generating static pages (27/37) 
- ✓ Generating static pages (37/37)
-   Finalizing page optimization ...
-   Collecting build traces ...
-
-Route (app)                                        Size  First Load JS
-─ ƒ /api/classification/progress                    0 B         101 kB
-+ First Load JS shared by all                    101 kB
-  ├ chunks/4bd1b696-c023c6e3521b1417.js         54.2 kB
-  ├ chunks/58-da22815550f8ba0f.js               44.9 kB
-  └ other shared chunks (total)                 2.03 kB
-
-Route (pages)                                      Size  First Load JS
-┌ ○ / (318 ms)                                    497 B         142 kB
-├   /_app                                           0 B         142 kB
-├ ○ /404                                          180 B         142 kB
-├ ○ /admin/correction-guide-templates (501 ms)   7.8 kB         196 kB
-├ ○ /admin/settings (317 ms)                    4.14 kB         186 kB
-├ ○ /admin/templates (499 ms)                   11.3 kB         199 kB
-├ ƒ /api/analyze/[caseId]/progress                  0 B         142 kB
-├ ƒ /api/correction-guide/download                  0 B         142 kB
-├ ƒ /api/trpc/[trpc]                                0 B         142 kB
-├ ○ /cases (499 ms)                             3.79 kB         186 kB
-├ ○ /cases/[id] (357 ms)                         170 kB         359 kB
-├ ○ /cases/[id]/edit (499 ms)                   3.27 kB         208 kB
-├ ƒ /cases/new                                  2.04 kB         207 kB
-├ ○ /dashboard (301 ms)                         1.27 kB         143 kB
-├ ○ /dashboard/profile (499 ms)                 3.67 kB         209 kB
-├ ○ /forgot-password (499 ms)                   3.65 kB         176 kB
-├ ○ /guide/[slug] (459 ms)                      7.46 kB         160 kB
-├ ○ /help (318 ms)                              17.8 kB         196 kB
-├ ○ /login (317 ms)                             3.76 kB         205 kB
-├ ○ /register (317 ms)                          3.97 kB         176 kB
-├ ○ /reset-password (317 ms)                    4.17 kB         177 kB
-└ ○ /verify-email (317 ms)                      1.82 kB         151 kB
-+ First Load JS shared by all                    157 kB
-  ├ chunks/framework-d7de93249215fb06.js        59.7 kB
-  ├ chunks/main-aa36b1ee87981c99.js             37.5 kB
-  ├ chunks/pages/_app-4b4b39c3ae71f4e6.js       42.6 kB
-  ├ css/b433a370c4155840.css                    15.2 kB
-  └ other shared chunks (total)                 1.79 kB
-
-○  (Static)   prerendered as static content
-ƒ  (Dynamic)  server-rendered on demand), and restart their  process. Most recent bugs were due to the user running outdated code. Before debugging, insist the user confirms their deployed code matches the latest commit on GitHub.
-- **Transaction Order Fix is Multi-Layered:** The transaction sorting bug has been addressed at both data ingestion () and data retrieval (). This is a robust fix intended to correct both new and existing data, but it is pending user verification.
-- **User Must Test:** You cannot test functionality on the user's production server. Your primary role is to write correct code and guide the user through verification.
+- **Loan Usage Tracking Bug is P0:** Your immediate task is to fix the loan usage tracking logic. The previous agent has already identified the flawed function () and the overly broad data query as the root causes. Your fix should ensure internal account transfers are not counted as expenses.
+- **Verify Deployment Before Debugging:** The user's production environment on EC2 is not in sync with this development environment. Before investigating *any* new bug report from the user, you MUST first confirm they have successfully deployed the latest code from GitHub. This has been the source of most recurring bugs.
+- **Complex Fixes Await Verification:** The fixes for the transaction sort order and the entire Correction Recommendation Guide workflow are complex and multi-faceted. If the user reports issues with them, first verify deployment, then review the debugging logs the previous agent added to the console before changing the code.
 
 **documents and test reports created in this job**
--  (updated with completed work)
--  (created for testing)
+-  (updated multiple times to reflect completed work and new requirements)
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User:** List view gives a 500 error for ADMINs, and parsing fails for  value entries. (Bug report) - **Status: Fixed by agent.**
-2.  **User:** I'm still getting the 500 error. (Deployment issue) - **Status: Agent diagnosed as deployment issue.**
-3.  **User:** I'm using . (Info) - **Status: Agent provided correct  commands.**
-4.  **User:** Why isn't the error gone? (Deployment issue) - **Status: Agent continued to debug deployment.**
-5.  **User:** The server is on AWS EC2. (Confirmation) - **Status: Agent confirmed cause is deployment sync.**
-6.  **User:** I already did that. (Deployment issue) - **Status: Agent instructed user to  their server code.**
-7.  **User:** The old code () is still on my server. (User found the issue) - **Status: Agent found the root cause in a missed reference.**
-8.  **User:** Now I'm getting a 403 Forbidden error. (New bug) - **Status: Fixed by agent (patched RBAC for SUPER role).**
-9.  **User:** Encrypted PDFs are causing a 500 error. (New bug) - **Status: Fixed by agent.**
-10. **User (Pending):** Transaction order is still reversed even for new documents. (Recurring bug) - **Status: Agent implemented a more robust fix. Pending user deployment and verification.**
+1.  **User (Pending):** Reported a critical bug in loan usage tracking where internal account transfers are wrongly calculated as expenses. **Status: IN PROGRESS.**
+2.  **User:** Requested the case list be sorted by latest registration date, with the date visible. **Status: Completed.**
+3.  **User:** Re-iterated the case list sorting request. **Status: Completed.**
+4.  **User:** Reported the UI for document upload still incorrectly showed non-PDF types as allowed. **Status: Completed.**
+5.  **User:** Asked why the document upload allowed files other than PDF. **Status: Completed.**
+6.  **User:** Reported a 400 error from the Upstage API. **Status: Completed.**
+7.  **User:** Asked if the new parsing logic would handle both plain-text and the newly provided table-based documents. **Status: Completed.**
+8.  **User:** Provided table-based 자료제출목록 examples and asked for a solution to parse them. **Status: Completed.**
+9.  **User:** Described new transaction formats (D-Type with +/- amount, C-Type needing filtering) to be handled. **Status: Completed.**
+10. **User:** Reported three issues: general correction recommendation parsing, PDF-only handling for transactions, and an error with a specific PDF MIME type. **Status: Completed.**
 
 **Project Health Check:**
 - **Broken**:
-    - The deployment pipeline between this environment and the user's EC2 server is unreliable and is the primary source of friction.
-    - ESLint configuration is non-functional.
+    - **Loan Usage Tracking Logic:** The core calculation is fundamentally flawed.
+    - **Deployment-to-Verification Workflow:** The unreliable deployment process on the user's end is a major bottleneck.
 - **Mocked**: None.
 - **In Progress/Unverified**:
-    - The definitive fix for the transaction history sort order.
+    - The fix for the Loan Usage Tracking bug (IN PROGRESS).
+    - The comprehensive fix for the transaction history sort order (USER VERIFICATION PENDING).
+    - The entire overhauled Correction Recommendation Guide workflow (USER VERIFICATION PENDING).
 
 **3rd Party Integrations**
-- **AWS S3**
-- **Upstage API** (for OCR)
-- **OpenAI GPT-5.2** (for analysis)
+- **AWS S3**: For file storage.
+- **Upstage API**: For OCR () and Document Parsing ( with the  model).
+- **OpenAI GPT-4o**: For advanced data extraction from documents and generating customized text based on templates.
 
 **Testing status**
 - **Testing agent used after significant changes:** NO
 - **Troubleshoot agent used after agent stuck in loop:** NO
 - **Test files created:** None
-- **Known regressions:** The transaction sort order was a recurring issue; a comprehensive fix has been implemented but is not yet verified by the user.
+- **Known regressions:** The transaction sort order was a recurring issue. A new, more comprehensive fix has been implemented but is pending user verification.
 
 **Credentials to test flow:**
 - User must test in their own environment. The agent cannot perform end-to-end testing.
 
 **What agent forgot to execute**
-- The agent did not resolve the long-standing ESLint configuration issue.
-- The agent initially missed a remaining reference to a deleted variable (), which led to a prolonged and confusing debugging session centered on deployment issues.</analysis>
+- The agent was in the middle of fixing the loan tracking bug when the session ended. The task is not forgotten but is actively in progress.</analysis>
