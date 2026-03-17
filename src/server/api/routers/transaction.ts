@@ -2339,69 +2339,60 @@ export const transactionRouter = createTRPCRouter({
             }
           }
 
-          // === 2.5단계: 대출 문서도 이동 대상도 아닌 다른 문서의 출금 추가 ===
-          // (같은 계좌의 다른 기간 문서 등 - 대출금이 아직 남아있으면 계속 추적)
-          const excludeDocIds = new Set([
-            ...(loanDocumentId ? [loanDocumentId] : []),
-            ...transferDestDocIds,
-          ]);
-
-          const otherDocWithdrawals = await ctx.db.transaction.findMany({
-            where: {
-              caseId,
-              transactionDate: { gte: loan.transactionDate },
-              withdrawalAmount: { gt: 0 },
-              id: { notIn: [...processedTxIds] },
-              documentId: { notIn: [...excludeDocIds] },
-            },
-            orderBy: [{ transactionDate: "asc" }, { rowNumber: "asc" }],
-            take: 1000,
-            select: {
-              id: true,
-              transactionDate: true,
-              withdrawalAmount: true,
-              balance: true,
-              memo: true,
-              document: {
-                select: { id: true, originalFileName: true },
-              },
-            },
-          });
-
-          for (const tx of otherDocWithdrawals) {
-            trackedItems.push({
-              date: tx.transactionDate.toISOString(),
-              type: "출금",
-              amount: Number(tx.withdrawalAmount),
-              balance: Number(tx.balance) || 0,
-              memo: tx.memo || "",
-              remainingLoan: 0, // 정렬 후 재계산
-              documentName: tx.document?.originalFileName || "",
-            });
-          }
-
-          // === 3단계: 정렬 후 남은 대출금 순차 재계산 ===
-          const typeOrder: Record<string, number> = { "대출실행": 0, "이동": 1, "출금": 2 };
+          // === 3단계: 정렬 (이동+매칭 출금 그룹핑) 후 남은 대출금 순차 재계산 ===
+          // 1차: 날짜순 정렬
           trackedItems.sort((a, b) => {
             const dateA = a.date.split('T')[0] ?? '';
             const dateB = b.date.split('T')[0] ?? '';
-            if (dateA !== dateB) {
-              return dateA.localeCompare(dateB);
-            }
-            return (typeOrder[a.type] ?? 99) - (typeOrder[b.type] ?? 99);
+            if (dateA !== dateB) return dateA.localeCompare(dateB);
+            // 동일 날짜 내: 대출실행(0) > 직접출금(1) > 이동(2) > 이동대상출금(3)
+            const getPriority = (item: TrackedItem) => {
+              if (item.type === "대출실행") return 0;
+              if (item.type === "출금" && !item.transferFrom) return 1;
+              if (item.type === "이동") return 2;
+              return 3; // transferFrom 있는 출금 (이동 대상 계좌)
+            };
+            return getPriority(a) - getPriority(b);
           });
 
-          // remainingLoan 재계산: 대출실행 → 유지, 이동 → 유지, 출금 → 차감 (0 이하로 내려가지 않음)
-          // 이동 대상 계좌(transferFrom 있는) 출금은 참고용으로만 표시, 남은 대출금 차감 안 함
+          // 2차: 이동 직후에 매칭되는 이동대상 출금(같은 날짜, 같은 금액) 배치
+          const regrouped: TrackedItem[] = [];
+          const usedIndices = new Set<number>();
+
+          for (let i = 0; i < trackedItems.length; i++) {
+            if (usedIndices.has(i)) continue;
+            const item = trackedItems[i]!;
+            regrouped.push(item);
+            usedIndices.add(i);
+
+            // 이동 항목이면 매칭되는 이동대상 출금을 바로 뒤에 배치
+            if (item.type === "이동") {
+              const dateStr = item.date.split('T')[0];
+              // 같은 날짜 + 같은 금액 + 이동대상 출금 찾기
+              for (let j = i + 1; j < trackedItems.length; j++) {
+                if (usedIndices.has(j)) continue;
+                const other = trackedItems[j]!;
+                if (other.date.split('T')[0] !== dateStr) break;
+                if (other.transferFrom && other.amount === item.amount) {
+                  regrouped.push(other);
+                  usedIndices.add(j);
+                  break;
+                }
+              }
+            }
+          }
+
+          // remainingLoan 재계산
+          // 이동 대상 계좌 출금(transferFrom)은 남은 대출금에 영향 안 줌 → -1 (프론트에서 "-" 표시)
           let runningLoan = loanAmount;
-          for (const item of trackedItems) {
+          for (const item of regrouped) {
             if (item.type === "대출실행") {
               item.remainingLoan = runningLoan;
             } else if (item.type === "이동") {
               item.remainingLoan = runningLoan;
             } else if (item.transferFrom) {
-              // 이동 대상 계좌의 출금: 참고용 표시만, 남은 대출금 변동 없음
-              item.remainingLoan = runningLoan;
+              // 이동 대상 계좌의 출금: 남은 대출금 표시 안 함
+              item.remainingLoan = -1;
             } else {
               // 대출 계좌의 직접 출금만 남은 대출금 차감
               runningLoan -= item.amount;
@@ -2411,7 +2402,7 @@ export const transactionRouter = createTRPCRouter({
           }
 
           const totalUsed = loanAmount - Math.max(0, runningLoan);
-          const transferCount = trackedItems.filter(t => t.type === "이동").length;
+          const transferCount = regrouped.filter(t => t.type === "이동").length;
 
           return {
             loanId: loan.id,
@@ -2419,11 +2410,11 @@ export const transactionRouter = createTRPCRouter({
             loanAmount,
             loanMemo: loan.memo || "",
             loanDocumentName: loan.document?.originalFileName || "",
-            trackedItems,
+            trackedItems: regrouped,
             summary: {
               loanAmount,
               totalUsed,
-              usageCount: trackedItems.filter(t => t.type === "출금").length,
+              usageCount: regrouped.filter(t => t.type === "출금").length,
               transferCount,
               remainingLoan: Math.max(0, runningLoan),
               exhausted: runningLoan <= 0,

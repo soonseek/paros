@@ -187,11 +187,10 @@ export function LoanTrackingModal({ isOpen, onClose, caseId }: LoanTrackingModal
       "날짜": formatDate(item.date),
       "구분": item.type,
       "금액": item.amount,
-      "잔액": item.balance,
-      "남은 대출금": item.remainingLoan,
+      "남은 대출금": item.remainingLoan === -1 ? "" : item.remainingLoan,
       "비고": item.memo || "",
       "거래내역 파일": item.documentName || "",
-      "이동 대상 계좌": item.transferTo || "",
+      "이동 대상 계좌": item.transferTo || (item.transferFrom ? `← ${item.transferFrom}` : ""),
     }));
 
     const ws = XLSX.utils.json_to_sheet(excelData);
@@ -203,7 +202,6 @@ export function LoanTrackingModal({ isOpen, onClose, caseId }: LoanTrackingModal
       { wch: 12 }, // 날짜
       { wch: 10 }, // 구분
       { wch: 15 }, // 금액
-      { wch: 15 }, // 잔액
       { wch: 15 }, // 남은 대출금
       { wch: 30 }, // 비고
       { wch: 25 }, // 거래내역 파일
@@ -517,7 +515,9 @@ export function LoanTrackingModal({ isOpen, onClose, caseId }: LoanTrackingModal
                                       ? "bg-blue-50 dark:bg-blue-950" 
                                       : item.type === "이동" 
                                         ? "bg-purple-50 dark:bg-purple-950" 
-                                        : ""
+                                        : item.transferFrom
+                                          ? "bg-purple-50/50 dark:bg-purple-950/50"
+                                          : ""
                                   }
                                 >
                                   <TableCell className="font-mono text-sm">{idx + 1}</TableCell>
@@ -539,7 +539,13 @@ export function LoanTrackingModal({ isOpen, onClose, caseId }: LoanTrackingModal
                                   }`}>
                                     {item.type === "대출실행" ? "+" : "-"}{formatAmount(item.amount)}
                                   </TableCell>
-                                  <TableCell className="text-right font-mono">{formatAmount(item.remainingLoan)}</TableCell>
+                                  <TableCell className="text-right font-mono">
+                                    {item.remainingLoan === -1 ? (
+                                      <span className="text-muted-foreground">-</span>
+                                    ) : (
+                                      formatAmount(item.remainingLoan)
+                                    )}
+                                  </TableCell>
                                   <TableCell className="max-w-[150px] truncate text-sm" title={item.memo}>
                                     {item.memo || "-"}
                                   </TableCell>
@@ -557,6 +563,13 @@ export function LoanTrackingModal({ isOpen, onClose, caseId }: LoanTrackingModal
                                         <span>→</span>
                                         <span className="truncate" title={item.transferTo}>
                                           {item.transferTo}
+                                        </span>
+                                      </div>
+                                    ) : item.transferFrom ? (
+                                      <div className="flex items-center gap-1 text-purple-500">
+                                        <span>←</span>
+                                        <span className="truncate" title={item.transferFrom}>
+                                          {item.transferFrom}
                                         </span>
                                       </div>
                                     ) : (
