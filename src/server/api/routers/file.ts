@@ -1950,13 +1950,59 @@ export const fileRouter = createTRPCRouter({
       
       if (document.mimeType.includes("pdf")) {
         const { parsePdfWithUpstage } = await import("~/lib/pdf-ocr");
+        const { PDFDocument } = await import("pdf-lib");
         const { SettingsService } = await import("~/server/services/settings-service");
         const settingsService = new SettingsService(ctx.db);
         const upstageApiKey = await settingsService.getSetting('UPSTAGE_API_KEY');
         
-        const tableData = await parsePdfWithUpstage(fileBuffer, upstageApiKey || undefined);
-        headers = tableData.headers;
-        rows = tableData.rows;
+        // PDF 페이지 수 확인 후 청크 분할 처리 (504 타임아웃 방지)
+        const pdfDoc = await PDFDocument.load(fileBuffer, { ignoreEncryption: true });
+        const totalPages = pdfDoc.getPageCount();
+        const PAGES_PER_CHUNK = 5; // 한 번에 5페이지씩 처리
+        
+        console.log(`[analyzeWithTemplate] PDF 총 ${totalPages}페이지, ${PAGES_PER_CHUNK}페이지씩 분할 처리`);
+        
+        if (totalPages <= PAGES_PER_CHUNK) {
+          // 5페이지 이하면 전체 한 번에 처리
+          const tableData = await parsePdfWithUpstage(fileBuffer, upstageApiKey || undefined);
+          headers = tableData.headers;
+          rows = tableData.rows;
+        } else {
+          // 5페이지씩 분할 처리
+          let headersSet = false;
+          
+          for (let startPage = 0; startPage < totalPages; startPage += PAGES_PER_CHUNK) {
+            const endPage = Math.min(startPage + PAGES_PER_CHUNK, totalPages);
+            const chunkNum = Math.floor(startPage / PAGES_PER_CHUNK) + 1;
+            const totalChunks = Math.ceil(totalPages / PAGES_PER_CHUNK);
+            
+            console.log(`[analyzeWithTemplate] 청크 ${chunkNum}/${totalChunks} 처리 중 (페이지 ${startPage + 1}-${endPage})...`);
+            
+            try {
+              // 해당 페이지만 추출하여 새 PDF 생성
+              const chunkPdf = await PDFDocument.create();
+              const pageIndices = Array.from({ length: endPage - startPage }, (_, i) => startPage + i);
+              const copiedPages = await chunkPdf.copyPages(pdfDoc, pageIndices);
+              copiedPages.forEach(page => chunkPdf.addPage(page));
+              const chunkBuffer = Buffer.from(await chunkPdf.save());
+              
+              const chunkData = await parsePdfWithUpstage(chunkBuffer, upstageApiKey || undefined);
+              
+              if (!headersSet && chunkData.headers.length > 0) {
+                headers = chunkData.headers;
+                headersSet = true;
+              }
+              rows.push(...chunkData.rows);
+              
+              console.log(`[analyzeWithTemplate] 청크 ${chunkNum} 완료: ${chunkData.rows.length}행 추출`);
+            } catch (chunkError) {
+              console.error(`[analyzeWithTemplate] 청크 ${chunkNum} 실패:`, chunkError);
+              // 청크 실패 시 건너뛰고 계속
+            }
+          }
+          
+          console.log(`[analyzeWithTemplate] 전체 처리 완료: 헤더 ${headers.length}컬럼, ${rows.length}행`);
+        }
       } else {
         const workbook = XLSX.read(fileBuffer, { type: "buffer" });
         const sheetName = workbook.SheetNames[0];
