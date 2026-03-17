@@ -193,7 +193,7 @@ export const caseRouter = createTRPCRouter({
         filingDateTo: z.date().optional(),
         showArchived: z.boolean().optional(), // NEW: 아카이브 사건 표시 여부
         page: z.number().min(1).default(1),
-        sortBy: z.enum(['filingDate', 'caseNumber', 'debtorName', 'status', 'createdAt']).default('filingDate'),
+        sortBy: z.enum(['filingDate', 'caseNumber', 'debtorName', 'status', 'createdAt']).default('createdAt'),
         sortOrder: z.enum(['asc', 'desc']).default('desc'),
       })
     )

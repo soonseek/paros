@@ -48,7 +48,7 @@ const CasesIndexPage: NextPage = () => {
   const [filingDateTo, setFilingDateTo] = useState("");
   const [showArchived, setShowArchived] = useState(false); // NEW: 아카이브 필터
   const [currentPage, setCurrentPage] = useState(1);
-  const [sortBy, setSortBy] = useState("filingDate");
+  const [sortBy, setSortBy] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   // Fetch cases with filters
@@ -245,7 +245,7 @@ const CasesIndexPage: NextPage = () => {
                       </div>
                       <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
                         <span>{caseItem.courtName || "-"}</span>
-                        <span>{caseItem.filingDate ? new Date(caseItem.filingDate).toLocaleDateString("ko-KR") : "-"}</span>
+                        <span>{caseItem.createdAt ? new Date(caseItem.createdAt).toLocaleString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "-"}</span>
                       </div>
                     </div>
                   ))}
@@ -272,6 +272,9 @@ const CasesIndexPage: NextPage = () => {
                           <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600" onClick={() => handleSort("status")}>
                             상태 {sortBy === "status" && <span>{sortOrder === "asc" ? "↑" : "↓"}</span>}
                           </th>
+                          <th className="hidden lg:table-cell px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600" onClick={() => handleSort("createdAt")}>
+                            등록일시 {sortBy === "createdAt" && <span>{sortOrder === "asc" ? "↑" : "↓"}</span>}
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -286,6 +289,7 @@ const CasesIndexPage: NextPage = () => {
                                 {getStatusLabel(caseItem.status)}
                               </span>
                             </td>
+                            <td className="hidden lg:table-cell px-4 lg:px-6 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{caseItem.createdAt ? new Date(caseItem.createdAt).toLocaleString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "-"}</td>
                           </tr>
                         ))}
                       </tbody>
