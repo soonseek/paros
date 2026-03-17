@@ -179,9 +179,36 @@ export function parseDate(dateValue: unknown): Date | null {
 
   // String format
   if (typeof dateValue === "string") {
-    const cleaned = dateValue.trim().replace(/\./g, "-").replace(/\//g, "-");
-    const parsed = new Date(cleaned);
+    const trimmed = dateValue.trim();
 
+    // 1차: YYYY.MM.DD 또는 YYYY-MM-DD 또는 YYYY/MM/DD 패턴을 regex로 추출
+    // "2025.01.08 17:10: F/B출금" 같은 합쳐진 값에서도 날짜만 추출
+    const datePattern = /(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/;
+    const match = trimmed.match(datePattern);
+    if (match && match[1] && match[2] && match[3]) {
+      const year = parseInt(match[1], 10);
+      const month = parseInt(match[2], 10) - 1; // 0-indexed
+      const day = parseInt(match[3], 10);
+      if (year >= 1900 && year <= 2100 && month >= 0 && month <= 11 && day >= 1 && day <= 31) {
+        return new Date(year, month, day);
+      }
+    }
+
+    // 2차: "01.08" 또는 "01-08" 패턴 (년도 없이 월.일만)은 현재 연도 사용
+    const shortDatePattern = /^(\d{1,2})[.\-/](\d{1,2})(?:\s|$)/;
+    const shortMatch = trimmed.match(shortDatePattern);
+    if (shortMatch && shortMatch[1] && shortMatch[2]) {
+      const month = parseInt(shortMatch[1], 10);
+      const day = parseInt(shortMatch[2], 10);
+      if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+        const year = new Date().getFullYear();
+        return new Date(year, month - 1, day);
+      }
+    }
+
+    // 3차: 기존 파싱 - 순수 날짜 문자열
+    const cleaned = trimmed.replace(/\./g, "-").replace(/\//g, "-");
+    const parsed = new Date(cleaned);
     if (!isNaN(parsed.getTime())) {
       return parsed;
     }
@@ -193,6 +220,37 @@ export function parseDate(dateValue: unknown): Date | null {
   }
 
   return null;
+}
+
+/**
+ * Extract date and description from a merged "거래일시적요" column
+ * 
+ * Handles formats like:
+ * - "2025.01.08 17:10: F/B출금" → { date: 2025-01-08, memo: "F/B출금" }
+ * - "11:01: 자동이체"           → { date: null, memo: "자동이체" }
+ * - "2025.01.09 14:30: 부가세"  → { date: 2025-01-09, memo: "부가세" }
+ * - "대출이자"                  → { date: null, memo: "대출이자" }
+ */
+export function extractDateAndMemo(value: unknown): { date: Date | null; extractedMemo: string } {
+  if (!value || typeof value !== "string") return { date: null, extractedMemo: "" };
+
+  const trimmed = value.trim();
+  const date = parseDate(trimmed);
+
+  // 날짜+시간 패턴 제거 후 나머지를 적요로 추출
+  // "2025.01.08 17:10: F/B출금" → "F/B출금"
+  let memo = trimmed;
+
+  // 날짜 부분 제거 (YYYY.MM.DD or YYYY-MM-DD)
+  memo = memo.replace(/\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}\s*/, "");
+  // 시간 부분 제거 (HH:MM: or HH:MM)
+  memo = memo.replace(/\d{1,2}:\d{2}:?\s*/, "");
+  memo = memo.trim();
+
+  // 콜론으로 시작하면 제거
+  if (memo.startsWith(":")) memo = memo.substring(1).trim();
+
+  return { date, extractedMemo: memo };
 }
 
 /**
@@ -365,6 +423,9 @@ export async function extractAndSaveTransactions(
   let previousBalance: number | null = null;
   const balanceValidationWarnings: string[] = [];
 
+  // 날짜 이어받기: 합쳐진 "거래일시적요" 컬럼에서 날짜가 없는 행은 앞 행 날짜 사용
+  let lastKnownDate: Date | null = null;
+
   for (let i = 0; i < processRows.length; i++) {
     const row = processRows[i];
 
@@ -375,9 +436,17 @@ export async function extractAndSaveTransactions(
     }
 
     try {
-      // Parse date (required field)
+      // Parse date (required field) + 적요 추출
       const dateValue = row[columnMapping.date];
-      const transactionDate = parseDate(dateValue);
+      const { date: extractedDate, extractedMemo } = extractDateAndMemo(dateValue);
+      let transactionDate = extractedDate ?? parseDate(dateValue);
+
+      // 날짜 이어받기: 날짜를 찾지 못하면 이전 행의 날짜 사용
+      if (transactionDate) {
+        lastKnownDate = transactionDate;
+      } else if (lastKnownDate) {
+        transactionDate = lastKnownDate;
+      }
 
       if (!transactionDate) {
         skipped++;
@@ -558,6 +627,11 @@ export async function extractAndSaveTransactions(
           memoColumnDefined: columnMapping.memo !== undefined,
           memoInAmountColumn: columnMapping.memoInAmountColumn,
         });
+      }
+
+      // 합쳐진 "거래일시적요" 컬럼에서 추출한 적요를 memo에 병합
+      if (extractedMemo) {
+        memo = memo ? `${extractedMemo} ${memo}` : extractedMemo;
       }
 
       // MEDIUM-3 FIX: Validate metadata size before adding
