@@ -1336,10 +1336,24 @@ export const fileRouter = createTRPCRouter({
           console.log(`[PreAnalyze] Headers:`, JSON.stringify(tableData.headers));
           console.log(`[PreAnalyze] memo column index:`, columnMapping.memo);
           
-          // 샘플 데이터 파싱 (최대 10행)
-          const sampleRows = tableData.rows.slice(0, 10);
-          for (const row of sampleRows) {
-            const rowIdx = sampleRows.indexOf(row);
+          // 샘플 데이터 파싱 (유효한 거래 행만, 최대 10건)
+          // 정보 행(고객전화번호, 조회일자 등)은 날짜 파싱 실패로 자동 제외
+          const datePattern = /\d{4}[-./]\d{1,2}[-./]\d{1,2}/;
+          const maxSampleRows = 10;
+          let sampleIdx = 0;
+          
+          for (let ri = 0; ri < tableData.rows.length && parsedSampleData.length < maxSampleRows; ri++) {
+            const row = tableData.rows[ri]!;
+            sampleIdx = ri;
+            
+            // 행에 날짜 패턴이 있는지 빠르게 체크 (정보 행 필터링)
+            const hasDate = row.some(cell => datePattern.test(cell || ''));
+            if (!hasDate) {
+              console.log(`[PreAnalyze Parse] Row ${ri + 1} skipped (no date pattern): ${JSON.stringify(row.slice(0, 3))}`);
+              continue;
+            }
+            
+            const rowIdx = parsedSampleData.length;
             const dateIdx = columnMapping.date;
             const depositIdx = columnMapping.deposit;
             const withdrawalIdx = columnMapping.withdrawal;
@@ -1477,7 +1491,7 @@ export const fileRouter = createTRPCRouter({
           totalPdfPages,
           previewPages,
           headers: tableData.headers,
-          sampleRows: tableData.rows.slice(0, 10),
+          sampleRows: tableData.rows.filter(row => /\d{4}[-./]\d{1,2}[-./]\d{1,2}/.test(row.join(' '))).slice(0, 10),
           pageTexts: tableData.pageTexts,
           // 파싱된 샘플 데이터 (5개 컬럼: 일자, 입금, 출금, 잔액, 비고)
           parsedSampleData,

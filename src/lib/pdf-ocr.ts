@@ -855,35 +855,26 @@ function extractCellsFromHTML(rowHTML: string): string[] {
   // Remove <tr> tags
   const cleanRow = rowHTML.replace(/<\/?tr[^>]*>/gi, "");
 
-  // Extract <td> or <th> content WITH colspan support
-  const cellRegex = /<t[hd]([^>]*)>(.*?)<\/t[hd]>/gs;
-  const cells: string[] = [];
+  // Extract <td> or <th> content
+  // IMPORTANT: Do NOT expand colspan - header colspan causes misalignment with data rows
+  // because header may have colspan=2 but data rows have individual cells.
+  // The ±3 column tolerance + date-based alignment handles column count differences.
+  const cellRegex = /<t[hd][^>]*>(.*?)<\/t[hd]>/gs;
+  const cells = [...cleanRow.matchAll(cellRegex)].map(match => match[1]);
 
-  for (const match of cleanRow.matchAll(cellRegex)) {
-    const attrs = match[1] || '';
-    const content = match[2] || '';
-
-    // Handle colspan: a single <td colspan="3"> should produce 3 cells
-    const colspanMatch = attrs.match(/colspan\s*=\s*["']?(\d+)["']?/i);
-    const colspan = colspanMatch ? parseInt(colspanMatch[1]!, 10) : 1;
-
-    // Clean HTML tags and decode entities
-    let text = content.replace(/<[^>]+>/g, "");
+  // Clean HTML tags and decode HTML entities
+  // CRITICAL: Do NOT filter empty cells - they represent null/empty values in columns!
+  return cells.map(cell => {
+    if (!cell) return '';
+    let text = cell.replace(/<[^>]+>/g, "");
     text = text.replace(/&nbsp;/g, " ")
              .replace(/&lt;/g, "<")
              .replace(/&gt;/g, ">")
              .replace(/&amp;/g, "&")
              .replace(/<br\s*\/?>/gi, " ")
              .trim();
-
-    cells.push(text);
-    // Fill remaining colspan positions with empty strings
-    for (let i = 1; i < colspan; i++) {
-      cells.push('');
-    }
-  }
-
-  return cells;
+    return text;
+  });
 }
 
 /**
