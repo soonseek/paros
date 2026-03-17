@@ -5,7 +5,7 @@ import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { FILE_VALIDATION, validateFileSignature } from "~/lib/file-validation";
 import { uploadFile, deleteFile, downloadFile } from "~/lib/storage";
 import { analyzeFileStructure } from "~/lib/file-analyzer";
-import { extractAndSaveTransactions, parseDate, type ColumnMapping } from "~/lib/data-extractor";
+import { extractAndSaveTransactions, parseDate, extractDateAndMemo, type ColumnMapping } from "~/lib/data-extractor";
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 /**
@@ -1337,19 +1337,36 @@ export const fileRouter = createTRPCRouter({
           console.log(`[PreAnalyze] memo column index:`, columnMapping.memo);
           
           // 샘플 데이터 파싱 (유효한 거래 행만, 최대 10건)
-          // 정보 행(고객전화번호, 조회일자 등)은 날짜 파싱 실패로 자동 제외
+          // 정보 행(고객전화번호, 조회일자 범위 등)은 자동 제외
           const datePattern = /\d{4}[-./]\d{1,2}[-./]\d{1,2}/;
+          const dateRangePattern = /\d{4}[-./]\d{1,2}[-./]\d{1,2}\s*~\s*\d{4}[-./]\d{1,2}[-./]\d{1,2}/;
           const maxSampleRows = 10;
-          let sampleIdx = 0;
           
           for (let ri = 0; ri < tableData.rows.length && parsedSampleData.length < maxSampleRows; ri++) {
             const row = tableData.rows[ri]!;
-            sampleIdx = ri;
             
             // 행에 날짜 패턴이 있는지 빠르게 체크 (정보 행 필터링)
-            const hasDate = row.some(cell => datePattern.test(cell || ''));
+            const rowText = row.join(' ');
+            const hasDate = datePattern.test(rowText);
             if (!hasDate) {
-              console.log(`[PreAnalyze Parse] Row ${ri + 1} skipped (no date pattern): ${JSON.stringify(row.slice(0, 3))}`);
+              console.log(`[PreAnalyze Parse] Row ${ri + 1} skipped (no date): ${JSON.stringify(row.slice(0, 3))}`);
+              continue;
+            }
+            
+            // 날짜 범위 행 제외 (예: "2025/01/01 ~ 2025/06/30" = 조회일자)
+            if (dateRangePattern.test(rowText)) {
+              console.log(`[PreAnalyze Parse] Row ${ri + 1} skipped (date range): ${JSON.stringify(row.slice(0, 2))}`);
+              continue;
+            }
+            
+            // 금액 데이터가 없는 행도 제외 (날짜만 있고 금액이 전혀 없으면 정보 행)
+            const hasAmount = row.some((cell, idx) => {
+              if (idx === (columnMapping.date ?? 0)) return false; // 날짜 컬럼은 제외
+              const num = parseFloat(String(cell || '').replace(/[,\s]/g, ''));
+              return !isNaN(num) && num > 0;
+            });
+            if (!hasAmount) {
+              console.log(`[PreAnalyze Parse] Row ${ri + 1} skipped (no amount data): ${JSON.stringify(row.slice(0, 3))}`);
               continue;
             }
             
@@ -1366,7 +1383,19 @@ export const fileRouter = createTRPCRouter({
             const rawDateValue = dateIdx !== undefined && dateIdx >= 0 ? row[dateIdx] : undefined;
             const dateValue = dateIdx !== undefined && dateIdx >= 0 ? String(row[dateIdx] || '') : '';
             const balanceValue = balanceIdx !== undefined && balanceIdx >= 0 ? row[balanceIdx] : '';
-            const memoValue = memoIdx !== undefined && memoIdx >= 0 ? String(row[memoIdx] || '') : '';
+            
+            // 비고(memo) 처리: memo 컬럼이 date 컬럼과 같은 경우, extractDateAndMemo로 적요만 추출
+            let memoValue = '';
+            if (memoIdx !== undefined && memoIdx >= 0) {
+              if (memoIdx === dateIdx) {
+                // memo와 date가 같은 컬럼 (OCR이 "거래일자시간적요"를 하나로 합침)
+                // extractDateAndMemo로 날짜+시간 부분 제거 후 적요만 추출
+                const { extractedMemo } = extractDateAndMemo(row[memoIdx]);
+                memoValue = extractedMemo;
+              } else {
+                memoValue = String(row[memoIdx] || '');
+              }
+            }
             
             // 날짜 파싱: col[dateIdx]에서 날짜를 못 찾으면 col[0]에서도 시도
             const parsedDate = parseDate(rawDateValue);
@@ -1491,7 +1520,16 @@ export const fileRouter = createTRPCRouter({
           totalPdfPages,
           previewPages,
           headers: tableData.headers,
-          sampleRows: tableData.rows.filter(row => /\d{4}[-./]\d{1,2}[-./]\d{1,2}/.test(row.join(' '))).slice(0, 10),
+          sampleRows: tableData.rows.filter(row => {
+            const rowText = row.join(' ');
+            // 날짜 있고, 범위 아니고, 금액 데이터 있는 행만
+            return /\d{4}[-./]\d{1,2}[-./]\d{1,2}/.test(rowText) 
+              && !/\d{4}[-./]\d{1,2}[-./]\d{1,2}\s*~/.test(rowText)
+              && row.some((cell, idx) => {
+                const num = parseFloat(String(cell || '').replace(/[,\s]/g, ''));
+                return !isNaN(num) && num > 0;
+              });
+          }).slice(0, 10),
           pageTexts: tableData.pageTexts,
           // 파싱된 샘플 데이터 (5개 컬럼: 일자, 입금, 출금, 잔액, 비고)
           parsedSampleData,
@@ -1702,7 +1740,17 @@ export const fileRouter = createTRPCRouter({
         const rawDateValue = dateIdx !== undefined && dateIdx >= 0 ? row[dateIdx] : undefined;
         const dateValue = dateIdx !== undefined && dateIdx >= 0 ? String(row[dateIdx] || '') : '';
         const balanceValue = balanceIdx !== undefined && balanceIdx >= 0 ? row[balanceIdx] : '';
-        const memoValue = memoIdx !== undefined && memoIdx >= 0 ? String(row[memoIdx] || '') : '';
+        
+        // 비고(memo) 처리: memo 컬럼이 date 컬럼과 같은 경우 적요만 추출
+        let memoValue = '';
+        if (memoIdx !== undefined && memoIdx >= 0) {
+          if (memoIdx === dateIdx) {
+            const { extractedMemo } = extractDateAndMemo(row[memoIdx]);
+            memoValue = extractedMemo;
+          } else {
+            memoValue = String(row[memoIdx] || '');
+          }
+        }
 
         // 날짜 파싱: parseDate 사용 + fallback
         const parsedDate = parseDate(rawDateValue);
