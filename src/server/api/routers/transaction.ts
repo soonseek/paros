@@ -2204,17 +2204,17 @@ export const transactionRouter = createTRPCRouter({
             documentName: loan.document?.originalFileName || "",
           });
 
-          // 1단계: 대출 계좌의 출금만 먼저 처리
+          // 1단계: 대출 계좌의 출금만 먼저 처리 (이동 탐지용)
           const loanAccountWithdrawals = await ctx.db.transaction.findMany({
             where: {
               caseId,
               transactionDate: { gte: loan.transactionDate },
               withdrawalAmount: { gt: 0 },
               id: { not: loan.id },
-              documentId: loanDocumentId, // 대출 계좌만
+              documentId: loanDocumentId, // 대출 계좌만 (이동 탐지)
             },
             orderBy: [{ transactionDate: "asc" }, { rowNumber: "asc" }],
-            take: 500,
+            take: 1000,
             select: {
               id: true,
               transactionDate: true,
@@ -2227,8 +2227,11 @@ export const transactionRouter = createTRPCRouter({
             },
           });
 
-          // === 1단계: 대출 계좌 출금 처리 (모든 출금 처리, 이동 탐색 목적) ===
+          // === 1단계: 대출 계좌 출금 처리 (이동 탐색 + 직접 출금) ===
+          const processedTxIds = new Set<string>(); // 중복 방지용
+
           for (const tx of loanAccountWithdrawals) {
+            processedTxIds.add(tx.id);
             const withdrawal = Number(tx.withdrawalAmount);
             const memo = tx.memo || "";
             const dateStr = tx.transactionDate.toISOString().split('T')[0];
@@ -2288,7 +2291,7 @@ export const transactionRouter = createTRPCRouter({
                 documentId: { in: [...transferDestDocIds] },
               },
               orderBy: [{ transactionDate: "asc" }, { rowNumber: "asc" }],
-              take: 500,
+              take: 1000,
               select: {
                 id: true,
                 transactionDate: true,
@@ -2334,6 +2337,47 @@ export const transactionRouter = createTRPCRouter({
                 transferFrom: loan.document?.originalFileName || "",
               });
             }
+          }
+
+          // === 2.5단계: 대출 문서도 이동 대상도 아닌 다른 문서의 출금 추가 ===
+          // (같은 계좌의 다른 기간 문서 등 - 대출금이 아직 남아있으면 계속 추적)
+          const excludeDocIds = new Set([
+            ...(loanDocumentId ? [loanDocumentId] : []),
+            ...transferDestDocIds,
+          ]);
+
+          const otherDocWithdrawals = await ctx.db.transaction.findMany({
+            where: {
+              caseId,
+              transactionDate: { gte: loan.transactionDate },
+              withdrawalAmount: { gt: 0 },
+              id: { notIn: [...processedTxIds] },
+              documentId: { notIn: [...excludeDocIds] },
+            },
+            orderBy: [{ transactionDate: "asc" }, { rowNumber: "asc" }],
+            take: 1000,
+            select: {
+              id: true,
+              transactionDate: true,
+              withdrawalAmount: true,
+              balance: true,
+              memo: true,
+              document: {
+                select: { id: true, originalFileName: true },
+              },
+            },
+          });
+
+          for (const tx of otherDocWithdrawals) {
+            trackedItems.push({
+              date: tx.transactionDate.toISOString(),
+              type: "출금",
+              amount: Number(tx.withdrawalAmount),
+              balance: Number(tx.balance) || 0,
+              memo: tx.memo || "",
+              remainingLoan: 0, // 정렬 후 재계산
+              documentName: tx.document?.originalFileName || "",
+            });
           }
 
           // === 3단계: 정렬 후 남은 대출금 순차 재계산 ===
