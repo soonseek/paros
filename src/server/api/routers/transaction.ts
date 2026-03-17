@@ -1602,13 +1602,14 @@ export const transactionRouter = createTRPCRouter({
           balance: true,
           memo: true,
           documentId: true,
+          rowNumber: true,
           document: {
             select: {
               originalFileName: true,
             },
           },
         },
-        orderBy: [{ transactionDate: "asc" }, { rowNumber: "asc" }],
+        orderBy: [{ document: { originalFileName: "asc" } }, { transactionDate: "asc" }, { rowNumber: "asc" }],
       });
 
       // 3. 통계 계산
@@ -1627,8 +1628,11 @@ export const transactionRouter = createTRPCRouter({
           amount: tx.depositAmount && Number(tx.depositAmount) > 0 
             ? Number(tx.depositAmount) 
             : Number(tx.withdrawalAmount),
+          depositAmount: Number(tx.depositAmount) || 0,
+          withdrawalAmount: Number(tx.withdrawalAmount) || 0,
           balance: Number(tx.balance) || 0,
           memo: tx.memo || "",
+          documentId: tx.documentId,
           documentName: tx.document?.originalFileName || "",
         })),
         summary: {
