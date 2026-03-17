@@ -1,203 +1,144 @@
 <analysis>**original_problem_statement:**
-The user's primary goal is to build and refine a legal tech application focused on bankruptcy and rehabilitation cases. The initial work involved a Correction Recommendation Guide and a Transaction History module.
+The user's initial goal was to fix bugs and enhance a legal tech application. During this session, the scope narrowed to two critical, complex bugs:
 
-During this session, the user reported numerous bugs and requested several significant enhancements:
-1.  **Loan Usage Tracking Bug:** The system incorrectly calculates loan usage by treating internal account transfers (이동) as expenses, leading to flawed financial summaries.
-2.  **Transaction Order Bug (Recurring):** Transactions within the same day are displayed in reverse chronological order.
-3.  **Correction Recommendation Guide Overhaul:**
-    *   **504 Timeout:** The analysis process was too slow and resulted in timeouts.
-    *   **Poor AI Generation:** The AI was just copying templates instead of generating customized guidance based on the case's specific details. The tone was also not right.
-    *   **Limited Document Parsing:** The system only recognized simple plain-text formats with the keyword 흠결사항 and failed on complex, multi-page, table-based documents like 자료제출목록 (document submission checklists).
-    *   **UI/UX Issues:** The UI didn't show which template was matched, and the default selection logic for recommended items was incorrect.
-4.  **New Transaction Types:** The parser needed to be updated to handle:
-    *   **D-Type:** Transactions where 입금/출금 (deposit/withdrawal) is indicated by a +/- sign in the amount column.
-    *   **C-Type Expansion:** Filter out non-financial rows like 매수/매도 (buy/sell) in cryptocurrency or stock transaction histories.
-5.  **File Handling & Validation:**
-    *   The Upstage API model being used was deprecated, causing errors.
-    *   Text-based PDFs were being sent for OCR instead of more efficient document parsing.
-    *   A specific PDF MIME type () was causing upload failures.
-    *   UI components incorrectly suggested that non-PDF files could be uploaded.
-6.  **Case List UI:** The list of cases needed to be sorted by the most recently registered, and the registration date needed to be displayed.
+1.  **Loan Usage Tracking:** The system incorrectly calculated loan usage, initially by counting internal transfers as expenses. Subsequent fixes revealed deeper issues, such as not tracking fund usage after a transfer, incorrect remaining balances (negative values), and a confusing UI. The user requested a complete overhaul of the logic and presentation to make it accurate and intuitive.
+2.  **OCR Date Parsing Failure:** The transaction file uploader failed to parse dates correctly when the OCR service merged the date/time and memo columns. This issue became more complex when it was discovered that the OCR output was inconsistent, sometimes placing the date in the row number column () instead of the transaction date column (), and behaving differently across different pages of the same document.
+
+The user also requested the removal of confusing columns () and better visual grouping of related transactions in the UI.
 
 **User's preferred language**: Korean
 
 **what currently exists?**
-The application is a full-stack Next.js monolith using tRPC, Prisma, and PostgreSQL. The agent has addressed almost all the user's requests from this session. The long-standing ESLint configuration issue has been completely resolved. The Correction Recommendation Guide feature was significantly overhauled to be asynchronous, use more intelligent AI prompts, and handle a wider variety of document formats. The transaction parsing logic was enhanced for new types, and numerous file handling and UI bugs were fixed. The agent was in the process of fixing the final reported bug related to loan usage tracking.
+The application is a Next.js/tRPC/PostgreSQL monolith. The agent has performed multiple iterative fixes on two main fronts: loan usage tracking and OCR date parsing.
+
+The loan tracking logic in  has been significantly refactored. It now attempts to track funds after they are transferred to a new account, groups related transfer/withdrawal transactions for clarity, and uses sentinel values to control UI display. The corresponding frontend components have been updated to remove confusing data and improve visual layout.
+
+The OCR parsing logic in  has been enhanced to handle malformed date strings. It uses regex to find dates within combined text and includes a fallback to check the row number column if the primary date column is empty. Extensive client-side and server-side logging has been added to facilitate debugging this issue.
+
+However, both major fixes are still incomplete and failing user verification.
 
 **Last working item**:
-- **Last item agent was working:** Fixing a critical bug in the loan usage tracking logic. The user reported that internal account transfers were being incorrectly counted as expenses. The agent investigated and found the root cause: the  function in the backend was decrementing the remaining loan amount for *all* withdrawals, including internal transfers, and the data query was too broad. The agent was about to modify the backend code to fix this.
+- **Last item agent was working:** Debugging a persistent OCR parsing bug. After implementing a fallback to check multiple columns for a date, the user reported that the parser still behaves differently for page 1 and page 2 of the same uploaded PDF. The agent was about to investigate the logs for a multi-page document to understand this new inconsistency.
 - **Status:** IN PROGRESS
-- **Agent Testing Done:** N
-- **Which testing method agent to use?** backend testing agent. The fix requires modifying core business logic in the backend. The testing agent should be used to create a test case that replicates the user's scenario (a loan deposit followed by an internal transfer) and verifies that the remaining loan amount is calculated correctly.
-- **User Testing Done:** N
+- **Agent Testing Done:** N (The issue requires analyzing user-provided logs from a specific file upload, which cannot be replicated by the testing agent.)
+- **Which testing method agent to use?** Manual debugging. The agent must instruct the user to upload the problematic file again and then carefully analyze the full set of server-side () and browser console logs to identify why OCR output or parsing logic differs between pages.
+- **User Testing Done:** Y (User confirmed the latest fix is still failing.)
 
 **All Pending/In progress Issue list**:
-- **Issue 1 (P0): Incorrect Loan Usage Tracking**
-- **Issue 2 (P1): Transaction Order Reversal**
-- **Issue 3 (P2): Correction Recommendation Guide Full Workflow Verification**
-- **Issue 4 (P3): Production Deployment Mismatch**
+- **Issue 1 (P0): Inconsistent OCR Date Parsing Across Pages**
+- **Issue 2 (P1): Loan Usage Tracking Full Workflow Verification**
+- **Issue 3 (P2): Transaction Order Reversal** (from previous fork)
+- **Issue 4 (P3): Correction Recommendation Guide Full Workflow Verification** (from previous fork)
+- **Issue 5 (P3): Production Deployment Mismatch** (from previous fork)
 
 **Issues Detail:**
-- **Issue 1: Incorrect Loan Usage Tracking**
-    - **Attempted fixes:** None yet. The agent only completed the investigation.
-    - **Next debug checklist:**
-        1.  **Modify Backend Logic:** Locate the  function (likely in a file like  or a related utility file).
-        2.  **Differentiate Transfers:** Update the logic to distinguish between an actual expense withdrawal and an internal transfer (이동). Internal transfers should not decrease the  amount.
-        3.  **Scope Data Query:** The database query that fetches withdrawals ( from the logs) must be narrowed to only include transactions from the loan account and its specific transfer destinations, not all accounts associated with the user.
-    - **Why fix this issue and what will be achieved with the fix?** This is a critical business logic bug that produces incorrect and misleading financial summaries, making the feature unusable.
-    - **Status:** IN PROGRESS
-    - **Is recurring issue?** N
-    - **Should Test frontend/backend/both after fix?** Both. The core logic is backend, but the result must be verified in the frontend summary table.
-    - **Blocked on other issue:** None
+- **Issue 1: Inconsistent OCR Date Parsing Across Pages**
+  - **Attempted fixes:**
+    1.  Enhanced  function with regex to extract  from a combined string.
+    2.  Implemented date carry-forward logic for rows missing a date.
+    3.  Added extensive logging on both client and server to trace the parsing flow.
+    4.  Implemented a fallback mechanism in  to check  for a date if the designated date column  fails.
+  - **Next debug checklist:**
+    1.  The immediate priority is to analyze why page 1 and page 2 are parsed differently.
+    2.  Inspect the code in  and  in  to see how the logic handles iterating through multiple pages from the OCR result.
+    3.  Hypothesize if the  OCR service provides different data structures for the first vs. subsequent pages.
+    4.  Request fresh logs from the user for a full multi-page file upload and compare the raw OCR data for each page.
+  - **Why fix this issue and what will be achieved with the fix?** This is a critical data ingestion bug that prevents users from successfully uploading their primary financial documents, blocking a core feature.
+  - **Status:** IN PROGRESS
+  - **Is recurring issue?** Y
+  - **Should Test frontend/backend/both after fix?** Backend.
+  - **Blocked on other issue:** None.
 
-- **Issue 2: Transaction Order Reversal**
-    - **Attempted fixes:** A comprehensive, multi-layered fix was implemented.
-        1.  **Backend ():** The  query was changed to sort by ,  was added to the selection, and a post-processing function was added to re-order same-day transactions based on balance continuity, correcting both new and existing data.
-        2.  **Frontend ():** The table's sorting logic was updated to use  as a secondary sort key when transaction dates are identical.
-    - **Next debug checklist:** The user needs to deploy the latest code and test. They should be instructed to check the browser's developer console for the debugging logs the agent added to trace the sorting process.
-    - **Why fix this issue and what will be achieved with the fix?** Correct transaction order is fundamental for financial analysis. This bug makes the feature's primary purpose unreliable.
-    - **Status:** USER VERIFICATION PENDING
-    - **Is recurring issue?** Y
-    - **Should Test frontend/backend/both after fix?** User testing on their production environment is required.
-    - **Blocked on other issue:** Issue 4: Production Deployment Mismatch
+- **Issue 2: Loan Usage Tracking Full Workflow Verification**
+  - **Attempted fixes:** The logic in  () was rewritten multiple times to handle transfers. The final version regroups transactions for clarity and sends a sentinel value () for the remaining balance on transferred-fund withdrawals. The frontend ( and ) was updated to render this correctly and remove the confusing Balance column.
+  - **Next debug checklist:** After the P0 OCR bug is fixed, the user must perform a full end-to-end test on the loan tracking feature with a clean data set to confirm all calculations and UI presentations are correct. The latest user feedback on this was that the history was cutting off prematurely, which has not been re-verified after the last set of changes.
+  - **Why fix this issue and what will be achieved with the fix?** This is a core feature for financial analysis in the app. Its accuracy and usability are paramount.
+  - **Status:** USER VERIFICATION PENDING
+  - **Is recurring issue?** Y
+  - **Should Test frontend/backend/both after fix?** Both.
+  - **Blocked on other issue:** Issue 1. The user cannot test this properly without being able to upload data correctly.
 
-- **Issue 3: Correction Recommendation Guide Full Workflow Verification**
-    - **Attempted fixes:** The entire feature was overhauled. Key changes include asynchronous processing, new AI prompts for extraction and customization, support for table-based documents, and UI fixes.
-    - **Next debug checklist:** The user needs to perform end-to-end testing, covering:
-        1.  Uploading a large/complex document and verifying it doesn't time out (no 504 error).
-        2.  Confirming the generated guidance is customized and reflects the content of the uploaded document.
-        3.  Checking that the UI correctly displays the matched template's name and original content.
-        4.  Verifying that all matched items are checked by default.
-    - **Why fix this issue and what will be achieved with the fix?** This confirms that a major feature set requested by the user is working as intended after a significant rewrite.
-    - **Status:** USER VERIFICATION PENDING
-    - **Is recurring issue?** N
-    - **Should Test frontend/backend/both after fix?** User testing on their production environment is required.
-    - **Blocked on other issue:** Issue 4: Production Deployment Mismatch
+- **Issue 3: Transaction Order Reversal**
+  - **Status:** USER VERIFICATION PENDING (from previous fork).
 
-- **Issue 4: Production Deployment Mismatch**
-    - **Attempted fixes:** This is a recurring process issue on the user's side. The agent has repeatedly guided the user on the correct deployment steps (, build, restart).
-    - **Next debug checklist:** The user must establish a reliable deployment workflow. Before any further bug diagnosis, the agent must insist the user verifies that the code on their EC2 server matches the latest commit on GitHub.
-    - **Why fix this issue and what will be achieved with the fix?** This is a critical blocker that prevents verification of any and all fixes, stalling the project.
-    - **Status:** BLOCKED (on user action)
-    - **Is recurring issue?** Y
-    - **Should Test frontend/backend/both after fix?** N/A
-    - **Blocked on other issue:** This issue blocks verification for all other issues.
+- **Issue 4: Correction Recommendation Guide Full Workflow Verification**
+  - **Status:** USER VERIFICATION PENDING (from previous fork).
+
+- **Issue 5: Production Deployment Mismatch**
+  - **Status:** BLOCKED (on user action, from previous fork).
 
 **In progress Task List**:
-- **Task 1: Fix Incorrect Loan Usage Tracking**
-    - **Where to resume:** The agent needs to start implementing the fix in the backend logic, likely within a file such as  or , focusing on the  function and its related data queries.
-    - **What will be achieved with this?** The loan usage summary will accurately reflect how loan funds are spent, correctly ignoring internal account transfers.
-    - **Status:** IN PROGRESS
-    - **Should Test frontend/backend/both after fix?** Both.
-    - **Blocked on something:** None.
+- **Task 1: Resolve OCR Date Parsing**
+  - **Where to resume:** Analyzing the discrepancy between page 1 and page 2 parsing, starting with an inspection of the multi-page handling logic in .
+  - **What will be achieved with this?** Users will be able to reliably upload multi-page bank statements where OCR produces inconsistent results.
+  - **Status:** IN PROGRESS
+  - **Should Test frontend/backend/both after fix?** Backend.
+  - **Blocked on something:** Waiting for user to provide logs for a multi-page upload.
 
 **Upcoming and Future Tasks**
-- **P0: Full User Acceptance Testing:** Once the loan tracking bug is fixed, the user must conduct a thorough review of all features and fixes implemented in this session to ensure they meet requirements and are stable on their production server.
+- **P0: Full User Acceptance Testing:** Once the loan tracking and OCR bugs are confirmed fixed, the user must conduct a thorough review of all features and fixes.
+- **P1: Verify Transaction Sort Order Fix:** User needs to test the fix for the recurring transaction sorting issue on their production server.
+- **P1: Verify Correction Recommendation Guide Overhaul:** User needs to perform end-to-end testing of this entire feature.
 
 **Completed work in this session**
-- **ESLint Configuration Fix:** Resolved a persistent issue by overhauling , eliminating ~1900 linting errors.
-- **Correction Recommendation Guide Overhaul:**
-    - Fixed 504 timeouts by converting the analysis process to an asynchronous-polling mechanism.
-    - Rewrote AI prompts to handle complex table-based and plain-text documents, and to generate customized, fact-based guidance instead of just copying templates.
-    - Improved the UI to show the matched template name and original content, and fixed the default selection logic.
-- **Transaction Parsing Engine Improvements:**
-    - Added support for D-Type (amount with +/- sign) and expanded C-Type (filtering non-financial rows like buy/sell) transactions.
-- **File Handling & API Integration Fixes:**
-    - Updated Upstage API calls to use the correct model () and parameters (), resolving 400 errors.
-    - Fixed backend validation to support the non-standard  MIME type.
-    - Enforced PDF-only uploads in the UI for relevant features.
-- **Case List UI Enhancement:**
-    - Changed the default sorting to show the most recently registered cases first ().
-    - Added a Registration Date column to the case list table for better visibility.
-- **Transaction Sort Order (Implementation):** Implemented a robust, multi-layered fix for the recurring transaction sorting bug, which is now pending user verification.
-
-**Earlier issues found/mentioned but not fixed**
-- None. The outstanding ESLint issue from the previous fork was resolved in this session.
+- **Iterative Bug Fixing for Loan Tracking:** Implemented multiple versions of the loan tracking logic, culminating in a version that regroups transactions for clarity, removes the confusing  column, and uses special UI treatment for withdrawals made from transferred funds.
+- **Debugging Infrastructure:** Added extensive, targeted client-side and server-side logging to diagnose the complex OCR parsing issue, which proved crucial in identifying the root causes.
+- **Removed Deprecated Logs:** Cleaned up old, irrelevant console logs related to transaction sorting.
 
 **Known issue recurrence from previous fork**
-- **ESLint Configuration**: This issue recurred and was **RESOLVED** in this session.
-- **Transaction Order Reversal**: This issue recurred. A new, more robust fix was implemented. **Status: USER VERIFICATION PENDING**.
-- **Production Deployment Mismatch**: This user-side process issue continues to be a major blocker for verifying fixes. **Status: BLOCKED**.
+- **Transaction Order Reversal**: Status remains .
+- **Production Deployment Mismatch**: Status remains .
 
 **Code Architecture**
-
+trackMultipleLoans
 
 **Key Technical Concepts**
-- **Framework**: Next.js (Monolith)
-- **API**: tRPC
-- **Database**: PostgreSQL with Prisma
-- **AI/LLM**: OpenAI GPT-4o for complex data extraction and content generation.
-- **OCR/Document Parsing**: Upstage API.
-- **Key Patterns**: Asynchronous processing with frontend polling, advanced prompt engineering, robust financial data parsing.
-
-**key DB schema**
-- No database schema changes were made in this session.
+- **Complex Debugging:** Extensive use of client-side and server-side logging to diagnose issues stemming from inconsistent third-party (OCR) data.
+- **Iterative Refinement:** The agent and user worked in a tight loop to incrementally fix complex business logic (loan tracking) and data parsing issues.
+- **Backend-for-Frontend (BFF):** The backend was modified to pre-process and format data specifically to simplify the frontend's display logic (e.g., regrouping transactions, using sentinel values).
+- **Fallback Logic:** Implemented robust parsing by adding fallback mechanisms to handle unpredictable data formats.
 
 **All files of reference**
-- ****: Rewritten to fix all linting errors.
-- ****:  endpoint was overhauled to fix transaction sorting.
-- ****: Updated frontend sorting logic to complement the backend fix.
-- ****:  endpoint was converted to be asynchronous. AI prompts were updated.
-- ****: AI prompts were significantly improved to handle table-based documents and generate customized content.
-- ****: Implemented the frontend polling logic for the asynchronous analysis.
-- ****: Updated to parse new transaction types (D-Type and expanded C-Type).
-- ****: Updated the Upstage API model from  to .
-- ****: Default sorting for  was changed to .
-- ****: UI was updated to show the Registration Date and reflect the new default sort order.
-- ****: File validation logic was updated to accept .
-
-**Areas that need refactoring**:
-- None identified. The agent successfully refactored the Correction Recommendation Guide analysis to be asynchronous.
-
-**key api endpoints**
-- ****: Now asynchronous. Initiates a background job and returns immediately.
-- ****: Used by the frontend to poll for the result of the analysis.
-- ****: Logic was heavily modified to ensure correct transaction sort order upon retrieval.
-- ****: Default sort order changed to .
+- ****: The center of the current P0 bug. Contains the main OCR data handling logic for both preview and final save. Was heavily modified to add logging and parsing fallbacks.
+- ****: Contains the complex and repeatedly refactored  function for loan usage tracking.
+- ****: The  function was enhanced with regex to be more robust.
+- ****: Modified to add client-side  statements for debugging the pre-analysis step.
+- ****: UI logic updated to hide the 'Balance' column and apply conditional styling to rows.
+- ****: Logic for Excel export was updated to remove the 'Balance' column.
 
 **Critical Info for New Agent**
-- **Loan Usage Tracking Bug is P0:** Your immediate task is to fix the loan usage tracking logic. The previous agent has already identified the flawed function () and the overly broad data query as the root causes. Your fix should ensure internal account transfers are not counted as expenses.
-- **Verify Deployment Before Debugging:** The user's production environment on EC2 is not in sync with this development environment. Before investigating *any* new bug report from the user, you MUST first confirm they have successfully deployed the latest code from GitHub. This has been the source of most recurring bugs.
-- **Complex Fixes Await Verification:** The fixes for the transaction sort order and the entire Correction Recommendation Guide workflow are complex and multi-faceted. If the user reports issues with them, first verify deployment, then review the debugging logs the previous agent added to the console before changing the code.
-
-**documents and test reports created in this job**
--  (updated multiple times to reflect completed work and new requirements)
+- **P0 is the OCR Bug:** Your immediate and highest priority is to solve the inconsistent date parsing. The user has reported that page 1 and page 2 of the same PDF are parsed differently. You must get logs from a multi-page upload to see the raw OCR data for each page and find the discrepancy. The key file is .
+- **Loan Logic is Fragile:** The loan tracking logic in  () has been through many changes and is very complex. Do not modify it unless necessary. It is pending full user verification after the OCR bug is fixed.
+- **Follow the Logging Pattern:** The add logs - user to test - logs cycle has been effective. The user is checking both browser and server logs. Continue this pattern. Your next step is to analyze the logs for a multi-page document.
+- **Verify Deployment Issues are Resolved:** Remember the recurring issue of Production Deployment Mismatch. Before debugging any issue that seems like a regression, confirm with the user they have deployed the latest code.
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User (Pending):** Reported a critical bug in loan usage tracking where internal account transfers are wrongly calculated as expenses. **Status: IN PROGRESS.**
-2.  **User:** Requested the case list be sorted by latest registration date, with the date visible. **Status: Completed.**
-3.  **User:** Re-iterated the case list sorting request. **Status: Completed.**
-4.  **User:** Reported the UI for document upload still incorrectly showed non-PDF types as allowed. **Status: Completed.**
-5.  **User:** Asked why the document upload allowed files other than PDF. **Status: Completed.**
-6.  **User:** Reported a 400 error from the Upstage API. **Status: Completed.**
-7.  **User:** Asked if the new parsing logic would handle both plain-text and the newly provided table-based documents. **Status: Completed.**
-8.  **User:** Provided table-based 자료제출목록 examples and asked for a solution to parse them. **Status: Completed.**
-9.  **User:** Described new transaction formats (D-Type with +/- amount, C-Type needing filtering) to be handled. **Status: Completed.**
-10. **User:** Reported three issues: general correction recommendation parsing, PDF-only handling for transactions, and an error with a specific PDF MIME type. **Status: Completed.**
+1.  **User:** Reports that page 1 and page 2 are parsed differently. (IN PROGRESS)
+2.  **User:** Provided detailed browser console logs for analysis. (Resolved by agent, led to final fix attempt)
+3.  **User:** States that no console logs are appearing. (Resolved by agent, moved logs to client-side)
+4.  **User:** States that the expected server logs are not appearing in the 'Format Matching' modal. (Resolved by agent, added logs to pre-analysis step)
+5.  **User:** Reports that parsing is still not working and asks for better debug logs and removal of old logs. (Resolved by agent, added detailed logs)
+6.  **User:** Corrects the agent's implementation, stating memo should not be merged. (Resolved by agent, logic removed)
+7.  **User:** Introduces the new OCR parsing bug. (IN PROGRESS)
+8.  **User:** Reports multiple UI/UX issues with the loan tracking results (confusing balance, separated rows). (Resolved by agent, UI/backend logic updated)
+9.  **User:** Asks why the transaction history cuts off mid-way. (Resolved by agent, but the fix was rejected by user)
+10. **User:** Reports that the remaining loan amount has negative values and is mostly zero. (Resolved by agent)
 
 **Project Health Check:**
 - **Broken**:
-    - **Loan Usage Tracking Logic:** The core calculation is fundamentally flawed.
-    - **Deployment-to-Verification Workflow:** The unreliable deployment process on the user's end is a major bottleneck.
-- **Mocked**: None.
+    - **OCR Data Ingestion:** Critically broken due to inconsistent parsing across pages.
 - **In Progress/Unverified**:
-    - The fix for the Loan Usage Tracking bug (IN PROGRESS).
-    - The comprehensive fix for the transaction history sort order (USER VERIFICATION PENDING).
-    - The entire overhauled Correction Recommendation Guide workflow (USER VERIFICATION PENDING).
+    - **Loan Usage Tracking:** The complex logic and UI have been refactored but await full user acceptance testing.
+    - **Transaction Sort Order Fix:** Awaiting user verification from a previous session.
+    - **Correction Recommendation Guide:** Awaiting user verification from a previous session.
 
 **3rd Party Integrations**
 - **AWS S3**: For file storage.
-- **Upstage API**: For OCR () and Document Parsing ( with the  model).
-- **OpenAI GPT-4o**: For advanced data extraction from documents and generating customized text based on templates.
+- **Upstage API**: For OCR and Document Parsing. This is the source of the inconsistent data causing the current P0 bug.
+- **OpenAI GPT-4o**: For advanced data extraction and content generation.
 
 **Testing status**
-- **Testing agent used after significant changes:** NO
+- **Testing agent used after significant changes:** YES (but the fixes were found to be incomplete by the user).
 - **Troubleshoot agent used after agent stuck in loop:** NO
-- **Test files created:** None
-- **Known regressions:** The transaction sort order was a recurring issue. A new, more comprehensive fix has been implemented but is pending user verification.
-
-**Credentials to test flow:**
-- User must test in their own environment. The agent cannot perform end-to-end testing.
-
-**What agent forgot to execute**
-- The agent was in the middle of fixing the loan tracking bug when the session ended. The task is not forgotten but is actively in progress.</analysis>
+- **Test files created:** None.
+- **Known regressions:** Both the loan tracking and OCR parsing have had multiple failed fixes, indicating their complexity. The user is the primary source of regression testing.</analysis>
