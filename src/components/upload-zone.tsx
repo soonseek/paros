@@ -403,6 +403,23 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess, userR
           // 1단계: 앞 3페이지만 추출하여 템플릿 매칭 테스트
           const preAnalysisResult = await preAnalyzeFileMutation.mutateAsync({ documentId });
           
+          // 디버그: 프리뷰 데이터를 브라우저 콘솔에 출력
+          console.log('[양식매칭] preAnalysisResult:', preAnalysisResult);
+          console.log('[양식매칭] headers:', preAnalysisResult.headers);
+          console.log('[양식매칭] sampleRows (raw OCR data):', preAnalysisResult.sampleRows);
+          console.log('[양식매칭] parsedSampleData:', preAnalysisResult.parsedSampleData);
+          console.log('[양식매칭] matchResult:', preAnalysisResult.matchResult);
+          if (preAnalysisResult.sampleRows) {
+            (preAnalysisResult.sampleRows as unknown[][]).forEach((row, idx) => {
+              console.log(`[양식매칭] Row ${idx + 1} raw:`, JSON.stringify(row));
+            });
+          }
+          if (preAnalysisResult.parsedSampleData) {
+            (preAnalysisResult.parsedSampleData as Record<string, unknown>[]).forEach((item, idx) => {
+              console.log(`[양식매칭] Parsed Row ${idx + 1}:`, JSON.stringify(item));
+            });
+          }
+          
           // 매칭 확인 모달 표시 (성공/실패 모두)
           setPendingDocumentId(documentId);
           setPreAnalysisData({
@@ -410,7 +427,7 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess, userR
             totalPages: preAnalysisResult.totalPdfPages,
             previewPages: preAnalysisResult.previewPages,
             headers: preAnalysisResult.headers,
-            sampleRows: preAnalysisResult.sampleRows,
+            sampleRows: preAnalysisResult.sampleRows as string[][],
             parsedSampleData: preAnalysisResult.parsedSampleData,
             matchResult: preAnalysisResult.matchResult,
             availableTemplates: preAnalysisResult.availableTemplates,
