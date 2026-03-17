@@ -315,6 +315,7 @@ function findColumnIndex(colDef: ColumnDefinition, headers: string[]): number {
       console.log(`[findColumnIndex] Index ${colDef.index} header mismatch: expected "${colDef.header}", got "${headers[colDef.index]}". Searching by header name...`);
       const correctedIdx = headers.findIndex(h => {
         const nh = normalizeText(h);
+        if (!nh) return false; // 빈 헤더 스킵
         return nh.includes(normalizedTarget) || normalizedTarget.includes(nh);
       });
       if (correctedIdx !== -1) {
@@ -331,6 +332,8 @@ function findColumnIndex(colDef: ColumnDefinition, headers: string[]): number {
     const normalizedTarget = normalizeText(colDef.header);
     const idx = headers.findIndex(h => {
       const normalizedHeader = normalizeText(h);
+      // 빈 헤더는 스킵 (모든 문자열이 ""을 포함하므로 잘못 매칭됨)
+      if (!normalizedHeader) return false;
       return normalizedHeader.includes(normalizedTarget) ||
              normalizedTarget.includes(normalizedHeader);
     });

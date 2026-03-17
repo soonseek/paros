@@ -175,11 +175,19 @@ export function TemplateMatchConfirmModal({
   // 재파싱 API
   const reparseMutation = api.file.reParseWithTemplate.useMutation({
     onSuccess: (data) => {
+      console.log('[양식매칭-재시도] reParseWithTemplate 결과:', data);
+      console.log('[양식매칭-재시도] columnMapping:', JSON.stringify(data.columnMapping));
+      console.log('[양식매칭-재시도] parsedSampleData:', data.parsedSampleData);
+      if (data.parsedSampleData) {
+        (data.parsedSampleData as Record<string, unknown>[]).forEach((item, idx) => {
+          console.log(`[양식매칭-재시도] Parsed Row ${idx + 1}:`, JSON.stringify(item));
+        });
+      }
       setReparsedData(data.parsedSampleData);
       setIsReparsing(false);
     },
     onError: (error) => {
-      console.error("ReParse error:", error);
+      console.error("[양식매칭-재시도] ReParse error:", error);
       setIsReparsing(false);
     },
   });
