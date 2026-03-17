@@ -5,7 +5,7 @@ import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { FILE_VALIDATION, validateFileSignature } from "~/lib/file-validation";
 import { uploadFile, deleteFile, downloadFile } from "~/lib/storage";
 import { analyzeFileStructure } from "~/lib/file-analyzer";
-import { extractAndSaveTransactions, type ColumnMapping } from "~/lib/data-extractor";
+import { extractAndSaveTransactions, parseDate, type ColumnMapping } from "~/lib/data-extractor";
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 /**
@@ -1339,6 +1339,7 @@ export const fileRouter = createTRPCRouter({
           // 샘플 데이터 파싱 (최대 10행)
           const sampleRows = tableData.rows.slice(0, 10);
           for (const row of sampleRows) {
+            const rowIdx = sampleRows.indexOf(row);
             const dateIdx = columnMapping.date;
             const depositIdx = columnMapping.deposit;
             const withdrawalIdx = columnMapping.withdrawal;
@@ -1348,12 +1349,23 @@ export const fileRouter = createTRPCRouter({
             const amountIdx = columnMapping.amount;
             const transactionTypeIdx = columnMapping.transaction_type;
             
+            const rawDateValue = dateIdx !== undefined && dateIdx >= 0 ? row[dateIdx] : undefined;
             const dateValue = dateIdx !== undefined && dateIdx >= 0 ? String(row[dateIdx] || '') : '';
             const balanceValue = balanceIdx !== undefined && balanceIdx >= 0 ? row[balanceIdx] : '';
             const memoValue = memoIdx !== undefined && memoIdx >= 0 ? String(row[memoIdx] || '') : '';
             
+            // 날짜 파싱 디버깅 (모든 샘플 행)
+            console.log(`[PreAnalyze] ===== Sample Row ${rowIdx + 1} DATE PARSING =====`);
+            console.log(`[PreAnalyze] Row ${rowIdx + 1} dateColumnIndex: ${dateIdx}`);
+            console.log(`[PreAnalyze] Row ${rowIdx + 1} rawDateValue:`, JSON.stringify(rawDateValue));
+            console.log(`[PreAnalyze] Row ${rowIdx + 1} rawDateValue type: ${typeof rawDateValue}`);
+            console.log(`[PreAnalyze] Row ${rowIdx + 1} dateValue (toString): "${dateValue}"`);
+            console.log(`[PreAnalyze] Row ${rowIdx + 1} parseDate result:`, parseDate(rawDateValue)?.toISOString() ?? 'null');
+            console.log(`[PreAnalyze] Row ${rowIdx + 1} full row:`, JSON.stringify(row));
+            console.log(`[PreAnalyze] ==========================================`);
+            
             // 첫 번째 행에서 memo 값 로깅
-            if (sampleRows.indexOf(row) === 0) {
+            if (rowIdx === 0) {
               console.log(`[PreAnalyze] First row memo parsing - memoIdx: ${memoIdx}, row[memoIdx]: ${memoIdx !== undefined && memoIdx >= 0 ? row[memoIdx] : 'N/A'}, memoValue: "${memoValue}"`);
             }
             
