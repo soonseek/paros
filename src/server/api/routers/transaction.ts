@@ -2227,12 +2227,8 @@ export const transactionRouter = createTRPCRouter({
             },
           });
 
-          // === 1단계: 대출 계좌 출금 처리 (이동 탐색은 잔여액 무관하게 계속) ===
-          // 대출 예산: 이동 + 직접출금 합산이 대출금을 초과하지 않도록 관리
-          let loanBudget = loanAmount;
-
+          // === 1단계: 대출 계좌 출금 처리 (모든 출금 처리, 이동 탐색 목적) ===
           for (const tx of loanAccountWithdrawals) {
-            if (loanBudget <= 0) break;
             const withdrawal = Number(tx.withdrawalAmount);
             const memo = tx.memo || "";
             const dateStr = tx.transactionDate.toISOString().split('T')[0];
@@ -2245,8 +2241,6 @@ export const transactionRouter = createTRPCRouter({
 
             if (isTransfer) {
               usedDepositCounts.set(matchKey, usedCount + 1);
-              const actualTransfer = Math.min(withdrawal, loanBudget);
-              loanBudget -= actualTransfer;
 
               trackedItems.push({
                 date: tx.transactionDate.toISOString(),
@@ -2260,9 +2254,6 @@ export const transactionRouter = createTRPCRouter({
                 transferMemo: matchedDeposit.depositMemo,
               });
             } else {
-              const actualExpense = Math.min(withdrawal, loanBudget);
-              loanBudget -= actualExpense;
-
               trackedItems.push({
                 date: tx.transactionDate.toISOString(),
                 type: "출금",
