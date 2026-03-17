@@ -596,7 +596,7 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess, userR
       setAnalyzingDocumentId(null);
       setIsModalProcessing(false);
     }
-  }, [pendingDocumentId, analyzeWithTemplateMutation, analyzeFileMutation, extractDataMutation, utils, caseId]);
+  }, [pendingDocumentId, preAnalysisData, analyzeWithTemplateMutation, analyzeFileMutation, extractDataMutation, utils, caseId]);
 
   // 템플릿 수동 선택 핸들러
   const handleSelectTemplate = useCallback(async (templateId: string) => {
