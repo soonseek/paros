@@ -6,116 +6,82 @@
 
 ## 구현 완료
 
+### 2026-03-10: 대출금 사용 추적 버그 수정 (P0)
+- [x] **핵심 버그 수정: `trackLoanUsage` 이체 오계산** - 이체/이동 거래 시 `remainingLoan` 차감하지 않도록 수정. 이체 키워드: "이체", "송금", "이동", "振込"
+- [x] **Dead code 제거: `trackMultipleLoans`** - 사용하지 않는 전체 출금 쿼리 (모든 계좌 대상) 제거
+- [x] 이체 거래 시 전액 소진 판단(break) 조건에서 제외
+
 ### 2026-03-10: 거래내역서 매칭 로직 버그 수정 및 UX 개선
 - [x] **핵심 버그 수정: 매칭 불일치** - 실제 업로드에서 `matchByIdentifiers`(Layer 1만) → `classifyTransaction`(3단계 파이프라인) 사용으로 변경
-- [x] **핵심 버그 수정: AI 칼럼 매핑 비고 누락** - `findColumnIndex`에서 `index`와 `header` 교차 검증 추가. AI가 잘못된 index를 줘도 header 이름으로 올바른 인덱스 재탐색
-- [x] **핵심 버그 수정: AI 프롬프트 기본값 오류** - 입금/출금 서브컬럼 예시가 `"memo"`로 되어있어 AI가 항상 memo로 설정 → `"skip"`(무시)으로 수정 (template.ts, template-image-analyzer.ts 모두)
-- [x] **핵심 버그 수정: 동일 일자 내 거래 순서 뒤바뀜** - 조회 시 `rowNumber: "desc"` → `"asc"` 수정 + 데이터 추출 시 잔액 연속성 기반 순서 보정 로직 추가 (`calculateBalanceConsistency`)
+- [x] **핵심 버그 수정: AI 칼럼 매핑 비고 누락** - `findColumnIndex`에서 `index`와 `header` 교차 검증 추가
+- [x] **핵심 버그 수정: AI 프롬프트 기본값 오류** - 입금/출금 서브컬럼 예시가 `"memo"`로 되어있어 AI가 항상 memo로 설정 → `"skip"`(무시)으로 수정
+- [x] **핵심 버그 수정: 동일 일자 내 거래 순서 뒤바뀜** - 조회 시 `rowNumber: "desc"` → `"asc"` 수정 + 잔액 연속성 기반 순서 보정 로직 추가
 - [x] 새 템플릿 생성 모달 AI 자동 분석 영역에 드래그앤드롭 지원 추가
-- [x] 템플릿 매칭 실패 시 '맞음, 진행' 버튼 비활성화 (이미 숨김 처리됨)
-- [x] 매칭 실패 판단 기준 (파싱 데이터 품질 검증):
-  - 비고가 모두 비어있음 (- 만 존재)
-  - 거래일자가 하나라도 비어있음
-  - 입금과 출금이 아무것도 없는 행이 존재함
-- [x] 매칭 실패 시 역할 기반 안내 모달:
-  - ADMIN/SUPER: "양식 매칭에 실패했습니다. 템플릿을 등록해주세요" + 닫기/등록 버튼
-  - LAWYER: "양식 매칭에 실패했습니다. ADMIN 사용자에게 문의하세요" + 닫기 버튼만
-  - 등록 버튼 클릭 시 `/admin/templates` 페이지로 이동
-- [x] 거래내역서 템플릿 관리 - '전체 내보내기' (CSV 다운로드)
-- [x] 거래내역서 템플릿 관리 - 'CSV 입력하기' (일괄 등록)
-- [x] 거래내역서 템플릿 관리 - '초기화' (확인 모달 후 전체 삭제)
-- [x] tRPC 엔드포인트: `template.exportAll`, `template.bulkImport`, `template.deleteAll`
-- [x] 템플릿 작성자 이메일 저장 (`createdByEmail` nullable, FK 없음)
-- [x] 목록 ID 칼럼 → 작성자 칼럼 (이메일 앞 5글자 + ellipsis)
+- [x] 템플릿 매칭 실패 시 '맞음, 진행' 버튼 비활성화
+- [x] 매칭 실패 판단 기준 (파싱 데이터 품질 검증)
+- [x] 매칭 실패 시 역할 기반 안내 모달
+- [x] 거래내역서 템플릿 관리 - '전체 내보내기', 'CSV 입력하기', '초기화'
+- [x] 템플릿 작성자 이메일 저장
 
 ### 2026-03-06: 보정권고 안내사항 데이터 영속성 검증 및 개선
-- [x] 수동 추가/편집 내용 DB 저장 기능 검증 완료 (saveManualItems, saveEditedContents)
+- [x] 수동 추가/편집 내용 DB 저장 기능 검증 완료
 - [x] 공유 링크 페이지에서 수동 추가/편집 내용 올바르게 표시 확인
 - [x] 공유 링크 생성 시 미저장 변경사항 자동 저장 로직 추가
-- [x] 공유 링크 에러 페이지 UX 개선 (retry: false로 즉시 에러 표시)
-- [x] 불필요한 PDF 관련 파일 정리 (public/fonts/ 삭제)
-- [x] 환경 설정: PostgreSQL 설치/구성, Prisma 마이그레이션, Nginx 프록시 설정
 
 ### 2026-03-06: 보정권고 안내사항 만들기 핵심 기능 구현
 - [x] Upstage Document Parse API 연동 (이미지 기반 PDF OCR)
-- [x] "흠결사항" 섹션 추출 로직 (1~99번 항목만 파싱, 100 이상은 날짜 오인식으로 제외)
 - [x] GPT-5.2 (OpenAI gpt-4o) 템플릿 매칭 + 신뢰도/근거 산출
-- [x] 중복 템플릿 자동 제거 (같은 템플릿 ID는 첫 번째만 유지)
 - [x] CorrectionGuideService 서비스 클래스 생성
-- [x] tRPC 분석 라우터 엔드포인트 추가:
-  - `analyzeDocument`: 문서 업로드 및 AI 분석
-  - `updateSelectedItems`: 사용자 선택 항목 업데이트
-  - `createShareLink`: 공유 링크 생성
-  - `getAnalysisByShareSlug`: 공유 링크로 분석 결과 조회 (인증 불필요)
-  - `saveManualItems`: 수동 추가 항목 저장
-  - `saveEditedContents`: 편집 내용 저장
-- [x] 프론트엔드 분석 컴포넌트 생성 (`CorrectionGuideAnalyzer`)
-  - 드래그앤드롭 파일 업로드
-  - 2열 레이아웃: 왼쪽(항목 리스트), 오른쪽(미리보기 + 편집)
-  - 매칭 결과 기본 펼침 상태
-  - 매칭 없음 항목 빨간색 강조 + "수동 추가" 버튼
-  - 안내사항 내용 편집 기능 (편집 버튼 → textarea)
-  - 흠결사항 기본 접힘 (클릭하여 펼침)
-  - 링크 복사 기능 (안전한 클립보드 API + fallback)
-  - **안내사항 수동 추가 기능** (모달로 제목/흠결사항/내용 입력)
-  - 수동 추가 항목 편집/삭제 가능
-  - 공유 링크 생성 전 미저장 데이터 자동 저장
-- [x] 공개 페이지 생성 (`/guide/[slug]`) - 인쇄 최적화
-- [x] Collapsible UI 컴포넌트 추가 (`@radix-ui/react-collapsible`)
-- [x] 공통 타입 정의 파일 생성 (`/src/types/correction-guide.ts`)
+- [x] tRPC 분석 라우터 엔드포인트 추가
+- [x] 프론트엔드 분석 컴포넌트 생성
 
 ### 2026-02-27: GNB 및 네비게이션 개선
-- [x] GNB에 보정권고 안내사항 템플릿 관리 아이콘 버튼 추가 (ClipboardList)
-- [x] ADMIN/SUPER 사용자에게만 보이도록 권한 처리
+- [x] GNB에 보정권고 안내사항 템플릿 관리 아이콘 버튼 추가
 - [x] 대시보드(/dashboard) → 사건 목록(/cases)으로 메인 페이지 변경
-- [x] 로그인 후 /cases로 리다이렉트
-- [x] 모든 페이지의 backHref를 /cases로 통일
-- [x] 사건 목록 페이지에서 뒤로가기 버튼 제거 (메인 페이지이므로)
 
 ### 2026-02-27: 안내사항 템플릿 이미지/파일 첨부 기능
-- [x] tRPC 라우터에 파일 업로드/삭제 API 추가 (`correction-guide.ts`)
-- [x] Base64 인코딩 파일 업로드 지원
-- [x] 파일 크기 검증 (최대 10MB)
+- [x] tRPC 라우터에 파일 업로드/삭제 API 추가
 - [x] 이미지 타입 검증 (JPEG, PNG, GIF, WebP)
-- [x] 파일 다운로드 API 엔드포인트 (`/api/correction-guide/download`)
-- [x] 프론트엔드 파일 업로드 UI 구현 (드래그앤드롭 스타일)
-- [x] 업로드된 이미지 미리보기 및 파일 목록 표시
-- [x] 파일 삭제 기능 (X 버튼)
-- [x] 템플릿 삭제 시 연결된 파일도 함께 삭제
 
 ### 2026-02-27: 사건상세 UI 개선 및 보정권고 안내사항 기능
-- [x] 발견사항 카드 제거
-- [x] 기본정보 → 모달 처리 (상세정보 버튼)
-- [x] 사건메모 → 모달 처리 (사건메모 버튼)  
-- [x] 페이지 타이틀 옆에 채무자명, 사건번호 배지 표시
-- [x] 보정권고 안내사항 섹션 추가 (드래그앤드롭 업로드 영역)
-- [x] ADMIN/SUPER 사용자에게만 '안내 사항 템플릿 관리' 링크 표시 (툴팁 포함)
-- [x] 보정권고 안내사항 템플릿 관리 페이지 생성 (`/admin/correction-guide-templates`)
-- [x] 템플릿 CRUD 기능 (제목, 내용, 이미지/파일 첨부, 특이사항, 우선순위)
-- [x] DB 스키마: CorrectionGuideTemplate, CorrectionGuideAnalysis 모델 추가
+- [x] 보정권고 안내사항 섹션 추가
+- [x] 보정권고 안내사항 템플릿 관리 페이지 생성
 
 ### 2026-02-23: 거래 정렬 및 파싱 버그 수정
 - [x] 같은 날짜 내 거래 순서 뒤섞임 버그 수정
-- [x] `transactionDate` 시간 정보 보존
-- [x] 정렬 순서 최신순(DESC)으로 변경
 - [x] 금액 부호 기반 입금/출금 자동 판단
-- [x] 잔액 검증 로직 추가
 
-### 2026-02-23: SUPER 역할 템플릿 권한 확장
-- [x] `adminProcedure`에서 SUPER 역할 허용
-- [x] 템플릿 관리 페이지에서 SUPER 역할 접근 허용
+### 2026-03-10: ESLint 설정 정상화
+- [x] ESLint 설정 수정: 1,914 문제 → 0 에러, 545 경고로 정리
 
-### 2026-02-20: 도움말 페이지 + 브랜딩 변경
-- [x] `/help` 페이지 생성
-- [x] GNB 브랜딩 "paros BMAD" → "법무법인 파로스"
+### 2026-03-10: 거래 순서 수정 (프론트엔드 보강)
+- [x] 백엔드 `transaction.search`에 잔액 기반 순서 보정 후처리 추가
+- [x] `SimplifiedTransactionTable` + `TransactionTable` 정렬 시 같은 날짜 내 `rowNumber` 보조 정렬
 
-### 2026-02-20: 모바일 최적화 + 도움말 전역 적용
-- [x] 공통 AppHeader 컴포넌트 생성
-- [x] 모든 인증 페이지에 AppHeader 적용
+### 2026-03-10: 보정권고 안내사항 504 타임아웃 수정 + AI 맞춤 안내문
+- [x] `analyzeDocument` 비동기 처리
+- [x] GPT 프롬프트 변경: 어투/간결함 유지, 최소한의 사실 대입만 수행
+- [x] `originalContent` 필드 추가
+
+### 2026-03-10: 보정권고 흠결사항 추출 GPT 기반 전환
+- [x] regex 기반 → GPT 기반 추출로 전환
+
+### 2026-03-10: 거래내역서 업로드 PDF 전용 + Upstage OCR 최적화
+- [x] 거래내역서 업로드: PDF만 허용
+- [x] Upstage API `ocr: "force"` → `"auto"`
+- [x] `application/vnd.epapyrus.plugin.pdf` MIME 타입 지원 추가
+
+### 2026-03-10: 보정권고 문서 다양한 포맷 대응 강화
+- [x] GPT 항목 추출 프롬프트 대폭 개선
+- [x] 텍스트 제한 6,000자 → 15,000자
+
+### 2026-03-10: 거래내역서 D형 + C형 확장
+- [x] D형 지원: 거래금액에 +/- 부호가 포함된 형식
+- [x] C형 확장: 매도/매수/체결 등 비입출금 거래 자동 필터링
 
 ## 사용자 역할
 - **LAWYER**: 자신의 사건만 조회/관리
-- **ADMIN**: 모든 사건 조회 + 시스템 설정 + 템플릿 관리 + 안내사항 템플릿 관리
+- **ADMIN**: 모든 사건 조회 + 시스템 설정 + 템플릿 관리
 - **SUPER**: ADMIN과 동일 권한
 
 ## 테스트 계정
@@ -131,48 +97,9 @@
 - `UPSTAGE_API_KEY`: Upstage Document Parse API 키 (OCR용)
 - `OPENAI_API_KEY`: OpenAI API 키 (템플릿 매칭용)
 
-### 2026-03-10: ESLint 설정 정상화
-- [x] ESLint 설정 수정: 1,914 문제(1,723 에러) → 0 에러, 545 경고로 정리
-- [x] 불필요하게 엄격한 `no-unsafe-*` 규칙 비활성화
-- [x] 스타일 관련 규칙 warn으로 완화 (`prefer-nullish-coalescing`, `no-floating-promises` 등)
-- [x] `react/no-unescaped-entities` 비활성화 (한국어 앱에서 불필요)
-- [x] `user.ts`의 `no-non-null-asserted-optional-chain` 에러 수정
-- [x] `progress.ts`의 `no-misused-promises` 에러 eslint-disable 처리
-
-### 2026-03-10: 거래 순서 수정 (프론트엔드 보강)
-- [x] 백엔드 `transaction.search`에 잔액 기반 순서 보정 후처리 추가 (기존 데이터 호환)
-- [x] `rowNumber` 필드를 select에 추가하여 프론트엔드에 전달
-- [x] `SimplifiedTransactionTable` + `TransactionTable` 정렬 시 같은 날짜 내 `rowNumber` 보조 정렬
-
-### 2026-03-10: 보정권고 안내사항 504 타임아웃 수정 + AI 맞춤 안내문
-- [x] `analyzeDocument` 비동기 처리 (즉시 응답 + 백그라운드 처리 + 프론트엔드 폴링)
-- [x] GPT 프롬프트 변경: 템플릿 원문의 어투/간결함 유지, 최소한의 사실 대입만 수행
-- [x] `originalContent` 필드 추가: 매칭된 템플릿 원본과 수정본 동시 표시
-- [x] 기본 선택 로직: 신뢰도 50% 기준 제거 → 매칭된 항목은 전부 기본 선택
-
-### 2026-03-10: 보정권고 흠결사항 추출 GPT 기반 전환
-- [x] 기존 regex 기반 "흠결사항" 키워드 의존 → GPT 기반 추출로 전환
-- [x] 표 형태, 평문, 다양한 제목("보정할 사항", "보완사항" 등) 대응
-- [x] regex 기반 추출은 폴백으로 유지
-
-### 2026-03-10: 거래내역서 업로드 PDF 전용 + Upstage OCR 최적화
-- [x] 거래내역서 업로드: PDF만 허용 (Excel, CSV 제거)
-- [x] Upstage API `ocr: "force"` → `"auto"` (텍스트 기반 PDF는 직접 파싱, 이미지만 OCR)
-- [x] `application/vnd.epapyrus.plugin.pdf` MIME 타입 지원 추가
-- [x] `.pdf` 확장자 파일은 MIME 타입 무관하게 허용
-
-### 2026-03-10: 보정권고 문서 다양한 포맷 대응 강화
-- [x] GPT 항목 추출 프롬프트 대폭 개선: 표 형태 자료제출목록, 추가질문사항, 혼합형 대응
-- [x] 텍스트 제한 6,000자 → 15,000자 (8페이지 문서 대응)
-- [x] 항목 추출 max_tokens 3,000 → 8,000 (30개+ 항목 대응)
-- [x] 템플릿 매칭 max_tokens 4,000 → 8,000 (30개+ 항목 매칭 대응)
-- [x] 대분류명 맥락 유지 규칙 추가 (예: "[재산] 부동산등기사항전부증명서")
-
-### 2026-03-10: 거래내역서 D형 + C형 확장
-- [x] D형 지원: 거래금액에 +/- 부호가 포함된 형식 (거래구분 컬럼 없이 금액 부호로 입출금 판단)
-- [x] C형 확장: 매도/매수/체결 등 비입출금 거래 자동 필터링 (입금/출금만 처리)
-- [x] LLM 프롬프트에 D형(amount_sign) 설명 추가
-- [x] data-extractor.ts, template-classifier.ts, transaction-normalizer.ts 동시 수정
+## 사용자 검증 대기 항목
+- 거래 순서 뒤바뀜 수정 - 배포 후 검증 필요
+- 보정권고 안내사항 전체 워크플로우 - 배포 후 검증 필요
 
 ## 백로그
 - P1: 비고 컬럼 미리보기 버그 (S3 설정 후 재현 테스트)
