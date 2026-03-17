@@ -441,10 +441,26 @@ export async function extractAndSaveTransactions(
       let transactionDate = parseDate(dateValue);
 
       // 날짜 이어받기: 합쳐진 "거래일시적요" 컬럼에서 날짜가 없는 행은 앞 행 날짜 사용
+      let dateCarriedForward = false;
       if (transactionDate) {
         lastKnownDate = transactionDate;
       } else if (lastKnownDate) {
         transactionDate = lastKnownDate;
+        dateCarriedForward = true;
+      }
+
+      // 디버그: 첫 10개 행에 대해 날짜 파싱 상세 로그
+      if (i < 10) {
+        console.log(`[Data Extractor] ===== Row ${i + 1} DATE PARSING =====`);
+        console.log(`[Data Extractor] Row ${i + 1} dateColumnIndex: ${columnMapping.date}`);
+        console.log(`[Data Extractor] Row ${i + 1} dateValue raw:`, JSON.stringify(dateValue));
+        console.log(`[Data Extractor] Row ${i + 1} dateValue type: ${typeof dateValue}`);
+        console.log(`[Data Extractor] Row ${i + 1} parseDate result:`, parseDate(dateValue)?.toISOString() ?? 'null');
+        console.log(`[Data Extractor] Row ${i + 1} dateCarriedForward: ${dateCarriedForward}`);
+        console.log(`[Data Extractor] Row ${i + 1} lastKnownDate:`, lastKnownDate?.toISOString() ?? 'null');
+        console.log(`[Data Extractor] Row ${i + 1} final transactionDate:`, transactionDate?.toISOString() ?? 'null');
+        console.log(`[Data Extractor] Row ${i + 1} full row data:`, JSON.stringify(row));
+        console.log(`[Data Extractor] ===================================`);
       }
 
       if (!transactionDate) {

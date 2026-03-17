@@ -87,11 +87,6 @@ export function SimplifiedTransactionTable({
         if (!dateGroups.has(key)) dateGroups.set(key, []);
         dateGroups.get(key)!.push(t);
       }
-      for (const [date, group] of dateGroups) {
-        if (group.length > 1) {
-          console.log(`[거래정렬] ${date}: ${group.length}건, rowNumbers=[${group.map(t => t.rowNumber ?? 'null').join(',')}], balances=[${group.map(t => t.balance).join(',')}]`);
-        }
-      }
     }
 
     result.sort((a, b) => {
