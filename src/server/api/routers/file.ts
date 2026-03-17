@@ -1400,14 +1400,33 @@ export const fileRouter = createTRPCRouter({
               
               console.log(`[PreAnalyze Parse] amount=${amount}, typeValue="${typeValue}" (from index ${transactionTypeIdx})`);
               
+              const depositKeywords = ['입금', 'in', 'credit', 'deposit', '수입', '이체입금', '입금이체'];
+              const withdrawalKeywords = ['출금', 'out', 'debit', 'withdrawal', '지출', '이체출금', '출금이체', '지급'];
+              
               // 입금 키워드 확인
-              const isDeposit = ['입금', '입', 'in', 'credit', 'deposit', '수입', '이체입금', '입금이체'].some(
-                keyword => typeValue.includes(keyword)
-              );
+              let isDeposit = depositKeywords.some(keyword => typeValue.includes(keyword));
               // 출금 키워드 확인
-              const isWithdrawal = ['출금', '출', 'out', 'debit', 'withdrawal', '지출', '이체출금', '출금이체', '지급'].some(
-                keyword => typeValue.includes(keyword)
-              );
+              let isWithdrawal = withdrawalKeywords.some(keyword => typeValue.includes(keyword));
+              
+              // 매칭 실패 시: 행 전체에서 입금/출금 키워드 스캔 (빈 헤더에 값이 있는 경우 대응)
+              if (!isDeposit && !isWithdrawal) {
+                console.log(`[PreAnalyze Parse] Type keyword not found at index ${transactionTypeIdx}, scanning entire row...`);
+                for (let ci = 0; ci < row.length; ci++) {
+                  if (ci === amountIdx || ci === (dateIdx ?? -1) || ci === (balanceIdx ?? -1)) continue;
+                  const cellValue = String(row[ci] || '').toLowerCase().trim();
+                  if (!cellValue) continue;
+                  if (depositKeywords.some(k => cellValue === k || cellValue.includes(k))) {
+                    isDeposit = true;
+                    console.log(`[PreAnalyze Parse] Found deposit keyword "${cellValue}" at col[${ci}]`);
+                    break;
+                  }
+                  if (withdrawalKeywords.some(k => cellValue === k || cellValue.includes(k))) {
+                    isWithdrawal = true;
+                    console.log(`[PreAnalyze Parse] Found withdrawal keyword "${cellValue}" at col[${ci}]`);
+                    break;
+                  }
+                }
+              }
               
               console.log(`[PreAnalyze Parse] isDeposit=${isDeposit}, isWithdrawal=${isWithdrawal}`);
               
@@ -1713,14 +1732,33 @@ export const fileRouter = createTRPCRouter({
 
           console.log(`[ReParse] Row ${rowIdx + 1} amount=${amount}, typeValue="${typeValue}" (amountIdx=${amountIdx}, typeIdx=${transactionTypeIdx})`);
 
+          const depositKeywords = ['입금', 'in', 'credit', 'deposit', '수입', '이체입금', '입금이체'];
+          const withdrawalKeywords = ['출금', 'out', 'debit', 'withdrawal', '지출', '이체출금', '출금이체', '지급'];
+
           // 입금 키워드 확인
-          const isDeposit = ['입금', '입', 'in', 'credit', 'deposit', '수입', '이체입금', '입금이체'].some(
-            keyword => typeValue.includes(keyword)
-          );
+          let isDeposit = depositKeywords.some(keyword => typeValue.includes(keyword));
           // 출금 키워드 확인
-          const isWithdrawal = ['출금', '출', 'out', 'debit', 'withdrawal', '지출', '이체출금', '출금이체', '지급'].some(
-            keyword => typeValue.includes(keyword)
-          );
+          let isWithdrawal = withdrawalKeywords.some(keyword => typeValue.includes(keyword));
+
+          // 매칭 실패 시: 행 전체에서 입금/출금 키워드 스캔
+          if (!isDeposit && !isWithdrawal) {
+            console.log(`[ReParse] Row ${rowIdx + 1} type keyword not found at index ${transactionTypeIdx}, scanning row...`);
+            for (let ci = 0; ci < row.length; ci++) {
+              if (ci === amountIdx || ci === (dateIdx ?? -1) || ci === (balanceIdx ?? -1)) continue;
+              const cellValue = String(row[ci] || '').toLowerCase().trim();
+              if (!cellValue) continue;
+              if (depositKeywords.some(k => cellValue === k || cellValue.includes(k))) {
+                isDeposit = true;
+                console.log(`[ReParse] Row ${rowIdx + 1} found deposit keyword "${cellValue}" at col[${ci}]`);
+                break;
+              }
+              if (withdrawalKeywords.some(k => cellValue === k || cellValue.includes(k))) {
+                isWithdrawal = true;
+                console.log(`[ReParse] Row ${rowIdx + 1} found withdrawal keyword "${cellValue}" at col[${ci}]`);
+                break;
+              }
+            }
+          }
 
           console.log(`[ReParse] Row ${rowIdx + 1} isDeposit=${isDeposit}, isWithdrawal=${isWithdrawal}`);
 

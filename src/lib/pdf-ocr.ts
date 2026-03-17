@@ -598,22 +598,21 @@ function extractFromTableElementsHTML(tableElements: Array<{
   console.log(`[HTML Table] Main table date column index: ${mainDateColumnIndex}`);
 
   // 3단계: 동일한 거래내역 구조의 테이블들 모두 결합 + 컬럼 정렬
-  const allRows: string[][] = [...mainTable.rows];
-  let continuationCount = 0;
+  // 중요: 원본 순서(테이블 인덱스 순) 유지하여 페이지 1→2→3 순서 보장
+  const includedTables: { index: number; rows: string[][] }[] = [];
   const skippedTables: number[] = [];
   let alignedRowCount = 0;
 
+  // 메인 테이블 자체를 먼저 포함 대상에 추가
+  includedTables.push({ index: mainTable.index, rows: mainTable.rows });
+
   for (const table of parsedTables) {
-    // 메인 테이블은 스킵
     if (table.index === mainTable.index) continue;
 
-    // 컬럼 수 차이 허용 (OCR에서 컬럼이 합쳐지거나 분리될 수 있음)
     const columnDiff = Math.abs(table.columnCount - mainTable.columnCount);
-    // ±3 차이까지 허용 (은행 PDF에서 OCR 오류가 흔함)
     const isSimilarStructure = columnDiff <= 3;
 
     if (isSimilarStructure) {
-      // 컬럼 수가 다르면 정렬 필요
       const needsAlignment = table.columnCount !== mainTable.columnCount;
       
       const alignRow = (row: string[]): string[] => {
@@ -624,29 +623,26 @@ function extractFromTableElementsHTML(tableElements: Array<{
         return row;
       };
 
+      const tableRows: string[][] = [];
+
       if (table.hasValidHeaders) {
-        // 유효한 헤더가 있는 테이블 = 같은 구조의 다른 페이지
-        // 헤더 행은 제외하고 데이터만 추가
-        allRows.push(...table.rows.map(alignRow));
-        continuationCount++;
+        tableRows.push(...table.rows.map(alignRow));
         console.log(`[HTML Table] ✓ Table ${table.index} added (valid header, ${table.rows.length} rows, aligned=${needsAlignment})`);
       } else {
-        // 헤더가 없는 테이블 = 연속 데이터 테이블
-        // 첫 번째 행이 날짜 패턴을 포함하면 데이터로 추가
         const firstCellLooksLikeDate = datePatterns.some(p => p.test(table.headers[0] || ""));
         
         if (firstCellLooksLikeDate || table.dataScore > table.headerScore) {
-          // 헤더로 인식된 첫 번째 행도 데이터로 추가
-          allRows.push(alignRow(table.headers));
-          allRows.push(...table.rows.map(alignRow));
-          continuationCount++;
+          tableRows.push(alignRow(table.headers));
+          tableRows.push(...table.rows.map(alignRow));
           console.log(`[HTML Table] ✓ Table ${table.index} added as continuation (${table.rows.length + 1} rows, aligned=${needsAlignment}, firstCell=${table.headers[0]?.substring(0, 15)})`);
         } else {
-          // 헤더가 아닌데 데이터도 아닌 경우 -> 데이터만 추가
-          allRows.push(...table.rows.map(alignRow));
-          continuationCount++;
+          tableRows.push(...table.rows.map(alignRow));
           console.log(`[HTML Table] ✓ Table ${table.index} added (data only, ${table.rows.length} rows, aligned=${needsAlignment})`);
         }
+      }
+
+      if (tableRows.length > 0) {
+        includedTables.push({ index: table.index, rows: tableRows });
       }
     } else {
       skippedTables.push(table.index);
@@ -654,10 +650,16 @@ function extractFromTableElementsHTML(tableElements: Array<{
     }
   }
 
-  // 스킵된 테이블이 있으면 경고
+  // 원본 테이블 순서대로 행 결합 (테이블 인덱스 = 문서 내 출현 순서)
+  includedTables.sort((a, b) => a.index - b.index);
+  const allRows: string[][] = [];
+  for (const t of includedTables) {
+    allRows.push(...t.rows);
+  }
+  const continuationCount = includedTables.length - 1;
+
   if (skippedTables.length > 0) {
     console.log(`[HTML Table] ⚠️ WARNING: ${skippedTables.length} tables were skipped due to column count mismatch: [${skippedTables.join(", ")}]`);
-    console.log(`[HTML Table] This may cause data loss. Consider reviewing the PDF structure.`);
   }
 
   if (alignedRowCount > 0) {

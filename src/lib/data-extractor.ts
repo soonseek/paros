@@ -561,22 +561,32 @@ export async function extractAndSaveTransactions(
         }
         // 거래구분 컬럼이 있는 경우: 입금/출금만 처리, 매도/매수 등 비입출금 필터링
         else if (columnMapping.transaction_type) {
-          // 입금 관련 키워드
-          const isDeposit = transactionType.includes("+") ||
-            transactionType.includes("입금") ||
-            transactionType.includes("받기") ||
-            transactionType.includes("충전") ||
-            transactionType.includes("적립");
+          const depositKw = ["+", "입금", "받기", "충전", "적립"];
+          const withdrawalKw = ["-", "출금", "보내기", "차감", "이체", "결제", "지급", "인출"];
           
+          // 입금 관련 키워드
+          let isDeposit = depositKw.some(k => transactionType.includes(k));
           // 출금 관련 키워드
-          const isWithdrawal = transactionType.includes("-") ||
-            transactionType.includes("출금") ||
-            transactionType.includes("보내기") ||
-            transactionType.includes("차감") ||
-            transactionType.includes("이체") ||
-            transactionType.includes("결제") ||
-            transactionType.includes("지급") ||
-            transactionType.includes("인출");
+          let isWithdrawal = withdrawalKw.some(k => transactionType.includes(k));
+
+          // 매칭 실패 시: 행 전체에서 입금/출금 키워드 스캔 (빈 헤더 컬럼에 값이 있는 경우 대응)
+          if (!isDeposit && !isWithdrawal && row) {
+            const rowArr = Array.isArray(row) ? row : [];
+            for (let ci = 0; ci < rowArr.length; ci++) {
+              if (ci === columnMapping.amount || ci === columnMapping.date || ci === columnMapping.balance) continue;
+              if (ci === columnMapping.transaction_type) continue;
+              const cellValue = String(rowArr[ci] || '').trim();
+              if (!cellValue) continue;
+              if (['입금'].some(k => cellValue === k || cellValue.includes(k))) {
+                isDeposit = true;
+                break;
+              }
+              if (['출금'].some(k => cellValue === k || cellValue.includes(k))) {
+                isWithdrawal = true;
+                break;
+              }
+            }
+          }
 
           // 입출금도 아닌 경우 (매도, 매수, 체결, 배당 등) → 스킵
           if (!isDeposit && !isWithdrawal) {
