@@ -1,144 +1,133 @@
 <analysis>**original_problem_statement:**
-The user's initial goal was to fix bugs and enhance a legal tech application. During this session, the scope narrowed to two critical, complex bugs:
+The user's primary goal is to fix a highly complex and persistent bug in the application's OCR (Optical Character Recognition) data ingestion pipeline. The core issue is that financial transaction data from uploaded PDFs is parsed inconsistently, leading to incorrect data being saved in the database.
 
-1.  **Loan Usage Tracking:** The system incorrectly calculated loan usage, initially by counting internal transfers as expenses. Subsequent fixes revealed deeper issues, such as not tracking fund usage after a transfer, incorrect remaining balances (negative values), and a confusing UI. The user requested a complete overhaul of the logic and presentation to make it accurate and intuitive.
-2.  **OCR Date Parsing Failure:** The transaction file uploader failed to parse dates correctly when the OCR service merged the date/time and memo columns. This issue became more complex when it was discovered that the OCR output was inconsistent, sometimes placing the date in the row number column () instead of the transaction date column (), and behaving differently across different pages of the same document.
+Over the session, the user reported numerous variations of this bug:
+1.  **Inconsistent OCR Output:** The OCR service (Upstage) returns different table structures for different pages of the same document, sometimes merging columns (e.g., date and memo) or having different column counts.
+2.  **Incorrect Data Mapping:** The application fails to correctly map the raw OCR data to the required fields (date, deposit, withdrawal, memo, balance), resulting in amounts appearing as zero, balances in the withdrawal column, or memo text in the date field.
+3.  **Performance Issues:** The OCR analysis process was prone to 504 gateway timeouts and long loading times.
+4.  **Inclusion of Non-Transactional Data:** Informational tables from the PDF header (e.g., customer name, account number) were incorrectly parsed as transactions.
 
-The user also requested the removal of confusing columns () and better visual grouping of related transactions in the UI.
+In addition to the bug fixes, the user requested a new feature: an enhancement to the Filter by Amount modal to allow sorting transactions by document and then date, and a new display mode that separates deposits and withdrawals into their own columns.
 
 **User's preferred language**: Korean
 
 **what currently exists?**
-The application is a Next.js/tRPC/PostgreSQL monolith. The agent has performed multiple iterative fixes on two main fronts: loan usage tracking and OCR date parsing.
+The application is a Next.js/tRPC/PostgreSQL stack. The agent has performed extensive, iterative modifications across the OCR data processing pipeline, primarily in , , and .
 
-The loan tracking logic in  has been significantly refactored. It now attempts to track funds after they are transferred to a new account, groups related transfer/withdrawal transactions for clarity, and uses sentinel values to control UI display. The corresponding frontend components have been updated to remove confusing data and improve visual layout.
+A significant number of fixes and features were implemented:
+-   **OCR Parsing Logic:** Numerous fallbacks and heuristics were added to handle inconsistent data, including logic to parse merged date/memo fields, filter non-transactional rows, handle KRW currency notation, and fix a critical bug where an empty table header caused all columns to be mapped incorrectly.
+-   **Performance:** The Upstage API calls were optimized by removing unnecessary options, adding a timeout, and limiting the number of pages sent for pre-analysis to prevent 504 errors.
+-   **New Feature:** The Amount Filter modal was completely rewritten () with a new UI to support toggling between a combined amount column and separate deposit/withdrawal columns. The backend was updated accordingly in  to provide the necessary data and sorting ( -> Tue Mar 17 10:30:39 UTC 2026).
 
-The OCR parsing logic in  has been enhanced to handle malformed date strings. It uses regex to find dates within combined text and includes a fallback to check the row number column if the primary date column is empty. Extensive client-side and server-side logging has been added to facilitate debugging this issue.
-
-However, both major fixes are still incomplete and failing user verification.
+Despite these efforts, the core OCR bug remains. The current state is that the preview shown to the user () appears correct, but the final data saved to the database () is completely wrong.
 
 **Last working item**:
-- **Last item agent was working:** Debugging a persistent OCR parsing bug. After implementing a fallback to check multiple columns for a date, the user reported that the parser still behaves differently for page 1 and page 2 of the same uploaded PDF. The agent was about to investigate the logs for a multi-page document to understand this new inconsistency.
-- **Status:** IN PROGRESS
-- **Agent Testing Done:** N (The issue requires analyzing user-provided logs from a specific file upload, which cannot be replicated by the testing agent.)
-- **Which testing method agent to use?** Manual debugging. The agent must instruct the user to upload the problematic file again and then carefully analyze the full set of server-side () and browser console logs to identify why OCR output or parsing logic differs between pages.
-- **User Testing Done:** Y (User confirmed the latest fix is still failing.)
+-   **Last item agent was working:** Debugging why the transaction data is correct in the preview modal but becomes corrupted after the user confirms and proceeds with the full extraction. The agent's last action was to implement a validation function () to detect and correct column misalignments between the preview and the full file, but this has failed.
+-   **Status:** IN PROGRESS
+-   **Agent Testing Done:** N
+-   **Which testing method agent to use?** Manual debugging. The agent must meticulously compare the inputs, logic, and outputs between the  (preview) and  (final save) code paths to find the discrepancy.
+-   **User Testing Done:** Y (User confirmed the latest fix failed, providing screenshots showing a correct preview and an incorrect final result.)
 
 **All Pending/In progress Issue list**:
-- **Issue 1 (P0): Inconsistent OCR Date Parsing Across Pages**
-- **Issue 2 (P1): Loan Usage Tracking Full Workflow Verification**
-- **Issue 3 (P2): Transaction Order Reversal** (from previous fork)
-- **Issue 4 (P3): Correction Recommendation Guide Full Workflow Verification** (from previous fork)
-- **Issue 5 (P3): Production Deployment Mismatch** (from previous fork)
+-   **Issue 1 (P0): Preview Correct, Final Extraction Incorrect.**
+-   **Issue 2 (P1): Loan Usage Tracking Full Workflow Verification** (from previous fork, blocked by Issue 1).
+-   **Issue 3 (P2): Transaction Order Reversal** (from previous fork, awaiting user verification).
+-   **Issue 4 (P3): Correction Recommendation Guide Full Workflow Verification** (from previous fork, awaiting user verification).
 
 **Issues Detail:**
-- **Issue 1: Inconsistent OCR Date Parsing Across Pages**
-  - **Attempted fixes:**
-    1.  Enhanced  function with regex to extract  from a combined string.
-    2.  Implemented date carry-forward logic for rows missing a date.
-    3.  Added extensive logging on both client and server to trace the parsing flow.
-    4.  Implemented a fallback mechanism in  to check  for a date if the designated date column  fails.
-  - **Next debug checklist:**
-    1.  The immediate priority is to analyze why page 1 and page 2 are parsed differently.
-    2.  Inspect the code in  and  in  to see how the logic handles iterating through multiple pages from the OCR result.
-    3.  Hypothesize if the  OCR service provides different data structures for the first vs. subsequent pages.
-    4.  Request fresh logs from the user for a full multi-page file upload and compare the raw OCR data for each page.
-  - **Why fix this issue and what will be achieved with the fix?** This is a critical data ingestion bug that prevents users from successfully uploading their primary financial documents, blocking a core feature.
-  - **Status:** IN PROGRESS
-  - **Is recurring issue?** Y
-  - **Should Test frontend/backend/both after fix?** Backend.
-  - **Blocked on other issue:** None.
-
-- **Issue 2: Loan Usage Tracking Full Workflow Verification**
-  - **Attempted fixes:** The logic in  () was rewritten multiple times to handle transfers. The final version regroups transactions for clarity and sends a sentinel value () for the remaining balance on transferred-fund withdrawals. The frontend ( and ) was updated to render this correctly and remove the confusing Balance column.
-  - **Next debug checklist:** After the P0 OCR bug is fixed, the user must perform a full end-to-end test on the loan tracking feature with a clean data set to confirm all calculations and UI presentations are correct. The latest user feedback on this was that the history was cutting off prematurely, which has not been re-verified after the last set of changes.
-  - **Why fix this issue and what will be achieved with the fix?** This is a core feature for financial analysis in the app. Its accuracy and usability are paramount.
-  - **Status:** USER VERIFICATION PENDING
-  - **Is recurring issue?** Y
-  - **Should Test frontend/backend/both after fix?** Both.
-  - **Blocked on other issue:** Issue 1. The user cannot test this properly without being able to upload data correctly.
-
-- **Issue 3: Transaction Order Reversal**
-  - **Status:** USER VERIFICATION PENDING (from previous fork).
-
-- **Issue 4: Correction Recommendation Guide Full Workflow Verification**
-  - **Status:** USER VERIFICATION PENDING (from previous fork).
-
-- **Issue 5: Production Deployment Mismatch**
-  - **Status:** BLOCKED (on user action, from previous fork).
+-   **Issue 1: Preview Correct, Final Extraction Incorrect**
+    -   **Attempted fixes:** A long series of iterative fixes have been applied, including robust date/memo parsing,  handling (and its reversal), page ordering, info-table filtering, fixing an empty-header mapping bug, and finally, adding a  step. All have failed to resolve the final discrepancy.
+    -   **Next debug checklist:**
+        1.  **Hypothesis:** The parsing logic behaves differently when processing the full OCR result (e.g., 17 pages) compared to the preview result (3 pages). The  function is either not being applied correctly in the final extraction path or is insufficient for the discrepancy found in the full document.
+        2.  **Action:** Focus on .
+        3.  **Action:** Add detailed logging at the beginning of the  function to capture the exact , , and the first few rows of data it receives.
+        4.  **Action:** Compare these logs directly with the equivalent logs from the  function for the same upload to pinpoint exactly where the logic or data diverges.
+    -   **Why fix this issue and what will be achieved with the fix?** This is a critical blocker for the application's core data ingestion functionality. Fixing it will allow users to successfully upload their financial documents.
+    -   **Status:** IN PROGRESS
+    -   **Is recurring issue?** Y
+    -   **Should Test frontend/backend/both after fix?** Backend.
+    -   **Blocked on other issue:** None.
 
 **In progress Task List**:
-- **Task 1: Resolve OCR Date Parsing**
-  - **Where to resume:** Analyzing the discrepancy between page 1 and page 2 parsing, starting with an inspection of the multi-page handling logic in .
-  - **What will be achieved with this?** Users will be able to reliably upload multi-page bank statements where OCR produces inconsistent results.
-  - **Status:** IN PROGRESS
-  - **Should Test frontend/backend/both after fix?** Backend.
-  - **Blocked on something:** Waiting for user to provide logs for a multi-page upload.
+-   **Task 1: Resolve OCR Data Ingestion Discrepancy**
+    -   **Where to resume:** . The immediate goal is to understand why the final extraction process () fails while the preview () succeeds for the same file.
+    -   **What will be achieved with this?** A reliable and accurate document upload feature.
+    -   **Status:** IN PROGRESS
+    -   **Should Test frontend/backend/both after fix?** Backend.
+    -   **Blocked on something:** None.
 
 **Upcoming and Future Tasks**
-- **P0: Full User Acceptance Testing:** Once the loan tracking and OCR bugs are confirmed fixed, the user must conduct a thorough review of all features and fixes.
-- **P1: Verify Transaction Sort Order Fix:** User needs to test the fix for the recurring transaction sorting issue on their production server.
-- **P1: Verify Correction Recommendation Guide Overhaul:** User needs to perform end-to-end testing of this entire feature.
+-   **P0: User Verification of Amount Filter Modal:** The newly implemented feature for sorting and displaying transactions needs to be tested by the user once the OCR bug is resolved.
+-   **P1: Full User Acceptance Testing of Loan Tracking:** Awaiting verification from a previous session.
+-   **P1: Verify Transaction Sort Order Fix:** Awaiting verification from a previous session.
+-   **P1: Verify Correction Recommendation Guide Overhaul:** Awaiting verification from a previous session.
 
 **Completed work in this session**
-- **Iterative Bug Fixing for Loan Tracking:** Implemented multiple versions of the loan tracking logic, culminating in a version that regroups transactions for clarity, removes the confusing  column, and uses special UI treatment for withdrawals made from transferred funds.
-- **Debugging Infrastructure:** Added extensive, targeted client-side and server-side logging to diagnose the complex OCR parsing issue, which proved crucial in identifying the root causes.
-- **Removed Deprecated Logs:** Cleaned up old, irrelevant console logs related to transaction sorting.
+-   **Feature: Enhanced Amount Filter Modal:** Successfully implemented a new transaction viewing mode with separate deposit/withdrawal columns and a new sorting order (document -> date).
+-   **Bugfix: OCR Timeout and Performance:** Resolved 504 timeouts and long pending requests by optimizing Upstage API calls and adding page limits for previews.
+-   **Bugfix: KRW Currency Parsing:** Added logic to correctly parse monetary values that include the KRW suffix.
+-   **Extensive OCR Parsing Refinements:**
+    -   Added robust logic to handle merged date and memo columns.
+    -   Fixed a critical bug where an empty string in table headers caused catastrophic column mapping failures.
+    -   Implemented filtering to exclude non-transactional info rows from the parsed results.
+    -   Fixed page ordering issues to ensure multi-page documents are processed sequentially.
+-   **Improved Debugging:** Added logging to the re-parse functionality, which was previously a black box.
 
 **Known issue recurrence from previous fork**
-- **Transaction Order Reversal**: Status remains .
-- **Production Deployment Mismatch**: Status remains .
+-   **Transaction Order Reversal**: Status remains .
+-   **Production Deployment Mismatch**: Status remains .
 
 **Code Architecture**
-trackMultipleLoans
+extractDateAndMemofindColumnIndexpreAnalyzeFileextractAndSaveTransactions
 
 **Key Technical Concepts**
-- **Complex Debugging:** Extensive use of client-side and server-side logging to diagnose issues stemming from inconsistent third-party (OCR) data.
-- **Iterative Refinement:** The agent and user worked in a tight loop to incrementally fix complex business logic (loan tracking) and data parsing issues.
-- **Backend-for-Frontend (BFF):** The backend was modified to pre-process and format data specifically to simplify the frontend's display logic (e.g., regrouping transactions, using sentinel values).
-- **Fallback Logic:** Implemented robust parsing by adding fallback mechanisms to handle unpredictable data formats.
+-   **Divergent Logic Paths:** The core of the current bug is the difference in behavior between the preview logic () and the final save logic (), despite sharing many underlying functions. The discrepancy likely arises from how they handle the full vs. partial OCR result.
+-   **Defensive Parsing:** The session involved significant work in building a resilient data parser capable of handling inconsistent schemas from a third-party API, using fallbacks, validation, and targeted heuristics.
+-   **Third-Party API Debugging:** The agent had to diagnose and mitigate performance issues (timeouts) and inconsistent data structures originating from the external Upstage OCR API.
+
+**key DB schema**
+-   **Transaction**: 
+-   **Document**: 
+-   **TransactionFileTemplate**: 
 
 **All files of reference**
-- ****: The center of the current P0 bug. Contains the main OCR data handling logic for both preview and final save. Was heavily modified to add logging and parsing fallbacks.
-- ****: Contains the complex and repeatedly refactored  function for loan usage tracking.
-- ****: The  function was enhanced with regex to be more robust.
-- ****: Modified to add client-side  statements for debugging the pre-analysis step.
-- ****: UI logic updated to hide the 'Balance' column and apply conditional styling to rows.
-- ****: Logic for Excel export was updated to remove the 'Balance' column.
+-   ****: The most critical file. The bug is located in the discrepancy between  and .
+-   ****: Contains the core parsing function , which is used by both preview and final extraction.
+-   ****: Handles fetching and converting the raw OCR data.
+-   ****: Contains the  utility that was a source of a major bug.
+-   ****: The file for the new UI feature.
+-   ****: The backend API for the new UI feature.
 
 **Critical Info for New Agent**
-- **P0 is the OCR Bug:** Your immediate and highest priority is to solve the inconsistent date parsing. The user has reported that page 1 and page 2 of the same PDF are parsed differently. You must get logs from a multi-page upload to see the raw OCR data for each page and find the discrepancy. The key file is .
-- **Loan Logic is Fragile:** The loan tracking logic in  () has been through many changes and is very complex. Do not modify it unless necessary. It is pending full user verification after the OCR bug is fixed.
-- **Follow the Logging Pattern:** The add logs - user to test - logs cycle has been effective. The user is checking both browser and server logs. Continue this pattern. Your next step is to analyze the logs for a multi-page document.
-- **Verify Deployment Issues are Resolved:** Remember the recurring issue of Production Deployment Mismatch. Before debugging any issue that seems like a regression, confirm with the user they have deployed the latest code.
+-   **Your Top Priority:** The user has confirmed the preview is perfect, but the final saved data is incorrect. This is the only bug you should focus on.
+-   **The Point of Failure:** The bug lies in the difference between the preview () and the final save () functions in . Do not assume shared functions work the same in both contexts. The input they receive (especially the full vs. partial OCR result) is likely the cause of the divergence.
+-   **Debugging Strategy:** The previous agent's attempt to fix this with a validation function () has failed. Your next step must be to add separate, detailed logs to the beginning of both functions to compare the  and the raw data they are processing. This will reveal the inconsistency.
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User:** Reports that page 1 and page 2 are parsed differently. (IN PROGRESS)
-2.  **User:** Provided detailed browser console logs for analysis. (Resolved by agent, led to final fix attempt)
-3.  **User:** States that no console logs are appearing. (Resolved by agent, moved logs to client-side)
-4.  **User:** States that the expected server logs are not appearing in the 'Format Matching' modal. (Resolved by agent, added logs to pre-analysis step)
-5.  **User:** Reports that parsing is still not working and asks for better debug logs and removal of old logs. (Resolved by agent, added detailed logs)
-6.  **User:** Corrects the agent's implementation, stating memo should not be merged. (Resolved by agent, logic removed)
-7.  **User:** Introduces the new OCR parsing bug. (IN PROGRESS)
-8.  **User:** Reports multiple UI/UX issues with the loan tracking results (confusing balance, separated rows). (Resolved by agent, UI/backend logic updated)
-9.  **User:** Asks why the transaction history cuts off mid-way. (Resolved by agent, but the fix was rejected by user)
-10. **User:** Reports that the remaining loan amount has negative values and is mostly zero. (Resolved by agent)
+1.  **User:** The preview is correct, but after confirming, the final saved transaction data is completely wrong. (CURRENT BLOCKER)
+2.  **User:** It's worse now. There's a blank line, and the full raw date string is being put into the memo column. (Resolved)
+3.  **User:** It's still parsing the informational header table (e.g., customer phone number) as a transaction. (Resolved)
+4.  **User:** The file analysis is taking a very long time to load. (Resolved)
+5.  **User:** I'm getting a 504 timeout when creating a template for an Upbit PDF. Also, please handle KRW currency. (Resolved)
+6.  **User:** The fix isn't working. Everything is being parsed as a deposit, and page 2 is appearing before page 1. (Resolved)
+7.  **User:** Even after manually selecting the correct template, the result is weird. Also, the 're-parse' button needs debug logs. The template mapping is out of bounds. (Resolved)
+8.  **User:** Still not working. Console logs show the wrong template is being matched and all amounts are zero. (Resolved)
+9.  **User:** The fix for merged date/memo isn't working. Provides console logs. (Resolved, was a different root cause)
+10. **User:** A new date format () is not being parsed correctly. (Resolved)
 
 **Project Health Check:**
-- **Broken**:
-    - **OCR Data Ingestion:** Critically broken due to inconsistent parsing across pages.
-- **In Progress/Unverified**:
-    - **Loan Usage Tracking:** The complex logic and UI have been refactored but await full user acceptance testing.
-    - **Transaction Sort Order Fix:** Awaiting user verification from a previous session.
-    - **Correction Recommendation Guide:** Awaiting user verification from a previous session.
+-   **Broken**:
+    -   **Core Data Ingestion:** The final step of saving transactions from a PDF is critically broken, corrupting the data.
+-   **In Progress/Unverified**:
+    -   **Amount Filter Modal:** A new feature has been implemented but remains untested by the user due to the data ingestion blocker.
 
 **3rd Party Integrations**
-- **AWS S3**: For file storage.
-- **Upstage API**: For OCR and Document Parsing. This is the source of the inconsistent data causing the current P0 bug.
-- **OpenAI GPT-4o**: For advanced data extraction and content generation.
+-   **AWS S3**: Used for file storage.
+-   **Upstage API**: The external OCR service that is the source of the inconsistent data.
+-   **OpenAI GPT-4o**: Used for advanced data extraction.
 
 **Testing status**
-- **Testing agent used after significant changes:** YES (but the fixes were found to be incomplete by the user).
-- **Troubleshoot agent used after agent stuck in loop:** NO
-- **Test files created:** None.
-- **Known regressions:** Both the loan tracking and OCR parsing have had multiple failed fixes, indicating their complexity. The user is the primary source of regression testing.</analysis>
+-   **Testing agent used after significant changes:** NO
+-   **Troubleshoot agent used after agent stuck in loop:** NO
+-   **Test files created:** None.
+-   **Known regressions:** The main OCR parsing feature has regressed multiple times as fixes for one scenario broke another, indicating its fragility.</analysis>

@@ -826,12 +826,11 @@ export const fileRouter = createTRPCRouter({
         });
       }
 
-      // MEDIUM-2 FIX: Validate required columns before extraction (LOW-1 also)
-      // Note: columnMapping in DB is stored as string→string (e.g., { date: "거래일" })
-      // We'll validate based on keys, not values
-      const rawColumnMapping = analysisResult.columnMapping as Record<string, string>;
+      // FIX: columnMapping은 숫자(analyzeWithTemplate) 또는 문자열(analyzeFile) 값일 수 있음
+      // 숫자 0도 유효한 컬럼 인덱스이므로 undefined/null만 체크
+      const rawColumnMapping = analysisResult.columnMapping as Record<string, unknown>;
 
-      if (!rawColumnMapping.date) {
+      if (rawColumnMapping.date === undefined || rawColumnMapping.date === null) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message:
@@ -839,12 +838,11 @@ export const fileRouter = createTRPCRouter({
         });
       }
 
-      if (
-        !rawColumnMapping.deposit &&
-        !rawColumnMapping.withdrawal &&
-        !rawColumnMapping.balance &&
-        !rawColumnMapping.amount // 단일 금액 컬럼 방식도 허용
-      ) {
+      const hasAmountColumn = rawColumnMapping.deposit !== undefined && rawColumnMapping.deposit !== null
+        || rawColumnMapping.withdrawal !== undefined && rawColumnMapping.withdrawal !== null
+        || rawColumnMapping.balance !== undefined && rawColumnMapping.balance !== null
+        || rawColumnMapping.amount !== undefined && rawColumnMapping.amount !== null;
+      if (!hasAmountColumn) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message:
@@ -1286,7 +1284,7 @@ export const fileRouter = createTRPCRouter({
         const tableData = await parsePdfWithUpstage(previewBuffer, upstageApiKey || undefined);
         
         // 템플릿 매칭 시도 (3단계 파이프라인: 키워드 → LLM 유사도 → 폴백)
-        const { classifyTransaction, convertSchemaToMapping } = await import("~/lib/template-classifier");
+        const { classifyTransaction, convertSchemaToMapping, validateColumnMapping } = await import("~/lib/template-classifier");
         
         const classificationResult = await classifyTransaction(ctx.db, tableData.headers, tableData.rows.slice(0, 10), tableData.pageTexts);
         
@@ -1329,7 +1327,10 @@ export const fileRouter = createTRPCRouter({
           
           console.log(`[PreAnalyze] Template schema columns:`, JSON.stringify(templateSchema.columns));
           
-          const { columnMapping, memoInAmountColumn } = convertSchemaToMapping(templateSchema, tableData.headers);
+          const { columnMapping: rawMapping, memoInAmountColumn } = convertSchemaToMapping(templateSchema, tableData.headers);
+          
+          // 실제 데이터로 컬럼 매핑 검증 및 밀림 보정
+          const columnMapping = validateColumnMapping(rawMapping, tableData.rows);
           
           console.log(`[PreAnalyze] Column mapping result:`, JSON.stringify(columnMapping));
           console.log(`[PreAnalyze] memoInAmountColumn:`, memoInAmountColumn);
@@ -1974,32 +1975,39 @@ export const fileRouter = createTRPCRouter({
       }
 
       // Convert template columnSchema to columnMapping
-      const { convertSchemaToMapping } = await import("~/lib/template-classifier");
+      const { convertSchemaToMapping, validateColumnMapping } = await import("~/lib/template-classifier");
       const templateSchema = template.columnSchema as {
         columns: Record<string, { index: number; header: string }>;
         parseRules?: { rowMergePattern?: "pair" | "none" };
       };
       
-      const { columnMapping: numericMapping, memoInAmountColumn } = convertSchemaToMapping(
+      const { columnMapping: numericMappingRaw, memoInAmountColumn } = convertSchemaToMapping(
         templateSchema,
         headers
       );
       
-      // Convert numeric mapping to string-based mapping
-      const columnMapping: Record<string, string> = {};
+      // 실제 데이터로 컬럼 매핑 검증 및 밀림 보정
+      const numericMapping = validateColumnMapping(numericMappingRaw, rows);
+      
+      // FIX: 숫자 인덱스를 직접 저장 (문자열 변환 시 빈 헤더 문제 방지)
+      // 기존: 숫자→문자열→저장→로드→문자열→숫자 (빈 헤더에서 정보 손실)
+      // 수정: 숫자 인덱스 직접 저장 + performExtraction에서 숫자/문자열 모두 처리
+      const columnMapping: Record<string, unknown> = {};
       for (const [key, idx] of Object.entries(numericMapping)) {
-        if (typeof idx === "number" && idx >= 0 && idx < headers.length) {
-          columnMapping[key] = headers[idx] || "";
+        if (typeof idx === "number" && idx >= 0) {
+          columnMapping[key] = idx; // 숫자 인덱스 직접 저장
         }
       }
       
       if (memoInAmountColumn) {
-        (columnMapping as Record<string, unknown>).memoInAmountColumn = true;
+        columnMapping.memoInAmountColumn = true;
       }
       
       if (templateSchema.parseRules?.rowMergePattern) {
-        (columnMapping as Record<string, unknown>).rowMergePattern = templateSchema.parseRules.rowMergePattern;
+        columnMapping.rowMergePattern = templateSchema.parseRules.rowMergePattern;
       }
+      
+      console.log(`[analyzeWithTemplate] Storing numeric column mapping:`, JSON.stringify(columnMapping));
 
       // Create/update FileAnalysisResult
       const analysisResult = await ctx.db.fileAnalysisResult.upsert({
@@ -2008,12 +2016,12 @@ export const fileRouter = createTRPCRouter({
           documentId,
           caseId: document.caseId,
           status: "analyzing",
-          columnMapping,
+          columnMapping: columnMapping as Prisma.InputJsonValue,
           headerRowIndex: 0,
           totalRows: rows.length,
           detectedFormat: document.mimeType.includes("pdf") ? "pdf" : "excel",
           hasHeaders: true,
-          confidence: 1.0, // 수동 선택이므로 100%
+          confidence: 1.0,
           extractedData: { headers, rows } as Prisma.InputJsonValue,
           errorDetails: {
             transactionTypeMethod: "manual_template",
@@ -2023,7 +2031,7 @@ export const fileRouter = createTRPCRouter({
         },
         update: {
           status: "analyzing",
-          columnMapping,
+          columnMapping: columnMapping as Prisma.InputJsonValue,
           totalRows: rows.length,
           confidence: 1.0,
           extractedData: { headers, rows } as Prisma.InputJsonValue,
@@ -2132,7 +2140,7 @@ function formatDateForPreview(date: Date): string {
 async function performExtraction(
   ctx: { db: PrismaClient },
   document: { id: string; s3Key: string; caseId: string },
-  columnMapping: Record<string, string>,
+  columnMapping: Record<string, unknown>,
   headerRowIndex: number,
   mimeType: string,
   analysisResult: { 
@@ -2216,7 +2224,7 @@ async function performExtraction(
     "은행", "계좌번호", "내역", "정보"
   ];
 
-  if (!columnMapping.memo && !analysisResult.errorDetails?.memoInAmountColumn) {
+  if (columnMapping.memo === undefined && columnMapping.memo !== 0 && !analysisResult.errorDetails?.memoInAmountColumn) {
     // memo가 없고 memoInAmountColumn도 아닌 경우, 헤더에서 비고 컬럼 찾기
     for (const keyword of memoColumnKeywords) {
       const foundHeader = headerRow.find(h => 
@@ -2230,7 +2238,7 @@ async function performExtraction(
     }
 
     // 그래도 못 찾으면 날짜/금액/잔액 아닌 컬럼 중 첫 번째 텍스트 컬럼 선택
-    if (!columnMapping.memo) {
+    if (columnMapping.memo === undefined) {
       const knownColumns = new Set([
         columnMapping.date,
         columnMapping.deposit,
@@ -2254,26 +2262,37 @@ async function performExtraction(
     }
   }
 
-  // Convert columnMapping from string→string to ColumnMapping (number) for extractAndSaveTransactions
+  // Convert columnMapping to ColumnMapping (number) for extractAndSaveTransactions
+  // FIX: 숫자(analyzeWithTemplate)와 문자열(analyzeFile) 모두 처리
   const numericColumnMapping: ColumnMapping = {};
-  for (const [key, columnName] of Object.entries(columnMapping) as [string, string | boolean][]) {
+  for (const [key, value] of Object.entries(columnMapping)) {
     // memoInAmountColumn은 boolean 값이므로 별도 처리
-    if (key === "memoInAmountColumn" && columnName === true) {
+    if (key === "memoInAmountColumn" && value === true) {
       numericColumnMapping.memoInAmountColumn = true;
       continue;
     }
     // rowMergePattern 전달
-    if (key === "rowMergePattern" && (columnName === "pair" || columnName === "none")) {
-      numericColumnMapping.rowMergePattern = columnName;
-      console.log(`[performExtraction] rowMergePattern: ${columnName}`);
+    if (key === "rowMergePattern" && (value === "pair" || value === "none")) {
+      numericColumnMapping.rowMergePattern = value;
+      console.log(`[performExtraction] rowMergePattern: ${value}`);
       continue;
     }
-    if (typeof columnName === "string") {
-      const index = headerRow.indexOf(columnName);
+    // Case 1: 이미 숫자 인덱스 (analyzeWithTemplate에서 직접 저장)
+    if (typeof value === "number") {
+      (numericColumnMapping as Record<string, number>)[key] = value;
+      continue;
+    }
+    // Case 2: 문자열 컬럼 이름 (analyzeFile에서 저장)
+    if (typeof value === "string") {
+      if (value === "") {
+        console.warn(`[performExtraction] Empty column name for key "${key}", skipping (would cause indexOf("") bug)`);
+        continue;
+      }
+      const index = headerRow.indexOf(value);
       if (index !== -1) {
         (numericColumnMapping as Record<string, number>)[key] = index;
       } else {
-        console.warn(`[performExtraction] Column "${columnName}" not found in headerRow for key "${key}"`);
+        console.warn(`[performExtraction] Column "${value}" not found in headerRow for key "${key}"`);
       }
     }
   }

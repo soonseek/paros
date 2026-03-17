@@ -9,6 +9,7 @@
 
 import { type PrismaClient } from "@prisma/client";
 import { env } from "~/env";
+import { type ColumnMapping } from "~/lib/data-extractor";
 
 /**
  * 문자열 정규화 - 띄어쓰기 제거 및 소문자 변환
@@ -297,6 +298,99 @@ export function convertSchemaToMapping(
 }
 
 /**
+ * 컬럼 매핑을 실제 데이터로 검증하고 밀림 보정
+ * 
+ * OCR이 헤더에 colspan으로 빈 셀을 만들면 헤더-데이터 간 1칸 밀림 발생:
+ * - Headers: [거래일자시간, 적요, 구분, '', 거래금액, 통장잔액]
+ * - Data:    [date+memo,   method, type, amount, balance, '']
+ * 이 경우 amount 헤더(idx 4)는 실제 balance 데이터를 가리킴
+ * 
+ * 검증: balance 컬럼이 비어있고, amount 이전 컬럼에 숫자가 있으면 → 1칸 밀림 감지 → 보정
+ */
+export function validateColumnMapping(
+  columnMapping: ColumnMapping,
+  sampleRows: string[][],
+): ColumnMapping {
+  const mapping = { ...columnMapping };
+  const amountIdx = mapping.amount;
+  const balanceIdx = mapping.balance;
+  
+  if (amountIdx === undefined || amountIdx < 0 || balanceIdx === undefined || balanceIdx < 0) {
+    return mapping;
+  }
+  
+  // 실제 데이터에서 금액/잔액 유효성 확인 (첫 5행)
+  const checkRows = sampleRows.filter(row => {
+    // 날짜가 있는 행만 (정보 행 제외)
+    return row.some(cell => /\d{4}[-./]\d{1,2}[-./]\d{1,2}/.test(cell || ''));
+  }).slice(0, 5);
+  
+  if (checkRows.length === 0) return mapping;
+  
+  // 잔액 컬럼이 비어있는지 확인
+  const balanceEmpty = checkRows.every(row => {
+    const val = (row[balanceIdx] || '').trim();
+    return !val || val === '0' || val === '';
+  });
+  
+  // 금액 컬럼에 실제 숫자가 있는지 확인
+  const amountHasData = checkRows.some(row => {
+    const val = (row[amountIdx] || '').replace(/[,\s]/g, '');
+    return /^\d+/.test(val);
+  });
+  
+  if (balanceEmpty && amountHasData) {
+    // 잔액이 비어있는데 금액에 데이터가 있음 → 밀림 가능성
+    // 금액의 이전 컬럼에 숫자가 있는지 확인
+    const prevIdx = amountIdx - 1;
+    if (prevIdx >= 0) {
+      const prevHasNumbers = checkRows.some(row => {
+        const val = (row[prevIdx] || '').replace(/[,\s]/g, '');
+        return /^\d+/.test(val);
+      });
+      
+      if (prevHasNumbers) {
+        // 이전 컬럼에도 숫자가 있음 → 헤더-데이터 1칸 밀림 확인
+        // amount를 1칸 왼쪽으로, balance를 원래 amount 위치로
+        console.log(`[Column Validation] 헤더-데이터 밀림 감지! balance 비어있고 amount-1에 숫자 있음`);
+        console.log(`[Column Validation] 보정: amount ${amountIdx}→${prevIdx}, balance ${balanceIdx}→${amountIdx}`);
+        mapping.amount = prevIdx;
+        mapping.balance = amountIdx;
+      }
+    }
+  }
+  
+  // 추가 검증: deposit/withdrawal 매핑도 밀림이면 보정
+  if (mapping.amount !== amountIdx && mapping.amount !== undefined) {
+    const shift = amountIdx - mapping.amount; // 보통 1
+    if (mapping.deposit !== undefined && mapping.deposit >= shift) {
+      const newDepositIdx = mapping.deposit - shift;
+      const depositHasData = checkRows.some(row => {
+        const val = (row[newDepositIdx] || '').replace(/[,\s]/g, '');
+        return /^\d+/.test(val);
+      });
+      if (depositHasData) {
+        console.log(`[Column Validation] deposit 보정: ${mapping.deposit}→${newDepositIdx}`);
+        mapping.deposit = newDepositIdx;
+      }
+    }
+    if (mapping.withdrawal !== undefined && mapping.withdrawal >= shift) {
+      const newWithdrawalIdx = mapping.withdrawal - shift;
+      const withdrawalHasData = checkRows.some(row => {
+        const val = (row[newWithdrawalIdx] || '').replace(/[,\s]/g, '');
+        return /^\d+/.test(val);
+      });
+      if (withdrawalHasData) {
+        console.log(`[Column Validation] withdrawal 보정: ${mapping.withdrawal}→${newWithdrawalIdx}`);
+        mapping.withdrawal = newWithdrawalIdx;
+      }
+    }
+  }
+  
+  return mapping;
+}
+
+/**
  * 컬럼 정의에서 실제 인덱스 찾기
  * index가 있어도 header가 실제로 일치하는지 검증
  */
@@ -307,12 +401,15 @@ function findColumnIndex(colDef: ColumnDefinition, headers: string[]): number {
     if (colDef.header) {
       const normalizedTarget = normalizeText(colDef.header);
       const normalizedActual = normalizeText(headers[colDef.index] || "");
-      // 해당 인덱스의 헤더가 기대하는 헤더와 일치하면 신뢰
-      if (normalizedActual.includes(normalizedTarget) || normalizedTarget.includes(normalizedActual)) {
+      
+      // FIX: 빈 헤더는 매칭하지 않음 (target.includes("") 는 항상 true이므로 오류 발생)
+      if (normalizedActual && normalizedActual.length > 0 &&
+          (normalizedActual.includes(normalizedTarget) || normalizedTarget.includes(normalizedActual))) {
         return colDef.index;
       }
-      // 불일치: header 이름으로 정확한 인덱스 재탐색
-      console.log(`[findColumnIndex] Index ${colDef.index} header mismatch: expected "${colDef.header}", got "${headers[colDef.index]}". Searching by header name...`);
+      
+      // 불일치 또는 빈 헤더: header 이름으로 정확한 인덱스 재탐색
+      console.log(`[findColumnIndex] Index ${colDef.index} header mismatch: expected "${colDef.header}", got "${headers[colDef.index] || '(empty)'}". Searching by header name...`);
       const correctedIdx = headers.findIndex(h => {
         const nh = normalizeText(h);
         if (!nh) return false; // 빈 헤더 스킵
@@ -321,6 +418,12 @@ function findColumnIndex(colDef: ColumnDefinition, headers: string[]): number {
       if (correctedIdx !== -1) {
         console.log(`[findColumnIndex] Corrected: "${colDef.header}" → index ${correctedIdx} ("${headers[correctedIdx]}")`);
         return correctedIdx;
+      }
+      
+      // 이름 검색도 실패했고, 원래 인덱스의 헤더가 빈 경우 → -1 반환 (잘못된 인덱스 방지)
+      if (!normalizedActual || normalizedActual.length === 0) {
+        console.log(`[findColumnIndex] Header "${colDef.header}" not found (index ${colDef.index} is empty column)`);
+        return -1;
       }
     }
     // header 미지정이면 index 그대로 사용
