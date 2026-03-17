@@ -436,12 +436,11 @@ export async function extractAndSaveTransactions(
     }
 
     try {
-      // Parse date (required field) + 적요 추출
+      // Parse date (required field)
       const dateValue = row[columnMapping.date];
-      const { date: extractedDate, extractedMemo } = extractDateAndMemo(dateValue);
-      let transactionDate = extractedDate ?? parseDate(dateValue);
+      let transactionDate = parseDate(dateValue);
 
-      // 날짜 이어받기: 날짜를 찾지 못하면 이전 행의 날짜 사용
+      // 날짜 이어받기: 합쳐진 "거래일시적요" 컬럼에서 날짜가 없는 행은 앞 행 날짜 사용
       if (transactionDate) {
         lastKnownDate = transactionDate;
       } else if (lastKnownDate) {
@@ -627,11 +626,6 @@ export async function extractAndSaveTransactions(
           memoColumnDefined: columnMapping.memo !== undefined,
           memoInAmountColumn: columnMapping.memoInAmountColumn,
         });
-      }
-
-      // 합쳐진 "거래일시적요" 컬럼에서 추출한 적요를 memo에 병합
-      if (extractedMemo) {
-        memo = memo ? `${extractedMemo} ${memo}` : extractedMemo;
       }
 
       // MEDIUM-3 FIX: Validate metadata size before adding
