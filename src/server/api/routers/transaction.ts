@@ -2153,27 +2153,26 @@ export const transactionRouter = createTRPCRouter({
             },
           });
 
-          // 이동 매칭을 위한 맵 생성 (날짜_금액 -> 입금 정보)
-          // 동일 일자 + 동일 금액의 입금이 다른 계좌에 있는지 확인
-          const depositMatchMap = new Map<string, {
+          // 이동 매칭을 위한 맵 생성 (날짜_금액 -> 입금 정보 배열)
+          // 동일 일자 + 동일 금액의 입금이 다른 계좌에 여러 건 있을 수 있음
+          const depositMatchMap = new Map<string, Array<{
             depositId: string;
             depositDocumentName: string;
             depositMemo: string;
-          }>();
+          }>>();
 
           for (const dep of otherDeposits) {
             const dateStr = dep.transactionDate.toISOString().split('T')[0]; // YYYY-MM-DD
             const amount = Number(dep.depositAmount);
             const key = `${dateStr}_${amount}`;
             
-            // 아직 매칭되지 않은 경우에만 추가
-            if (!depositMatchMap.has(key)) {
-              depositMatchMap.set(key, {
-                depositId: dep.id,
-                depositDocumentName: dep.document?.originalFileName || "",
-                depositMemo: dep.memo || "",
-              });
-            }
+            const arr = depositMatchMap.get(key) || [];
+            arr.push({
+              depositId: dep.id,
+              depositDocumentName: dep.document?.originalFileName || "",
+              depositMemo: dep.memo || "",
+            });
+            depositMatchMap.set(key, arr);
           }
 
           // 추적 결과 생성
@@ -2192,8 +2191,7 @@ export const transactionRouter = createTRPCRouter({
           }
 
           const trackedItems: TrackedItem[] = [];
-          let remainingLoan = loanAmount;
-          const usedDepositKeys = new Set<string>();
+          const usedDepositCounts = new Map<string, number>(); // key → 사용된 매칭 수
 
           // 대출 실행건 추가
           trackedItems.push({
@@ -2202,14 +2200,9 @@ export const transactionRouter = createTRPCRouter({
             amount: loanAmount,
             balance: Number(loan.balance) || 0,
             memo: loan.memo || "",
-            remainingLoan,
+            remainingLoan: loanAmount,
             documentName: loan.document?.originalFileName || "",
           });
-
-          // === 계좌별 예산 추적 (대출금이 흘러간 경로만 추적) ===
-          // 대출 계좌에서 시작하여 이동된 계좌만 추적
-          const accountBudgets = new Map<string, number>(); // documentId → 추적 가능 예산
-          accountBudgets.set(loanDocumentId || "__loan__", loanAmount);
 
           // 1단계: 대출 계좌의 출금만 먼저 처리
           const loanAccountWithdrawals = await ctx.db.transaction.findMany({
@@ -2234,26 +2227,26 @@ export const transactionRouter = createTRPCRouter({
             },
           });
 
-          // 이동 대상 계좌 ID 수집
-          const transferDestinations = new Map<string, number>(); // docId → 이동 총액
+          // === 1단계: 대출 계좌 출금 처리 (이동 탐색은 잔여액 무관하게 계속) ===
+          // 대출 예산: 이동 + 직접출금 합산이 대출금을 초과하지 않도록 관리
+          let loanBudget = loanAmount;
 
           for (const tx of loanAccountWithdrawals) {
-            if (remainingLoan <= 0) break;
+            if (loanBudget <= 0) break;
             const withdrawal = Number(tx.withdrawalAmount);
             const memo = tx.memo || "";
             const dateStr = tx.transactionDate.toISOString().split('T')[0];
             const matchKey = `${dateStr}_${withdrawal}`;
 
-            const matchedDeposit = depositMatchMap.get(matchKey);
-            const isTransfer = matchedDeposit && !usedDepositKeys.has(matchKey);
+            const deposits = depositMatchMap.get(matchKey);
+            const usedCount = usedDepositCounts.get(matchKey) || 0;
+            const matchedDeposit = deposits && usedCount < deposits.length ? deposits[usedCount] : undefined;
+            const isTransfer = !!matchedDeposit;
 
             if (isTransfer) {
-              usedDepositKeys.add(matchKey);
-              
-              // 이동 대상 계좌의 예산 증가
-              const destDocId = matchedDeposit.depositId;
-              const prevBudget = transferDestinations.get(destDocId) || 0;
-              transferDestinations.set(destDocId, prevBudget + withdrawal);
+              usedDepositCounts.set(matchKey, usedCount + 1);
+              const actualTransfer = Math.min(withdrawal, loanBudget);
+              loanBudget -= actualTransfer;
 
               trackedItems.push({
                 date: tx.transactionDate.toISOString(),
@@ -2261,38 +2254,40 @@ export const transactionRouter = createTRPCRouter({
                 amount: withdrawal,
                 balance: Number(tx.balance) || 0,
                 memo,
-                remainingLoan, // 잔여액 변동 없음
+                remainingLoan: 0, // 정렬 후 재계산
                 documentName: tx.document?.originalFileName || "",
                 transferTo: matchedDeposit.depositDocumentName,
                 transferMemo: matchedDeposit.depositMemo,
               });
             } else {
-              remainingLoan -= withdrawal;
+              const actualExpense = Math.min(withdrawal, loanBudget);
+              loanBudget -= actualExpense;
+
               trackedItems.push({
                 date: tx.transactionDate.toISOString(),
                 type: "출금",
                 amount: withdrawal,
                 balance: Number(tx.balance) || 0,
                 memo,
-                remainingLoan: Math.max(0, remainingLoan),
+                remainingLoan: 0, // 정렬 후 재계산
                 documentName: tx.document?.originalFileName || "",
               });
             }
           }
 
-          // 2단계: 이동 대상 계좌의 출금 추적 (이동된 금액 범위 내에서만)
-          // otherDeposits에서 이동 대상 문서 ID 추출
+          // === 2단계: 이동 대상 계좌의 출금 추적 (이동 예산 범위 내에서만) ===
           const transferDestDocIds = new Set<string>();
           for (const dep of otherDeposits) {
             const dateStr = dep.transactionDate.toISOString().split('T')[0];
             const amount = Number(dep.depositAmount);
             const key = `${dateStr}_${amount}`;
-            if (usedDepositKeys.has(key) && dep.document?.id) {
+            const usedCount = usedDepositCounts.get(key) || 0;
+            if (usedCount > 0 && dep.document?.id) {
               transferDestDocIds.add(dep.document.id);
             }
           }
 
-          if (transferDestDocIds.size > 0 && remainingLoan > 0) {
+          if (transferDestDocIds.size > 0) {
             // 이동 대상 계좌들의 출금 조회
             const destWithdrawals = await ctx.db.transaction.findMany({
               where: {
@@ -2315,55 +2310,67 @@ export const transactionRouter = createTRPCRouter({
               },
             });
 
-            // 이동 대상 계좌별 남은 예산 관리
+            // 이동 대상 계좌별 남은 예산 관리 (이동된 금액까지만 추적)
             const destBudgets = new Map<string, number>();
             for (const dep of otherDeposits) {
               const dateStr = dep.transactionDate.toISOString().split('T')[0];
               const amount = Number(dep.depositAmount);
               const key = `${dateStr}_${amount}`;
-              if (usedDepositKeys.has(key) && dep.document?.id) {
+              const usedCount = usedDepositCounts.get(key) || 0;
+              if (usedCount > 0 && dep.document?.id) {
                 const prev = destBudgets.get(dep.document.id) || 0;
                 destBudgets.set(dep.document.id, prev + amount);
               }
             }
 
             for (const tx of destWithdrawals) {
-              if (remainingLoan <= 0) break;
               const docId = tx.document?.id || "";
               const budget = destBudgets.get(docId) || 0;
               if (budget <= 0) continue; // 이 계좌의 이동 예산 소진됨
 
-              const withdrawal = Math.min(Number(tx.withdrawalAmount), budget, remainingLoan);
-              destBudgets.set(docId, budget - withdrawal);
-              remainingLoan -= withdrawal;
+              const txAmount = Number(tx.withdrawalAmount);
+              const tracked = Math.min(txAmount, budget);
+              destBudgets.set(docId, budget - tracked);
 
               trackedItems.push({
                 date: tx.transactionDate.toISOString(),
                 type: "출금",
-                amount: Number(tx.withdrawalAmount),
+                amount: txAmount,
                 balance: Number(tx.balance) || 0,
                 memo: tx.memo || "",
-                remainingLoan: Math.max(0, remainingLoan),
+                remainingLoan: 0, // 정렬 후 재계산
                 documentName: tx.document?.originalFileName || "",
-                transferFrom: loan.document?.originalFileName || "", // 원래 대출 계좌에서 이동된 자금
+                transferFrom: loan.document?.originalFileName || "",
               });
             }
           }
 
-          const totalUsed = loanAmount - Math.max(0, remainingLoan);
-          const transferCount = trackedItems.filter(t => t.type === "이동").length;
-
-          // 정렬: 날짜순, 동일 날짜 내에서는 대출실행 > 이동 > 출금 순서
+          // === 3단계: 정렬 후 남은 대출금 순차 재계산 ===
           const typeOrder: Record<string, number> = { "대출실행": 0, "이동": 1, "출금": 2 };
           trackedItems.sort((a, b) => {
             const dateA = a.date.split('T')[0] ?? '';
             const dateB = b.date.split('T')[0] ?? '';
             if (dateA !== dateB) {
-              return dateA.localeCompare(dateB); // 날짜 오름차순
+              return dateA.localeCompare(dateB);
             }
-            // 동일 날짜: 대출실행 > 이동 > 출금
             return (typeOrder[a.type] ?? 99) - (typeOrder[b.type] ?? 99);
           });
+
+          // remainingLoan 재계산: 대출실행 → 유지, 이동 → 유지, 출금 → 차감
+          let runningLoan = loanAmount;
+          for (const item of trackedItems) {
+            if (item.type === "대출실행") {
+              item.remainingLoan = runningLoan;
+            } else if (item.type === "이동") {
+              item.remainingLoan = runningLoan; // 이동은 잔여액 변동 없음
+            } else {
+              runningLoan -= item.amount;
+              item.remainingLoan = Math.max(0, runningLoan);
+            }
+          }
+
+          const totalUsed = loanAmount - Math.max(0, runningLoan);
+          const transferCount = trackedItems.filter(t => t.type === "이동").length;
 
           return {
             loanId: loan.id,
@@ -2376,9 +2383,9 @@ export const transactionRouter = createTRPCRouter({
               loanAmount,
               totalUsed,
               usageCount: trackedItems.filter(t => t.type === "출금").length,
-              transferCount, // 이동 건수 추가
-              remainingLoan: Math.max(0, remainingLoan),
-              exhausted: remainingLoan <= 0,
+              transferCount,
+              remainingLoan: Math.max(0, runningLoan),
+              exhausted: runningLoan <= 0,
             },
           };
         })
