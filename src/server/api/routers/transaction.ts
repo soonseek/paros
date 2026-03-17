@@ -2348,13 +2348,18 @@ export const transactionRouter = createTRPCRouter({
           });
 
           // remainingLoan 재계산: 대출실행 → 유지, 이동 → 유지, 출금 → 차감 (0 이하로 내려가지 않음)
+          // 이동 대상 계좌(transferFrom 있는) 출금은 참고용으로만 표시, 남은 대출금 차감 안 함
           let runningLoan = loanAmount;
           for (const item of trackedItems) {
             if (item.type === "대출실행") {
               item.remainingLoan = runningLoan;
             } else if (item.type === "이동") {
-              item.remainingLoan = runningLoan; // 이동은 잔여액 변동 없음
+              item.remainingLoan = runningLoan;
+            } else if (item.transferFrom) {
+              // 이동 대상 계좌의 출금: 참고용 표시만, 남은 대출금 변동 없음
+              item.remainingLoan = runningLoan;
             } else {
+              // 대출 계좌의 직접 출금만 남은 대출금 차감
               runningLoan -= item.amount;
               if (runningLoan < 0) runningLoan = 0;
               item.remainingLoan = runningLoan;
