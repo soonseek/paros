@@ -1789,9 +1789,12 @@ export const transactionRouter = createTRPCRouter({
       for (const tx of withdrawals) {
         const withdrawal = Number(tx.withdrawalAmount);
         const memo = tx.memo || "";
-        const isTransfer = memo.includes("이체") || memo.includes("송금") || memo.includes("振込");
+        const isTransfer = memo.includes("이체") || memo.includes("송금") || memo.includes("이동") || memo.includes("振込");
 
-        remainingLoan -= withdrawal;
+        // 이체/이동 거래는 대출금 차감하지 않음
+        if (!isTransfer) {
+          remainingLoan -= withdrawal;
+        }
 
         trackedItems.push({
           date: tx.transactionDate.toISOString(),
@@ -1802,8 +1805,8 @@ export const transactionRouter = createTRPCRouter({
           remainingLoan: Math.max(0, remainingLoan),
         });
 
-        // 대출금 전액 사용 시 추적 종료
-        if (remainingLoan <= 0) break;
+        // 대출금 전액 사용 시 추적 종료 (이체는 소진 판단에서 제외)
+        if (!isTransfer && remainingLoan <= 0) break;
       }
 
       const totalUsed = loanAmount - Math.max(0, remainingLoan);
@@ -2126,31 +2129,6 @@ export const transactionRouter = createTRPCRouter({
         loanDeposits.map(async (loan) => {
           const loanAmount = Number(loan.depositAmount);
           const loanDocumentId = loan.document?.id;
-
-          // 대출 실행 이후의 출금 내역 조회
-          const withdrawals = await ctx.db.transaction.findMany({
-            where: {
-              caseId,
-              transactionDate: { gte: loan.transactionDate },
-              withdrawalAmount: { gt: 0 },
-              id: { not: loan.id },
-            },
-            orderBy: [{ transactionDate: "asc" }, { rowNumber: "asc" }],
-            take: 500, // 최대 500건
-            select: {
-              id: true,
-              transactionDate: true,
-              withdrawalAmount: true,
-              balance: true,
-              memo: true,
-              document: {
-                select: {
-                  id: true,
-                  originalFileName: true,
-                },
-              },
-            },
-          });
 
           // 동일 사건의 다른 계좌(문서)에서의 입금 내역 조회 (이동 매칭용)
           // 대출 계좌가 아닌 다른 문서의 입금 내역
