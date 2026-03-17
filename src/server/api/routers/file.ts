@@ -1891,10 +1891,12 @@ export const fileRouter = createTRPCRouter({
       z.object({
         documentId: z.string().min(1, "문서 ID는 필수 항목입니다"),
         templateId: z.string().min(1, "템플릿 ID는 필수 항목입니다"),
+        previewHeaders: z.array(z.string()).optional(),
+        previewRows: z.array(z.array(z.string())).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const { documentId, templateId } = input;
+      const { documentId, templateId, previewHeaders, previewRows } = input;
       const userId = ctx.userId;
 
       // Get Document with Case information
@@ -1942,82 +1944,64 @@ export const fileRouter = createTRPCRouter({
         });
       }
 
-      // Download and parse file
-      const fileBuffer = await downloadFile(document.s3Key);
-      
+      // FIX: 전체 PDF 재파싱 대신 미리보기 데이터 사용
+      // 청크 분할 처리 시 컬럼 구조가 달라져서 데이터가 깨지는 문제 방지
+      // extractedData는 저장하지 않고, performExtraction에서 전체 PDF를 페이지별로 처리
       let headers: string[] = [];
       let rows: string[][] = [];
       
-      if (document.mimeType.includes("pdf")) {
-        const { parsePdfWithUpstage } = await import("~/lib/pdf-ocr");
-        const { PDFDocument } = await import("pdf-lib");
-        const { SettingsService } = await import("~/server/services/settings-service");
-        const settingsService = new SettingsService(ctx.db);
-        const upstageApiKey = await settingsService.getSetting('UPSTAGE_API_KEY');
+      if (previewHeaders && previewRows && previewHeaders.length > 0) {
+        // 프론트엔드에서 전달받은 미리보기 데이터 사용 (3페이지, 구조 일관성 보장)
+        console.log(`[analyzeWithTemplate] Using preview data from frontend: ${previewHeaders.length} headers, ${previewRows.length} rows`);
+        headers = previewHeaders;
+        rows = previewRows;
+      } else {
+        // 폴백: 미리보기 데이터 없으면 파일 다운로드 후 파싱
+        const fileBuffer = await downloadFile(document.s3Key);
         
-        // PDF 페이지 수 확인 후 청크 분할 처리 (504 타임아웃 방지)
-        const pdfDoc = await PDFDocument.load(fileBuffer, { ignoreEncryption: true });
-        const totalPages = pdfDoc.getPageCount();
-        const PAGES_PER_CHUNK = 5; // 한 번에 5페이지씩 처리
-        
-        console.log(`[analyzeWithTemplate] PDF 총 ${totalPages}페이지, ${PAGES_PER_CHUNK}페이지씩 분할 처리`);
-        
-        if (totalPages <= PAGES_PER_CHUNK) {
-          // 5페이지 이하면 전체 한 번에 처리
-          const tableData = await parsePdfWithUpstage(fileBuffer, upstageApiKey || undefined);
+        if (document.mimeType.includes("pdf")) {
+          const { parsePdfWithUpstage } = await import("~/lib/pdf-ocr");
+          const { PDFDocument } = await import("pdf-lib");
+          const { SettingsService } = await import("~/server/services/settings-service");
+          const settingsService = new SettingsService(ctx.db);
+          const upstageApiKey = await settingsService.getSetting('UPSTAGE_API_KEY');
+          
+          const pdfDoc = await PDFDocument.load(fileBuffer, { ignoreEncryption: true });
+          const totalPages = pdfDoc.getPageCount();
+          const previewPageCount = Math.min(3, totalPages);
+          
+          console.log(`[analyzeWithTemplate] Fallback: parsing first ${previewPageCount} of ${totalPages} pages`);
+          
+          let parseBuffer: Buffer;
+          if (totalPages <= 3) {
+            parseBuffer = fileBuffer;
+          } else {
+            const previewPdf = await PDFDocument.create();
+            const pageIndices = Array.from({ length: previewPageCount }, (_, i) => i);
+            const copiedPages = await previewPdf.copyPages(pdfDoc, pageIndices);
+            copiedPages.forEach(page => previewPdf.addPage(page));
+            parseBuffer = Buffer.from(await previewPdf.save());
+          }
+          
+          const tableData = await parsePdfWithUpstage(parseBuffer, upstageApiKey || undefined);
           headers = tableData.headers;
           rows = tableData.rows;
         } else {
-          // 5페이지씩 분할 처리
-          let headersSet = false;
-          
-          for (let startPage = 0; startPage < totalPages; startPage += PAGES_PER_CHUNK) {
-            const endPage = Math.min(startPage + PAGES_PER_CHUNK, totalPages);
-            const chunkNum = Math.floor(startPage / PAGES_PER_CHUNK) + 1;
-            const totalChunks = Math.ceil(totalPages / PAGES_PER_CHUNK);
-            
-            console.log(`[analyzeWithTemplate] 청크 ${chunkNum}/${totalChunks} 처리 중 (페이지 ${startPage + 1}-${endPage})...`);
-            
-            try {
-              // 해당 페이지만 추출하여 새 PDF 생성
-              const chunkPdf = await PDFDocument.create();
-              const pageIndices = Array.from({ length: endPage - startPage }, (_, i) => startPage + i);
-              const copiedPages = await chunkPdf.copyPages(pdfDoc, pageIndices);
-              copiedPages.forEach(page => chunkPdf.addPage(page));
-              const chunkBuffer = Buffer.from(await chunkPdf.save());
-              
-              const chunkData = await parsePdfWithUpstage(chunkBuffer, upstageApiKey || undefined);
-              
-              if (!headersSet && chunkData.headers.length > 0) {
-                headers = chunkData.headers;
-                headersSet = true;
-              }
-              rows.push(...chunkData.rows);
-              
-              console.log(`[analyzeWithTemplate] 청크 ${chunkNum} 완료: ${chunkData.rows.length}행 추출`);
-            } catch (chunkError) {
-              console.error(`[analyzeWithTemplate] 청크 ${chunkNum} 실패:`, chunkError);
-              // 청크 실패 시 건너뛰고 계속
-            }
+          const workbook = XLSX.read(fileBuffer, { type: "buffer" });
+          const sheetName = workbook.SheetNames[0];
+          if (!sheetName) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "엑셀 파일에 시트가 없습니다" });
           }
           
-          console.log(`[analyzeWithTemplate] 전체 처리 완료: 헤더 ${headers.length}컬럼, ${rows.length}행`);
+          const worksheet = workbook.Sheets[sheetName];
+          if (!worksheet) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "워크시트를 찾을 수 없습니다" });
+          }
+          
+          const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+          headers = (rawData[0] || []).map(h => String(h));
+          rows = rawData.slice(1);
         }
-      } else {
-        const workbook = XLSX.read(fileBuffer, { type: "buffer" });
-        const sheetName = workbook.SheetNames[0];
-        if (!sheetName) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "엑셀 파일에 시트가 없습니다" });
-        }
-        
-        const worksheet = workbook.Sheets[sheetName];
-        if (!worksheet) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "워크시트를 찾을 수 없습니다" });
-        }
-        
-        const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-        headers = (rawData[0] || []).map(h => String(h));
-        rows = rawData.slice(1);
       }
 
       // Convert template columnSchema to columnMapping
@@ -2053,7 +2037,12 @@ export const fileRouter = createTRPCRouter({
         columnMapping.rowMergePattern = templateSchema.parseRules.rowMergePattern;
       }
       
-      console.log(`[analyzeWithTemplate] Storing numeric column mapping:`, JSON.stringify(columnMapping));
+      // PDF: extractedData를 저장하지 않음 → performExtraction이 전체 PDF를 페이지별로 파싱
+      // Excel: extractedData를 저장 (전체 데이터가 이미 있으므로)
+      const isPdf = document.mimeType.includes("pdf");
+      const extractedDataToStore = isPdf ? null : { headers, rows };
+      
+      console.log(`[analyzeWithTemplate] isPdf=${isPdf}, extractedData=${isPdf ? 'NOT stored (performExtraction will parse full PDF)' : `stored (${rows.length} rows)`}`);
 
       // Create/update FileAnalysisResult
       const analysisResult = await ctx.db.fileAnalysisResult.upsert({
@@ -2065,10 +2054,10 @@ export const fileRouter = createTRPCRouter({
           columnMapping: columnMapping as Prisma.InputJsonValue,
           headerRowIndex: 0,
           totalRows: rows.length,
-          detectedFormat: document.mimeType.includes("pdf") ? "pdf" : "excel",
+          detectedFormat: isPdf ? "pdf" : "excel",
           hasHeaders: true,
           confidence: 1.0,
-          extractedData: { headers, rows } as Prisma.InputJsonValue,
+          extractedData: extractedDataToStore as Prisma.InputJsonValue,
           errorDetails: {
             transactionTypeMethod: "manual_template",
             memoInAmountColumn,
@@ -2080,7 +2069,7 @@ export const fileRouter = createTRPCRouter({
           columnMapping: columnMapping as Prisma.InputJsonValue,
           totalRows: rows.length,
           confidence: 1.0,
-          extractedData: { headers, rows } as Prisma.InputJsonValue,
+          extractedData: extractedDataToStore as Prisma.InputJsonValue,
           errorDetails: {
             transactionTypeMethod: "manual_template",
             memoInAmountColumn,
@@ -2215,16 +2204,67 @@ async function performExtraction(
     headerRow = extractedData.headers;
     console.log(`[Extract Data] Reused ${extractedData.rows.length} rows from previous extraction`);
   } else if (mimeType.includes("pdf")) {
-    // Fallback: Use Upstage API to parse PDF (if extractedData not available)
-    console.log("[PDF Extraction] Using Upstage API to extract table data...");
+    // PDF: 전체 파일을 3페이지씩 분할 처리 (504 타임아웃 방지 + 컬럼 구조 일관성)
+    console.log("[PDF Extraction] Parsing full PDF page by page...");
     const { parsePdfWithUpstage } = await import("~/lib/pdf-ocr");
-    const tableData = await parsePdfWithUpstage(fileBuffer);
-
-    // Convert table data to rawData format (array of arrays)
-    // First row is headers, rest are data rows
-    rawData = [tableData.headers, ...tableData.rows];
-    headerRow = tableData.headers;
-    console.log(`[PDF Extraction] Converted ${tableData.totalRows} rows to rawData format`);
+    const { PDFDocument } = await import("pdf-lib");
+    
+    const pdfDoc = await PDFDocument.load(fileBuffer, { ignoreEncryption: true });
+    const totalPages = pdfDoc.getPageCount();
+    const PAGES_PER_CHUNK = 3;
+    
+    console.log(`[PDF Extraction] Total ${totalPages} pages, processing ${PAGES_PER_CHUNK} pages at a time`);
+    
+    let referenceHeaders: string[] = [];
+    const allRows: string[][] = [];
+    
+    for (let startPage = 0; startPage < totalPages; startPage += PAGES_PER_CHUNK) {
+      const endPage = Math.min(startPage + PAGES_PER_CHUNK, totalPages);
+      const chunkNum = Math.floor(startPage / PAGES_PER_CHUNK) + 1;
+      
+      try {
+        let chunkBuffer: Buffer;
+        if (startPage === 0 && totalPages <= PAGES_PER_CHUNK) {
+          chunkBuffer = fileBuffer;
+        } else {
+          const chunkPdf = await PDFDocument.create();
+          const pageIndices = Array.from({ length: endPage - startPage }, (_, i) => startPage + i);
+          const copiedPages = await chunkPdf.copyPages(pdfDoc, pageIndices);
+          copiedPages.forEach(page => chunkPdf.addPage(page));
+          chunkBuffer = Buffer.from(await chunkPdf.save());
+        }
+        
+        const chunkData = await parsePdfWithUpstage(chunkBuffer);
+        
+        if (referenceHeaders.length === 0 && chunkData.headers.length > 0) {
+          referenceHeaders = chunkData.headers;
+          console.log(`[PDF Extraction] Reference headers from chunk ${chunkNum}:`, referenceHeaders);
+        }
+        
+        // 컬럼 수를 기준 헤더에 맞춤 (구조 불일치 방지)
+        const expectedCols = referenceHeaders.length;
+        for (const row of chunkData.rows) {
+          if (row.length === expectedCols) {
+            allRows.push(row);
+          } else if (row.length > expectedCols) {
+            // 컬럼이 더 많으면 잘라서 맞춤
+            allRows.push(row.slice(0, expectedCols));
+          } else {
+            // 컬럼이 부족하면 빈 문자열로 채움
+            const paddedRow = [...row, ...Array(expectedCols - row.length).fill("")];
+            allRows.push(paddedRow);
+          }
+        }
+        
+        console.log(`[PDF Extraction] Chunk ${chunkNum} (pages ${startPage + 1}-${endPage}): ${chunkData.rows.length} rows`);
+      } catch (chunkError) {
+        console.error(`[PDF Extraction] Chunk ${chunkNum} failed:`, chunkError);
+      }
+    }
+    
+    headerRow = referenceHeaders;
+    rawData = [referenceHeaders, ...allRows];
+    console.log(`[PDF Extraction] Total: ${allRows.length} rows extracted from ${totalPages} pages`);
   } else {
     // Parse Excel/CSV file
     const workbook = XLSX.read(fileBuffer, { type: "buffer" });

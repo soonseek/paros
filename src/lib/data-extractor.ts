@@ -645,7 +645,14 @@ export async function extractAndSaveTransactions(
       // Parse memo (optional) - memoInAmountColumn이 아닌 경우에만
       if (!memo && columnMapping.memo !== undefined) {
         const memoRaw = row[columnMapping.memo];
-        const memoStr = String(memoRaw ?? "");
+        let memoStr = String(memoRaw ?? "");
+        
+        // memo 컬럼이 date 컬럼과 같은 인덱스면, 날짜/시간 부분 제거
+        if (columnMapping.memo === columnMapping.date && memoStr) {
+          // "2025/01/01 18:57:04 토스 한민자2" → "토스 한민자2"
+          const dateTimePattern = /^\d{4}[-/]\d{1,2}[-/]\d{1,2}(\s+\d{1,2}:\d{2}(:\d{2})?)?/;
+          memoStr = memoStr.replace(dateTimePattern, "").trim();
+        }
         
         // 병합된 행 대응: 마지막 부분 추출 ("출금 NH올원뱅크" → "NH올원뱅크")
         // 단, 거래구분 컬럼과 같은 인덱스면 두 번째 단어 추출

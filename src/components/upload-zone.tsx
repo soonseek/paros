@@ -544,11 +544,13 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess, userR
     
     try {
       if (templateId) {
-        // 자동 매칭된 템플릿으로 진행
+        // 자동 매칭된 템플릿으로 진행 (미리보기 데이터 전달하여 504 방지)
         toast.info("전체 파일 분석 중...");
         await analyzeWithTemplateMutation.mutateAsync({
           documentId: pendingDocumentId,
           templateId,
+          previewHeaders: preAnalysisData?.headers,
+          previewRows: preAnalysisData?.sampleRows,
         });
       } else {
         // LLM 분석으로 진행
@@ -605,10 +607,12 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess, userR
     try {
       toast.info("선택한 템플릿으로 전체 파일 분석 중...");
       
-      // 선택된 템플릿으로 분석 진행
+      // 선택된 템플릿으로 분석 진행 (미리보기 데이터 전달하여 504 방지)
       await analyzeWithTemplateMutation.mutateAsync({
         documentId: pendingDocumentId,
         templateId,
+        previewHeaders: preAnalysisData?.headers,
+        previewRows: preAnalysisData?.sampleRows,
       });
       
       // 데이터 추출
