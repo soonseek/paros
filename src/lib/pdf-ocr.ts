@@ -186,18 +186,18 @@ async function parseSinglePdf(
   const blob = new Blob([new Uint8Array(pdfBuffer)], { type: "application/pdf" });
   formData.append("document", blob, "document.pdf");
 
-  // Add Upstage API parameters (based on official Python guide)
-  // Reference: https://console.upstage.ai/docs/capabilities/digitize/document-parsing
+  // Upstage API parameters - 거래내역 파싱에 필요한 최소 옵션만 설정
   formData.append("model", "document-parse");
   formData.append("ocr", "auto"); // auto: 텍스트 PDF는 직접 파싱, 이미지 PDF만 OCR
-  formData.append("chart_recognition", "true"); // Enable chart recognition
-  formData.append("coordinates", "true"); // Enable coordinate extraction
-  formData.append("output_formats", '["html","text"]'); // Request both HTML and text
-  formData.append("base64_encoding", '["figure"]'); // Base64 encode figures
+  formData.append("output_formats", '["html","text"]'); // HTML for tables, text for template matching
   formData.append("merge_multipage_tables", "true"); // 다중 페이지 테이블 병합
 
   try {
     console.log("[Upstage API] Calling document-digitization endpoint...");
+
+    // 90초 타임아웃 설정
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
 
     const response = await fetch(
       "https://api.upstage.ai/v1/document-digitization",
@@ -205,11 +205,13 @@ async function parseSinglePdf(
         method: "POST",
         headers: {
           Authorization: `Bearer ${apiKey}`,
-          // Note: Don't set Content-Type when using FormData, browser sets it with boundary
         },
         body: formData,
+        signal: controller.signal,
       }
     );
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -224,10 +226,6 @@ async function parseSinglePdf(
     console.log("[Upstage API] Response received");
     console.log(`[Upstage API] Elements count: ${data.elements?.length || 0}`);
     console.log(`[Upstage API] Pages: ${data.usage?.pages || 0}`);
-
-    // DEBUG: Log full response structure
-    console.log("[Upstage API] Full response structure:");
-    console.log(JSON.stringify(data, null, 2).substring(0, 5000)); // First 5000 chars
 
     // Extract text from elements
     if (!data.elements || data.elements.length === 0) {
@@ -340,6 +338,10 @@ async function parseSinglePdf(
     // Try to parse as table
     return extractTableFromText(allHtmlText);
   } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      console.error("[PDF OCR Error] Upstage API 요청 타임아웃 (90초)");
+      throw new Error("Upstage API 응답 시간 초과 (90초). 문서가 너무 크거나 복잡할 수 있습니다.");
+    }
     console.error("[PDF OCR Error]", error);
     throw new Error(
       `PDF 파싱 실패: ${error instanceof Error ? error.message : String(error)}`
