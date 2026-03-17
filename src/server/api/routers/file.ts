@@ -1381,7 +1381,7 @@ export const fileRouter = createTRPCRouter({
             // 금액 파싱
             const parseAmount = (val: unknown): number => {
               if (!val) return 0;
-              const str = String(val).replace(/[,\s원₩]/g, '');
+              const str = String(val).replace(/[,\s원₩]/g, '').replace(/KRW/gi, '');
               const num = parseFloat(str);
               return isNaN(num) ? 0 : Math.abs(num);
             };

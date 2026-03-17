@@ -1019,10 +1019,26 @@ export async function extractTablesFromPDF(
 ): Promise<TableData> {
   console.log(`[extractTablesFromPDF] Processing PDF (maxPages: ${maxPages})...`);
   
-  // Use the existing parsePdfWithUpstage function
-  // Note: Upstage API doesn't support page limit directly,
-  // but we limit the rows returned
-  const result = await parsePdfWithUpstage(pdfBuffer, apiKey);
+  // maxPages로 페이지 제한: 큰 PDF에서 타임아웃 방지
+  let processBuffer = pdfBuffer;
+  try {
+    const { PDFDocument } = await import("pdf-lib");
+    const pdfDoc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+    const totalPages = pdfDoc.getPageCount();
+    
+    if (totalPages > maxPages) {
+      console.log(`[extractTablesFromPDF] Limiting from ${totalPages} to ${maxPages} pages`);
+      const limitedPdf = await PDFDocument.create();
+      const pageIndices = Array.from({ length: maxPages }, (_, i) => i);
+      const copiedPages = await limitedPdf.copyPages(pdfDoc, pageIndices);
+      copiedPages.forEach(page => limitedPdf.addPage(page));
+      processBuffer = Buffer.from(await limitedPdf.save());
+    }
+  } catch (e) {
+    console.warn(`[extractTablesFromPDF] Page limiting failed, using full PDF:`, e);
+  }
+  
+  const result = await parsePdfWithUpstage(processBuffer, apiKey);
   
   console.log(`[extractTablesFromPDF] Extracted ${result.headers.length} headers, ${result.rows.length} rows`);
   

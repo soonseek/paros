@@ -283,10 +283,11 @@ export function parseAmount(amountValue: unknown): number | null {
 
   // String with commas/symbols
   if (typeof amountValue === "string") {
-    // Remove commas, won (₩) symbol, Korean "원" text, and whitespace
+    // Remove commas, won (₩) symbol, Korean "원" text, "KRW" suffix, and whitespace
     const cleaned = amountValue
       .replace(/,/g, "")
       .replace(/[₩원]/g, "")
+      .replace(/KRW/gi, "")
       .trim();
 
     const parsed = parseFloat(cleaned);
