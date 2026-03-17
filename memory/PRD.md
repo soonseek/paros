@@ -10,6 +10,10 @@
 - [x] **핵심 버그 수정: `trackLoanUsage` 이체 오계산** - 이체/이동 거래 시 `remainingLoan` 차감하지 않도록 수정. 이체 키워드: "이체", "송금", "이동", "振込"
 - [x] **Dead code 제거: `trackMultipleLoans`** - 사용하지 않는 전체 출금 쿼리 (모든 계좌 대상) 제거
 - [x] 이체 거래 시 전액 소진 판단(break) 조건에서 제외
+- [x] **핵심 버그 수정: 이동 대상 계좌 출금 누락** - `remainingLoan` 전역 제한자 제거, 이동 예산(budget)으로만 제한
+- [x] **loanBudget 도입**: 1단계에서 이동+직접출금 합산이 대출금을 초과하지 않도록 관리
+- [x] **remainingLoan 순차 재계산**: 정렬 후 날짜순으로 대출실행→유지, 이동→유지, 출금→차감
+- [x] **동일 날짜+금액 이동 다건 매칭**: depositMatchMap 배열 기반으로 변경 (usedDepositCounts 카운트 기반 추적)
 
 ### 2026-03-10: 거래내역서 매칭 로직 버그 수정 및 UX 개선
 - [x] **핵심 버그 수정: 매칭 불일치** - 실제 업로드에서 `matchByIdentifiers`(Layer 1만) → `classifyTransaction`(3단계 파이프라인) 사용으로 변경
