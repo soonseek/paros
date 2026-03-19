@@ -13,6 +13,7 @@ import {
   resolveTransactionDateFromRow,
   type ColumnMapping,
 } from "~/lib/data-extractor";
+import { detectHeaderRowFromRawData } from "~/lib/header-row-detector";
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 /**
@@ -1560,8 +1561,9 @@ export const fileRouter = createTRPCRouter({
           });
         }
         
-        const headers = (rawData[0] || []).map((h: unknown) => String(h));
-        const sampleRows = rawData.slice(1, 11) as string[][];
+        const detectedSheet = detectHeaderRowFromRawData(rawData);
+        const headers = detectedSheet.headers;
+        const sampleRows = detectedSheet.rows.slice(0, 10);
         
         // 템플릿 목록
         const templates = await ctx.db.transactionTemplate.findMany({
@@ -1759,8 +1761,87 @@ export const fileRouter = createTRPCRouter({
         }
         
         const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" }) as unknown[][];
-        headers = (rawData[0] || []).map((h: unknown) => String(h));
-        rows = rawData.slice(1) as string[][];
+        const detectedSheet = detectHeaderRowFromRawData(rawData);
+        headers = detectedSheet.headers;
+        rows = detectedSheet.rows;
+
+        if (detectedSheet.headerRowIndex > 0) {
+          console.log(`[analyzeWithTemplate] Excel header row detected at index ${detectedSheet.headerRowIndex}`);
+        }
+
+        // Create/update FileAnalysisResult
+        const { convertSchemaToMapping } = await import("~/lib/template-classifier");
+        const templateSchema = template.columnSchema as {
+          columns: Record<string, { index: number; header: string }>;
+          parseRules?: { rowMergePattern?: "pair" | "none" };
+        };
+        
+        const { columnMapping: numericMapping, memoInAmountColumn } = convertSchemaToMapping(
+          templateSchema,
+          headers
+        );
+        
+        const columnMapping: Record<string, string> = {};
+        for (const [key, idx] of Object.entries(numericMapping)) {
+          if (typeof idx === "number" && idx >= 0 && idx < headers.length) {
+            columnMapping[key] = headers[idx] || "";
+          }
+        }
+        
+        if (memoInAmountColumn) {
+          (columnMapping as Record<string, unknown>).memoInAmountColumn = true;
+        }
+        
+        if (templateSchema.parseRules?.rowMergePattern) {
+          (columnMapping as Record<string, unknown>).rowMergePattern = templateSchema.parseRules.rowMergePattern;
+        }
+
+        const analysisResult = await ctx.db.fileAnalysisResult.upsert({
+          where: { documentId },
+          create: {
+            documentId,
+            caseId: document.caseId,
+            status: "analyzing",
+            columnMapping,
+            headerRowIndex: detectedSheet.headerRowIndex,
+            totalRows: rows.length,
+            detectedFormat: document.mimeType.includes("pdf") ? "pdf" : "excel",
+            hasHeaders: true,
+            confidence: 1.0,
+            extractedData: { headers, rows } as Prisma.InputJsonValue,
+            errorDetails: {
+              transactionTypeMethod: "manual_template",
+              memoInAmountColumn,
+              reasoning: `수동 템플릿 선택: ${template.name}${template.bankName ? ` [${template.bankName}]` : ""}`,
+            } as Prisma.InputJsonValue,
+          },
+          update: {
+            status: "analyzing",
+            columnMapping,
+            headerRowIndex: detectedSheet.headerRowIndex,
+            totalRows: rows.length,
+            confidence: 1.0,
+            extractedData: { headers, rows } as Prisma.InputJsonValue,
+            errorDetails: {
+              transactionTypeMethod: "manual_template",
+              memoInAmountColumn,
+              reasoning: `수동 템플릿 선택: ${template.name}${template.bankName ? ` [${template.bankName}]` : ""}`,
+            } as Prisma.InputJsonValue,
+          },
+        });
+
+        await ctx.db.transactionTemplate.update({
+          where: { id: templateId },
+          data: { matchCount: { increment: 1 } },
+        });
+
+        return {
+          success: true,
+          analysisResult,
+          templateName: template.name,
+          bankName: template.bankName,
+          message: `템플릿 "${template.name}" 적용 완료`,
+        };
       }
 
       // Convert template columnSchema to columnMapping
