@@ -1616,13 +1616,18 @@ export const transactionRouter = createTRPCRouter({
           balance: true,
           memo: true,
           documentId: true,
+          rowNumber: true,
           document: {
             select: {
               originalFileName: true,
             },
           },
         },
-        orderBy: [{ transactionDate: "asc" }, { rowNumber: "asc" }],
+        orderBy: [
+          { document: { originalFileName: "asc" } },
+          { transactionDate: "asc" },
+          { rowNumber: "asc" },
+        ],
       });
 
       console.log(`[filterByAmount] DB 조회 결과: ${transactions.length}건`);
@@ -1647,7 +1652,18 @@ export const transactionRouter = createTRPCRouter({
         return absWithdrawal >= minAmount && withdrawalAmt !== 0;
       }).length;
 
-      console.log(`[filterByAmount] 통계 - 입금: ${depositCount}건, 출금: ${withdrawalCount}건`);
+      const depositTotal = transactions.reduce((sum, tx) => {
+        const depositAmt = tx.depositAmount ? Number(tx.depositAmount) : 0;
+        return depositAmt >= minAmount && depositAmt > 0 ? sum + depositAmt : sum;
+      }, 0);
+
+      const withdrawalTotal = transactions.reduce((sum, tx) => {
+        const withdrawalAmt = tx.withdrawalAmount ? Number(tx.withdrawalAmount) : 0;
+        const absWithdrawal = Math.abs(withdrawalAmt);
+        return absWithdrawal >= minAmount && withdrawalAmt !== 0 ? sum + absWithdrawal : sum;
+      }, 0);
+
+      console.log(`[filterByAmount] 통계 - 입금: ${depositCount}건/${depositTotal}원, 출금: ${withdrawalCount}건/${withdrawalTotal}원`);
 
       // 4. 거래 유형 판별 로직 (음수 출금도 처리)
       const mappedTransactions = transactions.map(tx => {
@@ -1700,8 +1716,11 @@ export const transactionRouter = createTRPCRouter({
           transactionDate: tx.transactionDate.toISOString(),
           type,
           amount,
+          depositAmount: depositAmt > 0 ? depositAmt : 0,
+          withdrawalAmount: absWithdrawal > 0 ? absWithdrawal : 0,
           balance: Number(tx.balance) || 0,
           memo: tx.memo || "",
+          documentId: tx.documentId,
           documentName: tx.document?.originalFileName || "",
         };
       });
@@ -1714,6 +1733,8 @@ export const transactionRouter = createTRPCRouter({
           total: transactions.length,
           depositCount,
           withdrawalCount,
+          depositTotal,
+          withdrawalTotal,
           minAmount,
         },
       };
@@ -2492,7 +2513,6 @@ export const transactionRouter = createTRPCRouter({
             remainingLoan: loanAmount,
             documentName: loan.document?.originalFileName || "",
           });
-          usedTransactionIds.add(loan.id);
 
           // 1단계: 대출 계좌의 출금만 먼저 처리 (이동 탐지용)
           const loanAccountWithdrawals = await ctx.db.transaction.findMany({

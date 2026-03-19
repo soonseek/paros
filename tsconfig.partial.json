@@ -3,7 +3,10 @@
   "include": [
     "src/lib/data-extractor.ts",
     "src/server/api/routers/file.ts",
-    "src/lib/data-extractor.test.ts"
+    "src/server/api/routers/transaction.ts",
+    "src/components/amount-filter-modal.tsx",
+    "src/lib/data-extractor.test.ts",
+    "src/components/amount-filter-modal.test.tsx"
   ],
   "exclude": []
 }
