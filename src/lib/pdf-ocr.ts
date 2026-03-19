@@ -375,7 +375,10 @@ function extractFromTableElementsHTML(tableElements: Array<{
     headerScore: number; // 헤더 품질 점수
     dataScore: number; // 데이터 품질 점수
     score: number;
+    containsSummaryKeywords: boolean;
   }
+
+  const summaryKeywordPattern = /(계좌기본정보|입금합계액|출금합계액|합계액|예금주|조회기간|거래기간|계좌번호|기본정보|입금합계|출금합계)/;
 
   const parsedTables: ParsedTable[] = [];
 
@@ -532,9 +535,14 @@ function extractFromTableElementsHTML(tableElements: Array<{
       
       const score = headerScore + dataScore + tableData.headers.length;
       const hasValidHeaders = hasDateColumn && !firstCellLooksLikeDate;
+      const flattenedPreviewText = [
+        ...tableData.headers,
+        ...tableData.rows.slice(0, 3).flat(),
+      ].join(" ");
+      const containsSummaryKeywords = summaryKeywordPattern.test(flattenedPreviewText);
 
       const tableId = `${i + 1}-${j + 1}`;
-      console.log(`[HTML Table] Table ${tableId}: cols=${tableData.headers.length}, rows=${tableData.rows.length}, validHeader=${hasValidHeaders}, headerScore=${headerScore}, dataScore=${dataScore}, totalScore=${score}`);
+      console.log(`[HTML Table] Table ${tableId}: cols=${tableData.headers.length}, rows=${tableData.rows.length}, validHeader=${hasValidHeaders}, headerScore=${headerScore}, dataScore=${dataScore}, totalScore=${score}, summaryKeywords=${containsSummaryKeywords}`);
       if (!hasValidHeaders) {
         console.log(`[HTML Table]    First row (potential data):`, tableData.headers.slice(0, 5).join(", "));
       }
@@ -548,6 +556,7 @@ function extractFromTableElementsHTML(tableElements: Array<{
         headerScore,
         dataScore,
         score,
+        containsSummaryKeywords,
       });
     }
   }
@@ -606,6 +615,12 @@ function extractFromTableElementsHTML(tableElements: Array<{
   for (const table of parsedTables) {
     // 메인 테이블은 스킵
     if (table.index === mainTable.index) continue;
+
+    if (table.containsSummaryKeywords) {
+      skippedTables.push(table.index);
+      console.log(`[HTML Table] ⚠️ Table ${table.index} skipped (summary/account info keywords detected)`);
+      continue;
+    }
 
     // 컬럼 수 차이 허용 (OCR에서 컬럼이 합쳐지거나 분리될 수 있음)
     const columnDiff = Math.abs(table.columnCount - mainTable.columnCount);

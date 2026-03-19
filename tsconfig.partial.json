@@ -1,11 +1,9 @@
 {
   "extends": "./tsconfig.json",
   "include": [
-    "src/components/case-quick-actions.tsx",
-    "src/components/case-quick-actions.test.tsx",
-    "src/components/internal-transfer-link-modal.tsx",
-    "src/components/internal-transfer-link-modal.test.tsx",
-    "src/pages/cases/[id].tsx"
+    "src/lib/pdf-ocr.ts",
+    "src/lib/data-extractor.ts",
+    "src/lib/data-extractor.test.ts"
   ],
   "exclude": []
 }

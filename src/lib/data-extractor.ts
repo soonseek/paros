@@ -501,6 +501,26 @@ export function resolveTransactionDateFromRow(
   };
 }
 
+function rowContainsTimeValue(row: unknown[]): boolean {
+  return row.some((cell) => /\b\d{1,2}:\d{2}(?::\d{2})?\b/.test(String(cell ?? "")));
+}
+
+function rowLooksLikeSummaryMetadata(row: unknown[]): boolean {
+  const rowText = row.map((cell) => String(cell ?? "")).join(" ");
+  return /(계좌기본정보|입금합계액|출금합계액|합계액|예금주|조회기간|거래기간|계좌번호|입금합계|출금합계)/.test(rowText);
+}
+
+function hasHugeNumericValue(row: unknown[], threshold: number = 100_000_000): boolean {
+  const matches = row
+    .map((cell) => String(cell ?? "").match(/[\d,]{6,}/g) || [])
+    .flat();
+
+  return matches.some((value) => {
+    const parsed = parseFloat(value.replace(/,/g, ""));
+    return !isNaN(parsed) && parsed >= threshold;
+  });
+}
+
 /**
  * Parse amount with commas and won symbols
  *
@@ -904,6 +924,20 @@ export async function extractAndSaveTransactions(
           memoColumnDefined: columnMapping.memo !== undefined,
           memoInAmountColumn: columnMapping.memoInAmountColumn,
         });
+      }
+
+      if (
+        dateCarriedForward &&
+        !rowContainsTimeValue(row) &&
+        (rowLooksLikeSummaryMetadata(row) || hasHugeNumericValue(row))
+      ) {
+        skipped++;
+        errors.push({
+          row: i + 1,
+          error: "Non-transaction summary/footer row detected and skipped",
+        });
+        console.log(`[Data Extractor] Row ${i + 1} skipped as summary/footer row`, row);
+        continue;
       }
 
       // MEDIUM-3 FIX: Validate metadata size before adding

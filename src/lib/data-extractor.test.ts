@@ -123,4 +123,42 @@ describe("data-extractor 회귀 방지", () => {
     expect(inserted[1]?.memo).toBe("추가출금");
     expect(inserted[1]?.withdrawalAmount).toBe(50000);
   });
+
+  it("날짜 이어받기 중 섞여든 합계/푸터 행은 저장하지 않는다", async () => {
+    const createMany = vi.fn().mockResolvedValue({ count: 1 });
+    const prisma = {
+      $transaction: vi.fn(async (callback: (tx: { transaction: { createMany: typeof createMany } }) => Promise<unknown>) => {
+        return await callback({ transaction: { createMany } });
+      }),
+    };
+
+    const rawData = [
+      ["거래일자", "비고", "입금", "출금", "잔액"],
+      ["2025-12-12 10:18:55", "004주식회사 공감커뮤", "", "178,440", "0"],
+      ["", "168,738,553 원", "", "171,747,184", "0"],
+      ["", "이기선", "", "10,047,411,129", "0"],
+    ];
+
+    const result = await extractAndSaveTransactions(
+      prisma as never,
+      "doc-1",
+      "case-1",
+      rawData,
+      {
+        date: 0,
+        memo: 1,
+        deposit: 2,
+        withdrawal: 3,
+        balance: 4,
+      },
+      0,
+    );
+
+    const inserted = createMany.mock.calls[0]?.[0]?.data as Array<{ memo?: string }>;
+
+    expect(inserted).toHaveLength(1);
+    expect(inserted[0]?.memo).toBe("004주식회사 공감커뮤");
+    expect(result.skipped).toBe(2);
+    expect(result.errors.some((error) => error.error.includes("summary/footer"))).toBe(true);
+  });
 });
