@@ -1210,6 +1210,10 @@ const TemplatesPage: NextPage = () => {
                         <p className="text-muted-foreground mt-1">
                           은행마다 거래내역서 형식이 다릅니다. 아래 유형을 참고하여 설정하세요.
                         </p>
+                        <p className="text-muted-foreground mt-2">
+                          <strong>단일 거래금액형</strong>: `거래금액(단일)`만 지정하고 <strong>거래구분은 비워두면</strong>,
+                          금액 앞의 <strong>`-` 부호는 출금</strong>, 그 외(<strong>`+` 또는 무부호</strong>)는 입금으로 처리됩니다.
+                        </p>
                       </div>
                       
                       <div className="border-l-2 border-green-300 pl-3 space-y-1">

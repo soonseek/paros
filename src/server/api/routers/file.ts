@@ -79,7 +79,7 @@ function buildParsedSampleData(
     if (!val) return 0;
     const str = String(val).replace(/[,\s원₩]/g, '');
     const num = parseFloat(str);
-    return isNaN(num) ? 0 : Math.abs(num);
+    return isNaN(num) ? 0 : num;
   };
 
   for (const row of rows) {
@@ -107,32 +107,38 @@ function buildParsedSampleData(
     let deposit = 0;
     let withdrawal = 0;
 
-    if (
-      columnMapping.amount !== undefined &&
-      columnMapping.amount >= 0 &&
-      columnMapping.transaction_type !== undefined &&
-      columnMapping.transaction_type >= 0
-    ) {
+    if (columnMapping.amount !== undefined && columnMapping.amount >= 0) {
       const amount = parseAmount(row[columnMapping.amount]);
-      const typeValue = String(row[columnMapping.transaction_type] || '').toLowerCase();
+      if (
+        columnMapping.transaction_type !== undefined &&
+        columnMapping.transaction_type >= 0
+      ) {
+        const typeValue = String(row[columnMapping.transaction_type] || '').toLowerCase();
 
-      const isDeposit = ['입금', '입', 'in', 'credit', 'deposit', '수입', '이체입금', '입금이체'].some(
-        keyword => typeValue.includes(keyword)
-      );
-      const isWithdrawal = ['출금', '출', 'out', 'debit', 'withdrawal', '지출', '이체출금', '출금이체', '지급'].some(
-        keyword => typeValue.includes(keyword)
-      );
+        const isDeposit = ['입금', '입', 'in', 'credit', 'deposit', '수입', '이체입금', '입금이체'].some(
+          keyword => typeValue.includes(keyword)
+        );
+        const isWithdrawal = ['출금', '출', 'out', 'debit', 'withdrawal', '지출', '이체출금', '출금이체', '지급'].some(
+          keyword => typeValue.includes(keyword)
+        );
 
-      if (isDeposit) {
-        deposit = amount;
-      } else if (isWithdrawal) {
-        withdrawal = amount;
-      } else {
-        const rawAmount = String(row[columnMapping.amount] || '');
-        if (rawAmount.includes('-')) {
-          withdrawal = amount;
+        if (isDeposit) {
+          deposit = Math.abs(amount);
+        } else if (isWithdrawal) {
+          withdrawal = Math.abs(amount);
         } else {
-          deposit = amount;
+          const rawAmount = String(row[columnMapping.amount] || '');
+          if (rawAmount.includes('-')) {
+            withdrawal = Math.abs(amount);
+          } else {
+            deposit = Math.abs(amount);
+          }
+        }
+      } else {
+        if (amount < 0) {
+          withdrawal = Math.abs(amount);
+        } else {
+          deposit = Math.abs(amount);
         }
       }
     } else {
