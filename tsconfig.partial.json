@@ -5,8 +5,10 @@
     "src/server/api/routers/file.ts",
     "src/server/api/routers/transaction.ts",
     "src/components/amount-filter-modal.tsx",
+    "src/components/upload-zone.tsx",
     "src/lib/data-extractor.test.ts",
-    "src/components/amount-filter-modal.test.tsx"
+    "src/components/amount-filter-modal.test.tsx",
+    "src/components/upload-zone.test.ts"
   ],
   "exclude": []
 }

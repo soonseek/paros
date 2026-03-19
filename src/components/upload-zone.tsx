@@ -29,6 +29,15 @@ interface UploadedDocument {
   analysisStatus: string;
 }
 
+export const TRANSACTION_UPLOAD_ACCEPT = {
+  "application/pdf": [".pdf"],
+  "application/vnd.epapyrus.plugin.pdf": [".pdf"],
+  "application/vnd.ms-excel": [".xls"],
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
+  "text/csv": [".csv"],
+  "application/csv": [".csv"],
+} as const;
+
 // Use centralized constant (MEDIUM-1 fix)
 const MAX_FILE_SIZE = FILE_VALIDATION.MAX_FILE_SIZE_BYTES;
 
@@ -490,9 +499,7 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess, userR
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     onDrop,
-    accept: {
-      "application/pdf": [".pdf"],
-    },
+    accept: TRANSACTION_UPLOAD_ACCEPT,
     multiple: true,
     maxSize: MAX_FILE_SIZE, // MEDIUM-1 fix: 50MB limit
     disabled: isProcessing,
@@ -756,7 +763,9 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess, userR
                         <>파일을 드래그하거나 <span className="text-primary underline">클릭</span></>
                       )}
                     </p>
-                    <p className="text-xs text-muted-foreground">PDF • 최대 1GB</p>
+                    <p className="text-xs text-muted-foreground" data-testid="upload-supported-file-types-text">
+                      PDF · CSV · XLS · XLSX • 최대 1GB
+                    </p>
                   </div>
                 </div>
               )}
