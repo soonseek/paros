@@ -22,7 +22,9 @@ import { SimplifiedTransactionTable, type SimplifiedTransaction } from "~/compon
 import { AIChatAssistant } from "~/components/ai-chat-assistant";
 import { LoanTrackingModal } from "~/components/loan-tracking-modal";
 import { AmountFilterModal } from "~/components/amount-filter-modal";
+import { CounterpartyFilterModal } from "~/components/counterparty-filter-modal";
 import { BalanceValidationModal } from "~/components/balance-validation-modal";
+import { InternalTransferLinkModal } from "~/components/internal-transfer-link-modal";
 import { FindingNoteList } from "~/components/molecules/finding-note-list";
 import { FindingNoteForm } from "~/components/molecules/finding-note-form";
 import { CorrectionGuideAnalyzer } from "~/components/correction-guide-analyzer";
@@ -154,6 +156,8 @@ const CaseDetailPage: NextPage = () => {
   // 퀵 버튼 모달 상태
   const [isLoanTrackingOpen, setIsLoanTrackingOpen] = useState(false);
   const [isAmountFilterOpen, setIsAmountFilterOpen] = useState(false);
+  const [isCounterpartyFilterOpen, setIsCounterpartyFilterOpen] = useState(false);
+  const [isInternalTransferOpen, setIsInternalTransferOpen] = useState(false);
   const [isBalanceValidationOpen, setIsBalanceValidationOpen] = useState(false);
 
   useEffect(() => {
@@ -629,9 +633,9 @@ const CaseDetailPage: NextPage = () => {
               >
                 <StickyNote className="w-3 h-3 mr-1" />
                 사건메모
-                {caseItem.notes && caseItem.notes.length > 0 && (
+                {notes && notes.length > 0 && (
                   <span className="ml-1 px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs">
-                    {caseItem.notes.length}
+                    {notes.length}
                   </span>
                 )}
               </Button>
@@ -776,14 +780,34 @@ const CaseDetailPage: NextPage = () => {
                 size="sm"
                 className="flex-1"
                 onClick={() => setIsAmountFilterOpen(true)}
+                data-testid="case-amount-filter-open-button"
               >
                 금액 이상 입출금건 뽑기
               </Button>
               <Button
                 variant="outline"
                 size="sm"
+                className="flex-1"
+                onClick={() => setIsCounterpartyFilterOpen(true)}
+                data-testid="case-counterparty-filter-open-button"
+              >
+                특정 인물 거래 찾기
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={() => setIsInternalTransferOpen(true)}
+                data-testid="case-internal-transfer-open-button"
+              >
+                내부 계좌이체 연결
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 className="flex-1 text-orange-600 border-orange-300 hover:bg-orange-50"
                 onClick={() => setIsBalanceValidationOpen(true)}
+                data-testid="case-balance-validation-open-button"
               >
                 입출금 오류 검증
               </Button>
@@ -1184,6 +1208,19 @@ const CaseDetailPage: NextPage = () => {
       <AmountFilterModal
         isOpen={isAmountFilterOpen}
         onClose={() => setIsAmountFilterOpen(false)}
+        caseId={id as string}
+      />
+
+      <CounterpartyFilterModal
+        isOpen={isCounterpartyFilterOpen}
+        onClose={() => setIsCounterpartyFilterOpen(false)}
+        caseId={id as string}
+        documentId={selectedDocumentId}
+      />
+
+      <InternalTransferLinkModal
+        isOpen={isInternalTransferOpen}
+        onClose={() => setIsInternalTransferOpen(false)}
         caseId={id as string}
       />
 

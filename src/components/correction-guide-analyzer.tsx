@@ -65,6 +65,7 @@ interface MatchedTemplate {
   id: string;
   title: string;
   content: string;
+  originalContent?: string | null;
   images: Array<{ key: string; name: string; type: string; size: number }>;
   files: Array<{ key: string; name: string; type: string; size: number }>;
 }

@@ -31,6 +31,8 @@ import {
   createUpdateChanges,
   createRestoreChanges,
 } from "~/server/audit/classification-audit";
+import { matchCounterpartyQuery } from "~/lib/counterparty-search";
+import { detectInternalTransfers } from "~/lib/internal-transfer-detector";
 import { assertTransactionAccess } from "~/server/lib/rbac";
 
 /**
@@ -1524,6 +1526,236 @@ export const transactionRouter = createTRPCRouter({
         message: deletedTransactionCount.count > 0 
           ? `${deletedTransactionCount.count}건의 거래내역과 파일이 삭제되었습니다`
           : `파일이 삭제되었습니다`,
+      };
+    }),
+
+  /**
+   * 특정 인물/계좌 관련 거래 필터링
+   */
+  filterByCounterparty: protectedProcedure
+    .input(
+      z.object({
+        caseId: z.string().min(1, "사건 ID는 필수 항목입니다"),
+        query: z.string().min(1, "이름 또는 계좌번호를 입력해주세요"),
+        documentId: z.string().optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { caseId, query, documentId } = input;
+      const userId = ctx.userId;
+
+      const user = await ctx.db.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
+
+      if (!user) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "사용자를 찾을 수 없습니다.",
+        });
+      }
+
+      const caseRecord = await ctx.db.case.findUnique({
+        where: { id: caseId },
+      });
+
+      if (!caseRecord) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "사건을 찾을 수 없습니다.",
+        });
+      }
+
+      assertTransactionAccess({
+        userId,
+        userRole: user.role,
+        caseLawyerId: caseRecord.lawyerId,
+      });
+
+      const whereClause: Record<string, unknown> = { caseId };
+      if (documentId) {
+        whereClause.documentId = documentId;
+      }
+
+      const transactions = await ctx.db.transaction.findMany({
+        where: whereClause,
+        select: {
+          id: true,
+          transactionDate: true,
+          depositAmount: true,
+          withdrawalAmount: true,
+          balance: true,
+          memo: true,
+          rawMetadata: true,
+          creditorName: true,
+          documentId: true,
+          rowNumber: true,
+          document: {
+            select: {
+              originalFileName: true,
+            },
+          },
+        },
+        orderBy: [
+          { document: { originalFileName: "asc" } },
+          { transactionDate: "asc" },
+          { rowNumber: "asc" },
+        ],
+      });
+
+      const matchedTransactions = transactions
+        .map((tx) => {
+          const match = matchCounterpartyQuery(
+            {
+              memo: tx.memo,
+              creditorName: tx.creditorName,
+              rawMetadata: tx.rawMetadata,
+            },
+            query,
+          );
+
+          if (!match.matched) {
+            return null;
+          }
+
+          const depositAmount = tx.depositAmount ? Number(tx.depositAmount) : 0;
+          const withdrawalAmount = tx.withdrawalAmount ? Math.abs(Number(tx.withdrawalAmount)) : 0;
+          const isDeposit = depositAmount > 0;
+
+          return {
+            id: tx.id,
+            transactionDate: tx.transactionDate.toISOString(),
+            type: isDeposit ? "입금" as const : "출금" as const,
+            amount: isDeposit ? depositAmount : withdrawalAmount,
+            depositAmount,
+            withdrawalAmount,
+            balance: Number(tx.balance) || 0,
+            memo: tx.memo || "",
+            creditorName: tx.creditorName || "",
+            matchedFields: match.matchedFields,
+            documentId: tx.documentId,
+            documentName: tx.document?.originalFileName || "",
+          };
+        })
+        .filter((tx): tx is NonNullable<typeof tx> => tx !== null);
+
+      const depositCount = matchedTransactions.filter((tx) => tx.depositAmount > 0).length;
+      const withdrawalCount = matchedTransactions.filter((tx) => tx.withdrawalAmount > 0).length;
+      const depositTotal = matchedTransactions.reduce((sum, tx) => sum + tx.depositAmount, 0);
+      const withdrawalTotal = matchedTransactions.reduce((sum, tx) => sum + tx.withdrawalAmount, 0);
+
+      return {
+        transactions: matchedTransactions,
+        summary: {
+          total: matchedTransactions.length,
+          depositCount,
+          withdrawalCount,
+          depositTotal,
+          withdrawalTotal,
+          query,
+        },
+      };
+    }),
+
+  /**
+   * 사건 내 문서 간 내부 계좌이체 후보 탐지
+   */
+  detectInternalTransfers: protectedProcedure
+    .input(
+      z.object({
+        caseId: z.string().min(1, "사건 ID는 필수 항목입니다"),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { caseId } = input;
+      const userId = ctx.userId;
+
+      const user = await ctx.db.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
+
+      if (!user) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "사용자를 찾을 수 없습니다.",
+        });
+      }
+
+      const caseRecord = await ctx.db.case.findUnique({
+        where: { id: caseId },
+      });
+
+      if (!caseRecord) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "사건을 찾을 수 없습니다.",
+        });
+      }
+
+      assertTransactionAccess({
+        userId,
+        userRole: user.role,
+        caseLawyerId: caseRecord.lawyerId,
+      });
+
+      const transactions = await ctx.db.transaction.findMany({
+        where: {
+          caseId,
+          OR: [
+            { depositAmount: { gt: 0 } },
+            { withdrawalAmount: { gt: 0 } },
+          ],
+        },
+        select: {
+          id: true,
+          transactionDate: true,
+          depositAmount: true,
+          withdrawalAmount: true,
+          memo: true,
+          documentId: true,
+          document: {
+            select: {
+              originalFileName: true,
+            },
+          },
+        },
+        orderBy: [
+          { document: { originalFileName: "asc" } },
+          { transactionDate: "asc" },
+          { rowNumber: "asc" },
+        ],
+      });
+
+      const matches = detectInternalTransfers(
+        transactions.map((tx) => ({
+          id: tx.id,
+          transactionDate: tx.transactionDate.toISOString(),
+          depositAmount: tx.depositAmount ? Number(tx.depositAmount) : 0,
+          withdrawalAmount: tx.withdrawalAmount ? Number(tx.withdrawalAmount) : 0,
+          memo: tx.memo || "",
+          documentId: tx.documentId,
+          documentName: tx.document?.originalFileName || "",
+        })),
+      );
+
+      const totalAmount = matches.reduce((sum, match) => sum + match.amount, 0);
+      const sameDayCount = matches.filter((match) => {
+        return match.withdrawalDate.slice(0, 10) === match.depositDate.slice(0, 10);
+      }).length;
+      const nextDayCount = matches.length - sameDayCount;
+      const documentPairs = new Set(matches.map((match) => `${match.fromDocumentName}→${match.toDocumentName}`));
+
+      return {
+        matches,
+        summary: {
+          total: matches.length,
+          totalAmount,
+          sameDayCount,
+          nextDayCount,
+          documentPairCount: documentPairs.size,
+        },
       };
     }),
 

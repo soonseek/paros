@@ -3,13 +3,22 @@
   "include": [
     "src/lib/data-extractor.ts",
     "src/lib/header-row-detector.ts",
+    "src/lib/counterparty-search.ts",
+    "src/lib/internal-transfer-detector.ts",
     "src/server/api/routers/file.ts",
     "src/server/api/routers/transaction.ts",
     "src/components/amount-filter-modal.tsx",
+    "src/components/counterparty-filter-modal.tsx",
+    "src/components/internal-transfer-link-modal.tsx",
     "src/components/upload-zone.tsx",
+    "src/pages/cases/[id].tsx",
     "src/lib/data-extractor.test.ts",
     "src/lib/header-row-detector.test.ts",
+    "src/lib/counterparty-search.test.ts",
+    "src/lib/internal-transfer-detector.test.ts",
     "src/components/amount-filter-modal.test.tsx",
+    "src/components/counterparty-filter-modal.test.tsx",
+    "src/components/internal-transfer-link-modal.test.tsx",
     "src/components/upload-zone.test.ts"
   ],
   "exclude": []
