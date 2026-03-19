@@ -5,7 +5,14 @@ import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { FILE_VALIDATION, validateFileSignature } from "~/lib/file-validation";
 import { uploadFile, deleteFile, downloadFile } from "~/lib/storage";
 import { analyzeFileStructure } from "~/lib/file-analyzer";
-import { extractAndSaveTransactions, parseDate, type ColumnMapping } from "~/lib/data-extractor";
+import {
+  extractAndSaveTransactions,
+  inferReferenceDateFromRows,
+  mergePairedRows,
+  normalizeMemoText,
+  resolveTransactionDateFromRow,
+  type ColumnMapping,
+} from "~/lib/data-extractor";
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 /**
@@ -40,6 +47,122 @@ function detectFileType(fileName: string, _mimeType: string): string {
     return "PDF 파일";
   }
   return "알 수 없는 파일";
+}
+
+function buildParsedSampleData(
+  sampleRows: string[][],
+  columnMapping: ColumnMapping
+): Array<{
+  transactionDate: string;
+  deposit: number;
+  withdrawal: number;
+  balance: number;
+  memo: string;
+}> {
+  const rows = columnMapping.rowMergePattern === "pair"
+    ? mergePairedRows(sampleRows)
+    : sampleRows;
+
+  const parsedSampleData: Array<{
+    transactionDate: string;
+    deposit: number;
+    withdrawal: number;
+    balance: number;
+    memo: string;
+  }> = [];
+
+  const referenceDate = inferReferenceDateFromRows(rows, columnMapping.date);
+  let lastKnownDate: Date | null = null;
+
+  const parseAmount = (val: unknown): number => {
+    if (!val) return 0;
+    const str = String(val).replace(/[,\s원₩]/g, '');
+    const num = parseFloat(str);
+    return isNaN(num) ? 0 : Math.abs(num);
+  };
+
+  for (const row of rows) {
+    const resolvedDate = resolveTransactionDateFromRow(row, columnMapping, {
+      lastKnownDate,
+      referenceDate,
+    });
+
+    if (resolvedDate.transactionDate) {
+      lastKnownDate = resolvedDate.transactionDate;
+    }
+
+    const balanceValue = columnMapping.balance !== undefined && columnMapping.balance >= 0
+      ? row[columnMapping.balance]
+      : '';
+
+    let memoValue = columnMapping.memo !== undefined && columnMapping.memo >= 0
+      ? normalizeMemoText(row[columnMapping.memo])
+      : '';
+
+    if (!memoValue) {
+      memoValue = resolvedDate.extractedMemoFromDate;
+    }
+
+    let deposit = 0;
+    let withdrawal = 0;
+
+    if (
+      columnMapping.amount !== undefined &&
+      columnMapping.amount >= 0 &&
+      columnMapping.transaction_type !== undefined &&
+      columnMapping.transaction_type >= 0
+    ) {
+      const amount = parseAmount(row[columnMapping.amount]);
+      const typeValue = String(row[columnMapping.transaction_type] || '').toLowerCase();
+
+      const isDeposit = ['입금', '입', 'in', 'credit', 'deposit', '수입', '이체입금', '입금이체'].some(
+        keyword => typeValue.includes(keyword)
+      );
+      const isWithdrawal = ['출금', '출', 'out', 'debit', 'withdrawal', '지출', '이체출금', '출금이체', '지급'].some(
+        keyword => typeValue.includes(keyword)
+      );
+
+      if (isDeposit) {
+        deposit = amount;
+      } else if (isWithdrawal) {
+        withdrawal = amount;
+      } else {
+        const rawAmount = String(row[columnMapping.amount] || '');
+        if (rawAmount.includes('-')) {
+          withdrawal = amount;
+        } else {
+          deposit = amount;
+        }
+      }
+    } else {
+      const depositValue = columnMapping.deposit !== undefined && columnMapping.deposit >= 0
+        ? row[columnMapping.deposit]
+        : '';
+      const withdrawalValue = columnMapping.withdrawal !== undefined && columnMapping.withdrawal >= 0
+        ? row[columnMapping.withdrawal]
+        : '';
+
+      deposit = parseAmount(depositValue);
+      withdrawal = parseAmount(withdrawalValue);
+    }
+
+    const balance = parseAmount(balanceValue);
+    const transactionDate = resolvedDate.transactionDate
+      ? formatDateForPreview(resolvedDate.transactionDate)
+      : '';
+
+    if (transactionDate || deposit > 0 || withdrawal > 0) {
+      parsedSampleData.push({
+        transactionDate,
+        deposit,
+        withdrawal,
+        balance,
+        memo: memoValue,
+      });
+    }
+  }
+
+  return parsedSampleData;
 }
 
 export const fileRouter = createTRPCRouter({
@@ -1338,118 +1461,13 @@ export const fileRouter = createTRPCRouter({
           
           // 샘플 데이터 파싱 (최대 10행)
           const sampleRows = tableData.rows.slice(0, 10);
-          for (const row of sampleRows) {
-            const rowIdx = sampleRows.indexOf(row);
-            const dateIdx = columnMapping.date;
-            const depositIdx = columnMapping.deposit;
-            const withdrawalIdx = columnMapping.withdrawal;
-            const balanceIdx = columnMapping.balance;
-            const memoIdx = columnMapping.memo;
-            // amount + transactionType 방식 지원
-            const amountIdx = columnMapping.amount;
-            const transactionTypeIdx = columnMapping.transaction_type;
-            
-            const rawDateValue = dateIdx !== undefined && dateIdx >= 0 ? row[dateIdx] : undefined;
-            const dateValue = dateIdx !== undefined && dateIdx >= 0 ? String(row[dateIdx] || '') : '';
-            const balanceValue = balanceIdx !== undefined && balanceIdx >= 0 ? row[balanceIdx] : '';
-            const memoValue = memoIdx !== undefined && memoIdx >= 0 ? String(row[memoIdx] || '') : '';
-            
-            // 날짜 파싱: col[dateIdx]에서 날짜를 못 찾으면 col[0]에서도 시도
-            const parsedDate = parseDate(rawDateValue);
-            const fallbackDate = (!parsedDate && dateIdx !== 0) ? parseDate(row[0]) : null;
-            const resolvedDateStr = parsedDate 
-              ? formatDateForPreview(parsedDate) 
-              : fallbackDate 
-                ? formatDateForPreview(fallbackDate)
-                : dateValue; // 파싱 실패 시 원본 그대로
-            
-            // 날짜 파싱 디버깅 (모든 샘플 행)
-            console.log(`[PreAnalyze] ===== Sample Row ${rowIdx + 1} DATE PARSING =====`);
-            console.log(`[PreAnalyze] Row ${rowIdx + 1} dateColumnIndex: ${dateIdx}`);
-            console.log(`[PreAnalyze] Row ${rowIdx + 1} rawDateValue:`, JSON.stringify(rawDateValue));
-            console.log(`[PreAnalyze] Row ${rowIdx + 1} col[0] value:`, JSON.stringify(row[0]));
-            console.log(`[PreAnalyze] Row ${rowIdx + 1} parseDate(col[${dateIdx}]):`, parsedDate?.toISOString() ?? 'null');
-            console.log(`[PreAnalyze] Row ${rowIdx + 1} parseDate(col[0]) fallback:`, fallbackDate?.toISOString() ?? 'null');
-            console.log(`[PreAnalyze] Row ${rowIdx + 1} resolvedDateStr: "${resolvedDateStr}"`);
-            console.log(`[PreAnalyze] ==========================================`);
-            
-            // 첫 번째 행에서 memo 값 로깅
-            if (rowIdx === 0) {
-              console.log(`[PreAnalyze] First row memo parsing - memoIdx: ${memoIdx}, row[memoIdx]: ${memoIdx !== undefined && memoIdx >= 0 ? row[memoIdx] : 'N/A'}, memoValue: "${memoValue}"`);
-            }
-            
-            // 금액 파싱
-            const parseAmount = (val: unknown): number => {
-              if (!val) return 0;
-              const str = String(val).replace(/[,\s원₩]/g, '');
-              const num = parseFloat(str);
-              return isNaN(num) ? 0 : Math.abs(num);
-            };
-            
-            let deposit = 0;
-            let withdrawal = 0;
-            
-            // 디버그 로그
-            console.log(`[PreAnalyze Parse] Row: ${JSON.stringify(row.slice(0, 8))}`);
-            console.log(`[PreAnalyze Parse] Indices - amount: ${amountIdx}, transactionType: ${transactionTypeIdx}, deposit: ${depositIdx}, withdrawal: ${withdrawalIdx}`);
-            
-            // amount + transactionType 방식인 경우
-            if (amountIdx !== undefined && amountIdx >= 0 && transactionTypeIdx !== undefined && transactionTypeIdx >= 0) {
-              const amount = parseAmount(row[amountIdx]);
-              const typeValue = String(row[transactionTypeIdx] || '').toLowerCase();
-              
-              console.log(`[PreAnalyze Parse] amount=${amount}, typeValue="${typeValue}" (from index ${transactionTypeIdx})`);
-              
-              // 입금 키워드 확인
-              const isDeposit = ['입금', '입', 'in', 'credit', 'deposit', '수입', '이체입금', '입금이체'].some(
-                keyword => typeValue.includes(keyword)
-              );
-              // 출금 키워드 확인
-              const isWithdrawal = ['출금', '출', 'out', 'debit', 'withdrawal', '지출', '이체출금', '출금이체', '지급'].some(
-                keyword => typeValue.includes(keyword)
-              );
-              
-              console.log(`[PreAnalyze Parse] isDeposit=${isDeposit}, isWithdrawal=${isWithdrawal}`);
-              
-              if (isDeposit) {
-                deposit = amount;
-              } else if (isWithdrawal) {
-                withdrawal = amount;
-              } else {
-                // 구분을 알 수 없으면 금액을 그대로 표시 (양수면 입금, 음수면 출금으로 추정)
-                console.log(`[PreAnalyze Parse] Unknown type, using fallback logic`);
-                const rawAmount = String(row[amountIdx] || '');
-                if (rawAmount.includes('-')) {
-                  withdrawal = amount;
-                } else {
-                  deposit = amount;
-                }
-              }
-            } else {
-              console.log(`[PreAnalyze Parse] Using deposit/withdrawal columns directly`);
-              // 기존 deposit/withdrawal 방식
-              const depositValue = depositIdx !== undefined && depositIdx >= 0 ? row[depositIdx] : '';
-              const withdrawalValue = withdrawalIdx !== undefined && withdrawalIdx >= 0 ? row[withdrawalIdx] : '';
-              deposit = parseAmount(depositValue);
-              withdrawal = parseAmount(withdrawalValue);
-              console.log(`[PreAnalyze Parse] depositValue="${depositValue}", withdrawalValue="${withdrawalValue}"`);
-            }
-            
-            console.log(`[PreAnalyze Parse] Result - deposit=${deposit}, withdrawal=${withdrawal}`);
-            
-            const balance = parseAmount(balanceValue);
-            
-            // 유효한 거래만 추가 (날짜 또는 금액이 있어야 함)
-            if (dateValue || resolvedDateStr || deposit > 0 || withdrawal > 0) {
-              parsedSampleData.push({
-                transactionDate: resolvedDateStr || dateValue,
-                deposit,
-                withdrawal,
-                balance,
-                memo: memoValue,
-              });
-            }
-          }
+          const previewMapping: ColumnMapping = {
+            ...columnMapping,
+            memoInAmountColumn,
+            rowMergePattern: templateSchema.parseRules?.rowMergePattern,
+          };
+
+          parsedSampleData.push(...buildParsedSampleData(sampleRows, previewMapping));
         }
         
         return {
@@ -1533,7 +1551,7 @@ export const fileRouter = createTRPCRouter({
         const rawData = XLSX.utils.sheet_to_json(worksheet, {
           header: 1,
           defval: "",
-        });
+        }) as unknown[][];
         
         if (rawData.length === 0) {
           throw new TRPCError({
@@ -1542,8 +1560,8 @@ export const fileRouter = createTRPCRouter({
           });
         }
         
-        const headers = (rawData[0] || []).map(h => String(h));
-        const sampleRows = rawData.slice(1, 11);
+        const headers = (rawData[0] || []).map((h: unknown) => String(h));
+        const sampleRows = rawData.slice(1, 11) as string[][];
         
         // 템플릿 목록
         const templates = await ctx.db.transactionTemplate.findMany({
@@ -1637,90 +1655,11 @@ export const fileRouter = createTRPCRouter({
       console.log(`[ReParse] memo column index:`, columnMapping.memo);
 
       // 샘플 데이터 파싱
-      const parsedSampleData: {
-        transactionDate: string;
-        deposit: number;
-        withdrawal: number;
-        balance: number;
-        memo: string;
-      }[] = [];
-
-      for (const row of sampleRows) {
-        const dateIdx = columnMapping.date;
-        const depositIdx = columnMapping.deposit;
-        const withdrawalIdx = columnMapping.withdrawal;
-        const balanceIdx = columnMapping.balance;
-        const memoIdx = columnMapping.memo;
-        const amountIdx = columnMapping.amount;
-        const transactionTypeIdx = columnMapping.transaction_type;
-
-        const dateValue = dateIdx !== undefined && dateIdx >= 0 ? String(row[dateIdx] || '') : '';
-        const balanceValue = balanceIdx !== undefined && balanceIdx >= 0 ? row[balanceIdx] : '';
-        const memoValue = memoIdx !== undefined && memoIdx >= 0 ? String(row[memoIdx] || '') : '';
-        
-        // 첫 번째 행에서 memo 값 로깅
-        if (sampleRows.indexOf(row) === 0) {
-          console.log(`[ReParse] First row memo parsing - memoIdx: ${memoIdx}, row[memoIdx]: ${memoIdx !== undefined && memoIdx >= 0 ? row[memoIdx] : 'N/A'}, memoValue: "${memoValue}"`);
-        }
-
-        // 금액 파싱
-        const parseAmount = (val: unknown): number => {
-          if (!val) return 0;
-          const str = String(val).replace(/[,\s원₩]/g, '');
-          const num = parseFloat(str);
-          return isNaN(num) ? 0 : Math.abs(num);
-        };
-
-        let deposit = 0;
-        let withdrawal = 0;
-
-        // amount + transactionType 방식인 경우
-        if (amountIdx !== undefined && amountIdx >= 0 && transactionTypeIdx !== undefined && transactionTypeIdx >= 0) {
-          const amount = parseAmount(row[amountIdx]);
-          const typeValue = String(row[transactionTypeIdx] || '').toLowerCase();
-
-          // 입금 키워드 확인
-          const isDeposit = ['입금', '입', 'in', 'credit', 'deposit', '수입', '이체입금', '입금이체'].some(
-            keyword => typeValue.includes(keyword)
-          );
-          // 출금 키워드 확인
-          const isWithdrawal = ['출금', '출', 'out', 'debit', 'withdrawal', '지출', '이체출금', '출금이체', '지급'].some(
-            keyword => typeValue.includes(keyword)
-          );
-
-          if (isDeposit) {
-            deposit = amount;
-          } else if (isWithdrawal) {
-            withdrawal = amount;
-          } else {
-            const rawAmount = String(row[amountIdx] || '');
-            if (rawAmount.includes('-')) {
-              withdrawal = amount;
-            } else {
-              deposit = amount;
-            }
-          }
-        } else {
-          // 기존 deposit/withdrawal 방식
-          const depositValue = depositIdx !== undefined && depositIdx >= 0 ? row[depositIdx] : '';
-          const withdrawalValue = withdrawalIdx !== undefined && withdrawalIdx >= 0 ? row[withdrawalIdx] : '';
-          deposit = parseAmount(depositValue);
-          withdrawal = parseAmount(withdrawalValue);
-        }
-
-        const balance = parseAmount(balanceValue);
-
-        // 유효한 거래만 추가
-        if (dateValue || deposit > 0 || withdrawal > 0) {
-          parsedSampleData.push({
-            transactionDate: dateValue,
-            deposit,
-            withdrawal,
-            balance,
-            memo: memoValue,
-          });
-        }
-      }
+      const parsedSampleData = buildParsedSampleData(sampleRows, {
+        ...columnMapping,
+        memoInAmountColumn,
+        rowMergePattern: templateSchema.parseRules?.rowMergePattern,
+      });
 
       return {
         success: true,
@@ -1819,9 +1758,9 @@ export const fileRouter = createTRPCRouter({
           throw new TRPCError({ code: "BAD_REQUEST", message: "워크시트를 찾을 수 없습니다" });
         }
         
-        const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-        headers = (rawData[0] || []).map(h => String(h));
-        rows = rawData.slice(1);
+        const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" }) as unknown[][];
+        headers = (rawData[0] || []).map((h: unknown) => String(h));
+        rows = rawData.slice(1) as string[][];
       }
 
       // Convert template columnSchema to columnMapping

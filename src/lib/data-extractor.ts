@@ -83,7 +83,7 @@ export interface ExtractionResult {
  * @param rows - 원본 데이터 행
  * @returns 병합된 행 배열
  */
-function mergePairedRows(rows: string[][]): string[][] {
+export function mergePairedRows(rows: string[][]): string[][] {
   const merged: string[][] = [];
   
   console.log(`[Row Merge] 2행 병합 시작: ${rows.length}행 → ${Math.ceil(rows.length / 2)}개 거래 예상`);
@@ -288,7 +288,10 @@ function validateAndCorrectTransactions(
  * parseDate("01/01/2023"); // Returns Date(2023-01-01)
  * parseDate("invalid"); // Returns null
  */
-export function parseDate(dateValue: unknown): Date | null {
+export function parseDate(
+  dateValue: unknown,
+  options?: { referenceDate?: Date | null }
+): Date | null {
   if (!dateValue) return null;
 
   // Excel serial number (days since 1900-01-01)
@@ -319,14 +322,30 @@ export function parseDate(dateValue: unknown): Date | null {
       }
     }
 
-    // 2차: "01.08" 또는 "01-08" 패턴 (년도 없이 월.일만)은 현재 연도 사용
+    // 2차: "01.08" 또는 "01-08" 패턴
+    // 기준 날짜가 있으면 그 연도를 우선 사용하고, 연말/연초 경계는 보정한다.
+    // 없으면 현재 연도 사용
     const shortDatePattern = /^(\d{1,2})[.\-/](\d{1,2})(?:\s|$)/;
     const shortMatch = trimmed.match(shortDatePattern);
     if (shortMatch && shortMatch[1] && shortMatch[2]) {
       const month = parseInt(shortMatch[1], 10);
       const day = parseInt(shortMatch[2], 10);
       if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-        const year = new Date().getFullYear();
+        const referenceDate = options?.referenceDate ?? null;
+        let year = new Date().getFullYear();
+
+        if (referenceDate) {
+          const referenceMonth = referenceDate.getMonth() + 1;
+          year = referenceDate.getFullYear();
+
+          // 연말/연초에 걸친 거래내역 보정
+          if (month > referenceMonth + 6) {
+            year -= 1;
+          } else if (month + 6 < referenceMonth) {
+            year += 1;
+          }
+        }
+
         return new Date(year, month - 1, day);
       }
     }
@@ -376,6 +395,110 @@ export function extractDateAndMemo(value: unknown): { date: Date | null; extract
   if (memo.startsWith(":")) memo = memo.substring(1).trim();
 
   return { date, extractedMemo: memo };
+}
+
+function hasExplicitYearDate(value: unknown): boolean {
+  if (typeof value === "number" || value instanceof Date) {
+    return true;
+  }
+
+  if (typeof value !== "string") {
+    return false;
+  }
+
+  return /(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/.test(value.trim());
+}
+
+export function normalizeMemoText(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  const raw = String(value).trim();
+  if (!raw) {
+    return "";
+  }
+
+  const { extractedMemo } = extractDateAndMemo(raw);
+  const normalized = (extractedMemo || raw)
+    .replace(/^[:\-]\s*/, "")
+    .trim();
+
+  // 날짜/시간/순번만 남은 경우는 비고로 보지 않음
+  if (/^[\d.\-/:\s]+$/.test(normalized)) {
+    return "";
+  }
+
+  return normalized;
+}
+
+export function inferReferenceDateFromRows(
+  rows: unknown[][],
+  dateColumnIndex?: number
+): Date | null {
+  for (const row of rows) {
+    if (!row || row.length === 0) continue;
+
+    const candidates: unknown[] = [];
+    if (dateColumnIndex !== undefined && dateColumnIndex >= 0) {
+      candidates.push(row[dateColumnIndex]);
+    }
+    candidates.push(row[0]);
+
+    for (const candidate of candidates) {
+      if (!hasExplicitYearDate(candidate)) continue;
+
+      const parsed = parseDate(candidate);
+      if (parsed) {
+        return parsed;
+      }
+    }
+  }
+
+  return null;
+}
+
+export function resolveTransactionDateFromRow(
+  row: unknown[],
+  columnMapping: Pick<ColumnMapping, "date">,
+  options?: {
+    lastKnownDate?: Date | null;
+    referenceDate?: Date | null;
+  }
+): {
+  transactionDate: Date | null;
+  dateCarriedForward: boolean;
+  extractedMemoFromDate: string;
+} {
+  const referenceDate = options?.lastKnownDate ?? options?.referenceDate ?? null;
+  const dateIndex = columnMapping.date;
+  const dateValue = dateIndex !== undefined ? row[dateIndex] : undefined;
+
+  let transactionDate = parseDate(dateValue, { referenceDate });
+  let extractedMemoFromDate = normalizeMemoText(dateValue);
+
+  if (!transactionDate && dateIndex !== 0) {
+    const fallbackValue = row[0];
+    transactionDate = parseDate(fallbackValue, { referenceDate });
+
+    if (!extractedMemoFromDate) {
+      extractedMemoFromDate = normalizeMemoText(fallbackValue);
+    }
+  }
+
+  if (!transactionDate && options?.lastKnownDate) {
+    return {
+      transactionDate: options.lastKnownDate,
+      dateCarriedForward: true,
+      extractedMemoFromDate,
+    };
+  }
+
+  return {
+    transactionDate,
+    dateCarriedForward: false,
+    extractedMemoFromDate,
+  };
 }
 
 /**
@@ -544,6 +667,8 @@ export async function extractAndSaveTransactions(
     console.log(`[Data Extractor] 병합 후: ${processRows.length}개 거래`);
   }
 
+  const referenceDate = inferReferenceDateFromRows(processRows, columnMapping.date);
+
   // 잔액 검증을 위한 이전 잔액 추적
   let previousBalance: number | null = null;
   const balanceValidationWarnings: string[] = [];
@@ -563,22 +688,23 @@ export async function extractAndSaveTransactions(
     try {
       // Parse date (required field)
       const dateValue = row[columnMapping.date];
-      let transactionDate = parseDate(dateValue);
+      const resolvedDate = resolveTransactionDateFromRow(row, columnMapping, {
+        lastKnownDate,
+        referenceDate,
+      });
+      let transactionDate = resolvedDate.transactionDate;
+      const dateCarriedForward = resolvedDate.dateCarriedForward;
 
-      // Fallback: OCR이 날짜를 행번호 컬럼(col[0])에 합쳐서 넣는 경우 대응
-      // 예: col[0]="2 2025.01.09", col[1]="11:01: 자동이체"
-      if (!transactionDate && columnMapping.date !== 0) {
-        transactionDate = parseDate(row[0]);
-      }
-
-      // 날짜 이어받기: 위 두 컬럼 모두에서 날짜를 못 찾으면 앞 행 날짜 사용
-      let dateCarriedForward = false;
       if (transactionDate) {
         lastKnownDate = transactionDate;
-      } else if (lastKnownDate) {
-        transactionDate = lastKnownDate;
-        dateCarriedForward = true;
       }
+
+      const parsedDateFromColumn = parseDate(dateValue, {
+        referenceDate: lastKnownDate ?? referenceDate,
+      });
+      const parsedDateFromFirstColumn = !parsedDateFromColumn && columnMapping.date !== 0
+        ? parseDate(row[0], { referenceDate: lastKnownDate ?? referenceDate })
+        : null;
 
       // 디버그: 첫 10개 행에 대해 날짜 파싱 상세 로그
       if (i < 10) {
@@ -586,8 +712,8 @@ export async function extractAndSaveTransactions(
         console.log(`[Data Extractor] Row ${i + 1} dateColumnIndex: ${columnMapping.date}`);
         console.log(`[Data Extractor] Row ${i + 1} dateValue (col[${columnMapping.date}]):`, JSON.stringify(dateValue));
         console.log(`[Data Extractor] Row ${i + 1} col[0] value:`, JSON.stringify(row[0]));
-        console.log(`[Data Extractor] Row ${i + 1} parseDate(col[${columnMapping.date}]):`, parseDate(dateValue)?.toISOString() ?? 'null');
-        console.log(`[Data Extractor] Row ${i + 1} parseDate(col[0]):`, columnMapping.date !== 0 ? (parseDate(row[0])?.toISOString() ?? 'null') : 'same as dateCol');
+        console.log(`[Data Extractor] Row ${i + 1} parseDate(col[${columnMapping.date}]):`, parsedDateFromColumn?.toISOString() ?? 'null');
+        console.log(`[Data Extractor] Row ${i + 1} parseDate(col[0]):`, columnMapping.date !== 0 ? (parsedDateFromFirstColumn?.toISOString() ?? 'null') : 'same as dateCol');
         console.log(`[Data Extractor] Row ${i + 1} dateCarriedForward: ${dateCarriedForward}`);
         console.log(`[Data Extractor] Row ${i + 1} final transactionDate:`, transactionDate?.toISOString() ?? 'null');
         console.log(`[Data Extractor] ===================================`);
@@ -754,6 +880,8 @@ export async function extractAndSaveTransactions(
         } else {
           memo = memoStr;
         }
+
+        memo = normalizeMemoText(memo);
         
         // 디버그: 첫 10개 행에 대해 비고 파싱 상세 로그
         if (i < 10) {
@@ -766,6 +894,10 @@ export async function extractAndSaveTransactions(
             rowKeys: typeof row === 'object' ? Object.keys(row as object).slice(0, 5) : 'N/A',
           });
         }
+      }
+
+      if (!memo && resolvedDate.extractedMemoFromDate) {
+        memo = resolvedDate.extractedMemoFromDate;
       } else if (i < 5) {
         console.log(`[Data Extractor] Row ${i + 1} memo skipped:`, {
           memoAlreadySet: !!memo,
