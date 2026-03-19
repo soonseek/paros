@@ -1580,17 +1580,31 @@ export const transactionRouter = createTRPCRouter({
       });
 
       // 2. DB에서 직접 필터링 (금액 >= minAmount)
+      // 주의: 출금 금액이 음수로 저장되어 있을 수 있으므로 절대값으로도 비교해야 함
+      // 디버깅 로그
+      console.log(`[filterByAmount] ========== 시작 ==========`);
+      console.log(`[filterByAmount] caseId: ${caseId}`);
+      console.log(`[filterByAmount] minAmount: ${minAmount}`);
+      console.log(`[filterByAmount] documentId: ${documentId || 'all'}`);
+
+      // 양수와 음수 모두 처리하기 위해 조건 확장
+      // - depositAmount >= minAmount (양수 입금)
+      // - withdrawalAmount >= minAmount (양수 출금)
+      // - withdrawalAmount <= -minAmount (음수 출금: -120만 <= -100만)
       const whereClause: Record<string, unknown> = {
         caseId,
         OR: [
           { depositAmount: { gte: minAmount } },
           { withdrawalAmount: { gte: minAmount } },
+          { withdrawalAmount: { lte: -minAmount } }, // 음수 출금 처리
         ],
       };
 
       if (documentId) {
         whereClause.documentId = documentId;
       }
+
+      console.log(`[filterByAmount] WHERE 조건:`, JSON.stringify(whereClause, null, 2));
 
       const transactions = await ctx.db.transaction.findMany({
         where: whereClause,
@@ -1611,32 +1625,292 @@ export const transactionRouter = createTRPCRouter({
         orderBy: [{ transactionDate: "asc" }, { rowNumber: "asc" }],
       });
 
-      // 3. 통계 계산
-      const depositCount = transactions.filter(tx => 
-        tx.depositAmount && Number(tx.depositAmount) >= minAmount
-      ).length;
-      const withdrawalCount = transactions.filter(tx => 
-        tx.withdrawalAmount && Number(tx.withdrawalAmount) >= minAmount
-      ).length;
+      console.log(`[filterByAmount] DB 조회 결과: ${transactions.length}건`);
+      
+      // 처음 5건의 원본 데이터 로그
+      transactions.slice(0, 5).forEach((tx, idx) => {
+        console.log(`[filterByAmount] [${idx}] date: ${tx.transactionDate.toISOString().slice(0,10)}, deposit: ${tx.depositAmount}, withdrawal: ${tx.withdrawalAmount}, memo: ${tx.memo?.slice(0,20) || '-'}`);
+      });
 
-      return {
-        transactions: transactions.map(tx => ({
+      // 3. 통계 계산 (음수 출금도 처리)
+      // 입금건: depositAmount가 minAmount 이상이고, 실제로 입금액이 있는 경우
+      const depositCount = transactions.filter(tx => {
+        const depositAmt = tx.depositAmount ? Number(tx.depositAmount) : 0;
+        return depositAmt >= minAmount && depositAmt > 0;
+      }).length;
+
+      // 출금건: withdrawalAmount의 절대값이 minAmount 이상인 경우
+      // (양수 출금: withdrawalAmt >= minAmount, 음수 출금: withdrawalAmt <= -minAmount)
+      const withdrawalCount = transactions.filter(tx => {
+        const withdrawalAmt = tx.withdrawalAmount ? Number(tx.withdrawalAmount) : 0;
+        const absWithdrawal = Math.abs(withdrawalAmt);
+        return absWithdrawal >= minAmount && withdrawalAmt !== 0;
+      }).length;
+
+      console.log(`[filterByAmount] 통계 - 입금: ${depositCount}건, 출금: ${withdrawalCount}건`);
+
+      // 4. 거래 유형 판별 로직 (음수 출금도 처리)
+      const mappedTransactions = transactions.map(tx => {
+        const depositAmt = tx.depositAmount ? Number(tx.depositAmount) : 0;
+        const withdrawalAmt = tx.withdrawalAmount ? Number(tx.withdrawalAmount) : 0;
+        const absWithdrawal = Math.abs(withdrawalAmt);
+        
+        // 입금건 판별: 입금액이 minAmount 이상이고 0보다 큼
+        // 출금건 판별: 출금액의 절대값이 minAmount 이상이고 0이 아님
+        let type: "입금" | "출금";
+        let amount: number;
+
+        const isDeposit = depositAmt >= minAmount && depositAmt > 0;
+        const isWithdrawal = absWithdrawal >= minAmount && withdrawalAmt !== 0;
+
+        if (isDeposit && isWithdrawal) {
+          // 둘 다 조건 만족하면 금액이 큰 쪽 선택
+          if (depositAmt >= absWithdrawal) {
+            type = "입금";
+            amount = depositAmt;
+          } else {
+            type = "출금";
+            amount = absWithdrawal; // 절대값으로 반환
+          }
+        } else if (isDeposit) {
+          type = "입금";
+          amount = depositAmt;
+        } else if (isWithdrawal) {
+          type = "출금";
+          amount = absWithdrawal; // 절대값으로 반환
+        } else {
+          // 어느 쪽도 minAmount 이상이 아님 (이론상 여기 오면 안됨 - OR 쿼리 결과이므로)
+          console.warn(`[filterByAmount] 경고: 거래 ${tx.id}가 조건에 맞지 않음 - deposit: ${depositAmt}, withdrawal: ${withdrawalAmt}, absWithdrawal: ${absWithdrawal}, minAmount: ${minAmount}`);
+          if (depositAmt > 0) {
+            type = "입금";
+            amount = depositAmt;
+          } else {
+            type = "출금";
+            amount = absWithdrawal;
+          }
+        }
+
+        // 디버깅: 각 거래의 원본 데이터 로그 (처음 5건만)
+        if (transactions.indexOf(tx) < 5) {
+          console.log(`[filterByAmount] 거래 상세 - id: ${tx.id.slice(0,8)}, depositAmount: ${depositAmt}, withdrawalAmount: ${withdrawalAmt}, type: ${type}, amount: ${amount}`);
+        }
+
+        return {
           id: tx.id,
           transactionDate: tx.transactionDate.toISOString(),
-          type: tx.depositAmount && Number(tx.depositAmount) > 0 ? "입금" as const : "출금" as const,
-          amount: tx.depositAmount && Number(tx.depositAmount) > 0 
-            ? Number(tx.depositAmount) 
-            : Number(tx.withdrawalAmount),
+          type,
+          amount,
           balance: Number(tx.balance) || 0,
           memo: tx.memo || "",
           documentName: tx.document?.originalFileName || "",
-        })),
+        };
+      });
+
+      console.log(`[filterByAmount] 완료 - 총 ${mappedTransactions.length}건 반환`);
+
+      return {
+        transactions: mappedTransactions,
         summary: {
           total: transactions.length,
           depositCount,
           withdrawalCount,
           minAmount,
         },
+      };
+    }),
+
+  /**
+   * 잔액 기반 입금/출금 검증 및 교정
+   * 
+   * 기존에 저장된 거래 데이터에서 OCR 파싱 오류로 인한 
+   * 입금/출금 오분류를 감지하고 교정합니다.
+   * 
+   * @param caseId - 사건 ID
+   * @param documentId - 특정 문서로 제한 (선택)
+   * @param dryRun - true: 검증만 수행 (실제 수정 안함), false: 실제 교정
+   * @returns 검증/교정 결과
+   */
+  validateBalanceAndCorrect: protectedProcedure
+    .input(
+      z.object({
+        caseId: z.string().min(1, "사건 ID는 필수 항목입니다"),
+        documentId: z.string().optional(),
+        dryRun: z.boolean().default(true),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { caseId, documentId, dryRun } = input;
+      const userId = ctx.userId;
+
+      console.log(`[validateBalance] ========== 시작 ==========`);
+      console.log(`[validateBalance] caseId: ${caseId}, documentId: ${documentId || 'all'}, dryRun: ${dryRun}`);
+
+      // 1. RBAC 검증
+      const user = await ctx.db.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
+
+      if (!user) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "사용자를 찾을 수 없습니다.",
+        });
+      }
+
+      const caseData = await ctx.db.case.findUnique({
+        where: { id: caseId },
+        select: { lawyerId: true },
+      });
+
+      if (!caseData) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "사건을 찾을 수 없습니다.",
+        });
+      }
+
+      assertTransactionAccess({
+        userId,
+        userRole: user.role,
+        caseLawyerId: caseData.lawyerId,
+      });
+
+      // 2. 거래 데이터 조회
+      const whereClause: Record<string, unknown> = { caseId };
+      if (documentId) {
+        whereClause.documentId = documentId;
+      }
+
+      const transactions = await ctx.db.transaction.findMany({
+        where: whereClause,
+        select: {
+          id: true,
+          transactionDate: true,
+          depositAmount: true,
+          withdrawalAmount: true,
+          balance: true,
+          memo: true,
+          documentId: true,
+          document: {
+            select: {
+              originalFileName: true,
+            },
+          },
+        },
+        orderBy: { transactionDate: "asc" },
+      });
+
+      console.log(`[validateBalance] 총 거래 수: ${transactions.length}건`);
+
+      // 3. 잔액 기반 검증
+      // 허용 오차: 잔액 계산 시 소수점 오차, 이자 등을 고려하여 0.1% 또는 최소 100원
+      const getToleranceForAmount = (amount: number) => Math.max(100, Math.abs(amount) * 0.001);
+      
+      const issues: Array<{
+        id: string;
+        transactionDate: string;
+        currentType: "입금" | "출금";
+        suggestedType: "입금" | "출금";
+        amount: number;
+        prevBalance: number;
+        currentBalance: number;
+        expectedBalance: number;
+        actualChange: number;
+        memo: string;
+        documentName: string;
+      }> = [];
+
+      const corrections: Array<{
+        id: string;
+        corrected: boolean;
+      }> = [];
+
+      for (let i = 0; i < transactions.length; i++) {
+        const tx = transactions[i];
+        if (!tx) continue;
+
+        const currentBalance = tx.balance ? Number(tx.balance) : null;
+        const depositAmount = tx.depositAmount ? Math.abs(Number(tx.depositAmount)) : 0;
+        const withdrawalAmount = tx.withdrawalAmount ? Math.abs(Number(tx.withdrawalAmount)) : 0;
+
+        // 잔액이 없으면 검증 불가
+        if (currentBalance === null) continue;
+
+        // 이전 거래의 잔액
+        let prevBalance: number | null = null;
+        if (i > 0) {
+          const prevTx = transactions[i - 1];
+          prevBalance = prevTx?.balance ? Number(prevTx.balance) : null;
+        }
+
+        // 이전 잔액이 없으면 검증 불가
+        if (prevBalance === null) continue;
+
+        // 실제 잔액 변동
+        const actualChange = currentBalance - prevBalance;
+
+        // 현재 분류 확인
+        const isDeposit = depositAmount > 0 && withdrawalAmount === 0;
+        const isWithdrawal = withdrawalAmount > 0 && depositAmount === 0;
+
+        if (!isDeposit && !isWithdrawal) continue;
+
+        const amount = isDeposit ? depositAmount : withdrawalAmount;
+        const expectedChange = isDeposit ? amount : -amount;
+        const expectedBalance = prevBalance + expectedChange;
+        
+        // 허용 오차 계산 (금액의 0.1% 또는 최소 100원)
+        const tolerance = getToleranceForAmount(amount);
+
+        // 예상 변동과 실제 변동 비교
+        const isMatch = Math.abs(actualChange - expectedChange) <= tolerance;
+
+        if (!isMatch) {
+          // 반대 케이스로 검증
+          const oppositeExpectedChange = isDeposit ? -amount : amount;
+          const isOppositeMatch = Math.abs(actualChange - oppositeExpectedChange) <= tolerance;
+
+          if (isOppositeMatch) {
+            // 오분류 감지!
+            issues.push({
+              id: tx.id,
+              transactionDate: tx.transactionDate.toISOString(),
+              currentType: isDeposit ? "입금" : "출금",
+              suggestedType: isDeposit ? "출금" : "입금",
+              amount,
+              prevBalance,
+              currentBalance,
+              expectedBalance,
+              actualChange,
+              memo: tx.memo || "",
+              documentName: tx.document?.originalFileName || "",
+            });
+
+            // 실제 교정 수행 (dryRun=false 일 때만)
+            if (!dryRun) {
+              await ctx.db.transaction.update({
+                where: { id: tx.id },
+                data: {
+                  depositAmount: isDeposit ? null : amount,
+                  withdrawalAmount: isDeposit ? amount : null,
+                },
+              });
+              corrections.push({ id: tx.id, corrected: true });
+              console.log(`[validateBalance] 교정됨: ${tx.id} (${isDeposit ? "입금→출금" : "출금→입금"})`);
+            }
+          }
+        }
+      }
+
+      console.log(`[validateBalance] 완료 - 감지된 오류: ${issues.length}건, 교정: ${corrections.length}건`);
+
+      return {
+        totalTransactions: transactions.length,
+        issuesFound: issues.length,
+        correctionsMade: corrections.length,
+        dryRun,
+        issues,
       };
     }),
 
@@ -2132,13 +2406,23 @@ export const transactionRouter = createTRPCRouter({
 
           // 동일 사건의 다른 계좌(문서)에서의 입금 내역 조회 (이동 매칭용)
           // 대출 계좌가 아닌 다른 문서의 입금 내역
+          // 주의: 입금 금액이 양수 또는 음수로 저장될 수 있음
+          const otherDepositWhereClause: Record<string, unknown> = {
+            caseId,
+            transactionDate: { gte: loan.transactionDate },
+            OR: [
+              { depositAmount: { gt: 0 } },
+              { depositAmount: { lt: 0 } }, // 음수 입금도 포함 (오분류된 경우)
+            ],
+          };
+          
+          // loanDocumentId가 있을 때만 해당 문서 제외 (없으면 모든 문서 포함)
+          if (loanDocumentId) {
+            otherDepositWhereClause.documentId = { not: loanDocumentId };
+          }
+          
           const otherDeposits = await ctx.db.transaction.findMany({
-            where: {
-              caseId,
-              transactionDate: { gte: loan.transactionDate },
-              depositAmount: { gt: 0 },
-              documentId: { not: loanDocumentId }, // 대출 계좌가 아닌 다른 문서
-            },
+            where: otherDepositWhereClause,
             select: {
               id: true,
               transactionDate: true,
@@ -2161,9 +2445,12 @@ export const transactionRouter = createTRPCRouter({
             depositMemo: string;
           }>>();
 
+          console.log(`[trackMultipleLoans] 대출 ID: ${loan.id.slice(0,8)}, 문서: ${loan.document?.originalFileName}`);
+          console.log(`[trackMultipleLoans] 다른 계좌 입금건 수: ${otherDeposits.length}건`);
+
           for (const dep of otherDeposits) {
             const dateStr = dep.transactionDate.toISOString().split('T')[0]; // YYYY-MM-DD
-            const amount = Number(dep.depositAmount);
+            const amount = Math.abs(Number(dep.depositAmount)); // 절대값으로 매칭
             const key = `${dateStr}_${amount}`;
             
             const arr = depositMatchMap.get(key) || [];
@@ -2174,6 +2461,8 @@ export const transactionRouter = createTRPCRouter({
             });
             depositMatchMap.set(key, arr);
           }
+          
+          console.log(`[trackMultipleLoans] 매칭 가능한 입금 키 수: ${depositMatchMap.size}개`);
 
           // 추적 결과 생성
           interface TrackedItem {
@@ -2203,6 +2492,7 @@ export const transactionRouter = createTRPCRouter({
             remainingLoan: loanAmount,
             documentName: loan.document?.originalFileName || "",
           });
+          usedTransactionIds.add(loan.id);
 
           // 1단계: 대출 계좌의 출금만 먼저 처리 (이동 탐지용)
           const loanAccountWithdrawals = await ctx.db.transaction.findMany({

@@ -4,7 +4,7 @@
  * 대용량 데이터 처리를 위해 DB에서 직접 필터링
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Download, Loader2, Filter } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "~/components/ui/dialog";
 import { Button } from "~/components/ui/button";
@@ -36,7 +36,24 @@ export function AmountFilterModal({ isOpen, onClose, caseId }: AmountFilterModal
     }
   );
 
+  // 디버깅: API 응답 로그
+  useEffect(() => {
+    if (data) {
+      console.log("[금액필터] ========== API 응답 ==========");
+      console.log("[금액필터] 검색 조건:", { caseId, minAmount: threshold });
+      console.log("[금액필터] 요약:", data.summary);
+      console.log("[금액필터] 거래 목록:", data.transactions.length, "건");
+      data.transactions.slice(0, 5).forEach((tx, idx) => {
+        console.log(`[금액필터] [${idx}] ${tx.transactionDate.slice(0,10)} | ${tx.type} | ${tx.amount.toLocaleString()}원 | ${tx.memo?.slice(0,20) || '-'}`);
+      });
+      if (data.transactions.length > 5) {
+        console.log(`[금액필터] ... 외 ${data.transactions.length - 5}건 더 있음`);
+      }
+    }
+  }, [data, caseId, threshold]);
+
   const handleFilter = async () => {
+    console.log("[금액필터] 필터링 시작 - minAmount:", threshold);
     setSearchTriggered(true);
     await refetch();
   };

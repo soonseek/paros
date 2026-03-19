@@ -22,6 +22,7 @@ import { SimplifiedTransactionTable, type SimplifiedTransaction } from "~/compon
 import { AIChatAssistant } from "~/components/ai-chat-assistant";
 import { LoanTrackingModal } from "~/components/loan-tracking-modal";
 import { AmountFilterModal } from "~/components/amount-filter-modal";
+import { BalanceValidationModal } from "~/components/balance-validation-modal";
 import { FindingNoteList } from "~/components/molecules/finding-note-list";
 import { FindingNoteForm } from "~/components/molecules/finding-note-form";
 import { CorrectionGuideAnalyzer } from "~/components/correction-guide-analyzer";
@@ -153,6 +154,7 @@ const CaseDetailPage: NextPage = () => {
   // 퀵 버튼 모달 상태
   const [isLoanTrackingOpen, setIsLoanTrackingOpen] = useState(false);
   const [isAmountFilterOpen, setIsAmountFilterOpen] = useState(false);
+  const [isBalanceValidationOpen, setIsBalanceValidationOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -777,6 +779,14 @@ const CaseDetailPage: NextPage = () => {
               >
                 금액 이상 입출금건 뽑기
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 text-orange-600 border-orange-300 hover:bg-orange-50"
+                onClick={() => setIsBalanceValidationOpen(true)}
+              >
+                입출금 오류 검증
+              </Button>
             </div>
             
             <AIChatAssistant
@@ -1174,6 +1184,13 @@ const CaseDetailPage: NextPage = () => {
       <AmountFilterModal
         isOpen={isAmountFilterOpen}
         onClose={() => setIsAmountFilterOpen(false)}
+        caseId={id as string}
+      />
+
+      {/* 잔액 기반 입금/출금 검증 모달 */}
+      <BalanceValidationModal
+        isOpen={isBalanceValidationOpen}
+        onClose={() => setIsBalanceValidationOpen(false)}
         caseId={id as string}
       />
     </div>

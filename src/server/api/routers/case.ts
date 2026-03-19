@@ -262,6 +262,7 @@ export const caseRouter = createTRPCRouter({
       }
 
       // Fetch cases with pagination and sorting
+      // SUPER/ADMIN: 변호사 정보 포함
       const cases = await ctx.db.case.findMany({
         where,
         orderBy: {
@@ -269,6 +270,17 @@ export const caseRouter = createTRPCRouter({
         },
         take: pageSize,
         skip,
+        ...(isSuperOrAdmin && {
+          include: {
+            lawyer: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        }),
       });
 
       // Get total count for pagination
