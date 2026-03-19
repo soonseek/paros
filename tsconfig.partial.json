@@ -1,10 +1,11 @@
 {
   "extends": "./tsconfig.json",
   "include": [
-    "src/server/api/routers/file.ts",
-    "src/lib/template-classifier.ts",
-    "src/lib/template-classifier.test.ts",
-    "src/pages/admin/templates.tsx"
+    "src/components/case-quick-actions.tsx",
+    "src/components/case-quick-actions.test.tsx",
+    "src/components/internal-transfer-link-modal.tsx",
+    "src/components/internal-transfer-link-modal.test.tsx",
+    "src/pages/cases/[id].tsx"
   ],
   "exclude": []
 }

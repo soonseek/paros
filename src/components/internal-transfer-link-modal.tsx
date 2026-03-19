@@ -27,8 +27,8 @@ export function InternalTransferLinkModal({ isOpen, onClose, caseId }: InternalT
 
     const excelData = data.matches.map((match, idx) => ({
       순번: idx + 1,
-      출금일시: formatDateTime(match.withdrawalDate),
-      입금일시: formatDateTime(match.depositDate),
+      출금일자: formatDate(match.withdrawalDate),
+      입금일자: formatDate(match.depositDate),
       출발문서: match.fromDocumentName,
       도착문서: match.toDocumentName,
       금액: match.amount,
@@ -57,9 +57,13 @@ export function InternalTransferLinkModal({ isOpen, onClose, caseId }: InternalT
     XLSX.writeFile(wb, `내부이체연결_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
-  const formatDateTime = (value: string) => {
+  const formatDate = (value: string) => {
     try {
-      return new Date(value).toLocaleString("ko-KR");
+      return new Date(value).toLocaleDateString("ko-KR", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
     } catch {
       return value;
     }
@@ -123,8 +127,8 @@ export function InternalTransferLinkModal({ isOpen, onClose, caseId }: InternalT
                   <Table data-testid="internal-transfer-results-table">
                     <TableHeader>
                       <TableRow>
-                        <TableHead>출금일시</TableHead>
-                        <TableHead>입금일시</TableHead>
+                        <TableHead>출금일자</TableHead>
+                        <TableHead>입금일자</TableHead>
                         <TableHead>출발 문서</TableHead>
                         <TableHead>도착 문서</TableHead>
                         <TableHead className="text-right">금액</TableHead>
@@ -135,8 +139,8 @@ export function InternalTransferLinkModal({ isOpen, onClose, caseId }: InternalT
                     <TableBody>
                       {data.matches.map((match) => (
                         <TableRow key={`${match.withdrawalTransactionId}-${match.depositTransactionId}`} data-testid={`internal-transfer-row-${match.withdrawalTransactionId}`}>
-                          <TableCell className="font-mono text-sm">{formatDateTime(match.withdrawalDate)}</TableCell>
-                          <TableCell className="font-mono text-sm">{formatDateTime(match.depositDate)}</TableCell>
+                          <TableCell className="font-mono text-sm">{formatDate(match.withdrawalDate)}</TableCell>
+                          <TableCell className="font-mono text-sm">{formatDate(match.depositDate)}</TableCell>
                           <TableCell>{match.fromDocumentName}</TableCell>
                           <TableCell>{match.toDocumentName}</TableCell>
                           <TableCell className="text-right font-mono">{match.amount.toLocaleString()}원</TableCell>

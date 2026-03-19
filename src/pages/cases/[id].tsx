@@ -19,11 +19,10 @@ import { Textarea } from "~/components/ui/textarea";
 import { Label } from "~/components/ui/label";
 import { FindingList } from "~/components/molecules/finding-list";
 import { SimplifiedTransactionTable, type SimplifiedTransaction } from "~/components/simplified-transaction-table";
-import { AIChatAssistant } from "~/components/ai-chat-assistant";
 import { LoanTrackingModal } from "~/components/loan-tracking-modal";
 import { AmountFilterModal } from "~/components/amount-filter-modal";
+import { CaseQuickActions } from "~/components/case-quick-actions";
 import { CounterpartyFilterModal } from "~/components/counterparty-filter-modal";
-import { BalanceValidationModal } from "~/components/balance-validation-modal";
 import { InternalTransferLinkModal } from "~/components/internal-transfer-link-modal";
 import { FindingNoteList } from "~/components/molecules/finding-note-list";
 import { FindingNoteForm } from "~/components/molecules/finding-note-form";
@@ -158,7 +157,6 @@ const CaseDetailPage: NextPage = () => {
   const [isAmountFilterOpen, setIsAmountFilterOpen] = useState(false);
   const [isCounterpartyFilterOpen, setIsCounterpartyFilterOpen] = useState(false);
   const [isInternalTransferOpen, setIsInternalTransferOpen] = useState(false);
-  const [isBalanceValidationOpen, setIsBalanceValidationOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -700,7 +698,7 @@ const CaseDetailPage: NextPage = () => {
           </div>
         </div>
 
-        {/* 메인 영역: 거래내역(좌) + AI 어시스턴트(우) 2열 배치 */}
+        {/* 메인 영역: 거래내역(좌) + 빠른 실행(우) */}
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-3 sm:gap-6 mb-3 sm:mb-6">
           {/* 왼쪽 60%: 거래내역 테이블 */}
           <div className="xl:col-span-3">
@@ -763,58 +761,13 @@ const CaseDetailPage: NextPage = () => {
             </Card>
           </div>
 
-          {/* 오른쪽 40%: AI 어시스턴트 */}
+          {/* 오른쪽 40%: 빠른 실행 */}
           <div className="xl:col-span-2">
-            {/* 퀵 버튼 */}
-            <div className="flex gap-2 mb-4">
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1"
-                onClick={() => setIsLoanTrackingOpen(true)}
-              >
-                대출금 사용 소명자료 생성
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1"
-                onClick={() => setIsAmountFilterOpen(true)}
-                data-testid="case-amount-filter-open-button"
-              >
-                금액 이상 입출금건 뽑기
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1"
-                onClick={() => setIsCounterpartyFilterOpen(true)}
-                data-testid="case-counterparty-filter-open-button"
-              >
-                특정 인물 거래 찾기
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1"
-                onClick={() => setIsInternalTransferOpen(true)}
-                data-testid="case-internal-transfer-open-button"
-              >
-                내부 계좌이체 연결
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1 text-orange-600 border-orange-300 hover:bg-orange-50"
-                onClick={() => setIsBalanceValidationOpen(true)}
-                data-testid="case-balance-validation-open-button"
-              >
-                입출금 오류 검증
-              </Button>
-            </div>
-            
-            <AIChatAssistant
-              caseId={id as string}
+            <CaseQuickActions
+              onLoanTrackingOpen={() => setIsLoanTrackingOpen(true)}
+              onAmountFilterOpen={() => setIsAmountFilterOpen(true)}
+              onCounterpartyFilterOpen={() => setIsCounterpartyFilterOpen(true)}
+              onInternalTransferOpen={() => setIsInternalTransferOpen(true)}
             />
           </div>
         </div>
@@ -1221,13 +1174,6 @@ const CaseDetailPage: NextPage = () => {
       <InternalTransferLinkModal
         isOpen={isInternalTransferOpen}
         onClose={() => setIsInternalTransferOpen(false)}
-        caseId={id as string}
-      />
-
-      {/* 잔액 기반 입금/출금 검증 모달 */}
-      <BalanceValidationModal
-        isOpen={isBalanceValidationOpen}
-        onClose={() => setIsBalanceValidationOpen(false)}
         caseId={id as string}
       />
     </div>
