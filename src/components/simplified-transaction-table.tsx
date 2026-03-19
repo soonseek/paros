@@ -28,6 +28,7 @@ export interface SimplifiedTransaction {
   balance: number;
   memo: string;
   documentName?: string;
+  rowNumber?: number | null;
 }
 
 interface SimplifiedTransactionTableProps {
@@ -78,13 +79,28 @@ export function SimplifiedTransactionTable({
       );
     }
 
+    // 디버그: 정렬 전 데이터 확인 (같은 날짜 내 순서)
+    if (result.length > 0) {
+      const dateGroups = new Map<string, typeof result>();
+      for (const t of result) {
+        const key = t.transactionDate;
+        if (!dateGroups.has(key)) dateGroups.set(key, []);
+        dateGroups.get(key)!.push(t);
+      }
+    }
+
     result.sort((a, b) => {
       let comparison = 0;
 
       switch (sortField) {
-        case 'transactionDate':
+        case 'transactionDate': {
           comparison = new Date(a.transactionDate).getTime() - new Date(b.transactionDate).getTime();
-          break;
+          if (comparison !== 0) {
+            return sortOrder === 'asc' ? comparison : -comparison;
+          }
+          // 같은 날짜: rowNumber로 보조 정렬 (항상 ASC = 시간순)
+          return (a.rowNumber ?? 0) - (b.rowNumber ?? 0);
+        }
         case 'amount':
           comparison = a.amount - b.amount;
           break;

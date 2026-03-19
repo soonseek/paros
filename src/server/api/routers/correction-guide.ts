@@ -4,7 +4,7 @@
 import { z } from "zod";
 import { createTRPCRouter, adminProcedure, protectedProcedure, publicProcedure } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
-import { Prisma } from "@prisma/client";
+import { type Prisma } from "@prisma/client";
 import { db } from "~/server/db";
 import { uploadFile, deleteFile } from "~/lib/storage";
 import { CorrectionGuideService } from "~/server/services/correction-guide-service";
@@ -299,7 +299,7 @@ export const correctionGuideRouter = createTRPCRouter({
       const service = new CorrectionGuideService(db);
       const fileBuffer = Buffer.from(input.fileData, "base64");
 
-      // 1. 분석 레코드 생성 (pending 상태)
+      // 1. 분석 레코드 생성 (processing 상태)
       const analysis = await db.correctionGuideAnalysis.create({
         data: {
           caseId: input.caseId,
@@ -308,67 +308,75 @@ export const correctionGuideRouter = createTRPCRouter({
         },
       });
 
-      try {
-        // 2. 파일 저장
-        const documentS3Key = await uploadFile(
-          fileBuffer,
-          `correction-guide-analysis/${input.caseId}`,
-          input.fileName,
-          input.fileType
-        );
+      // 2. 비동기 백그라운드 처리 (504 방지)
+      void (async () => {
+        try {
+          // 3. 파일 저장
+          const documentS3Key = await uploadFile(
+            fileBuffer,
+            `correction-guide-analysis/${input.caseId}`,
+            input.fileName,
+            input.fileType
+          );
 
-        // 3. Upstage OCR로 텍스트 추출
-        const extractedText = await service.parseDocumentWithUpstage(
-          fileBuffer,
-          input.fileName,
-          input.fileType
-        );
+          // 4. Upstage OCR로 텍스트 추출
+          const extractedText = await service.parseDocumentWithUpstage(
+            fileBuffer,
+            input.fileName,
+            input.fileType
+          );
 
-        // 4. 흠결사항 항목 추출
-        const defectItems = service.extractDefectItems(extractedText);
+          // 5. 보정사항 항목 추출 (GPT 기반 - 표/다양한 포맷 대응)
+          const defectItems = await service.extractDefectItemsWithAI(extractedText);
 
-        if (defectItems.length === 0) {
-          throw new Error("흠결사항 항목을 찾을 수 없습니다. 문서 형식을 확인해주세요.");
+          if (defectItems.length === 0) {
+            await db.correctionGuideAnalysis.update({
+              where: { id: analysis.id },
+              data: {
+                analysisStatus: "failed",
+                errorMessage: "보정사항 항목을 찾을 수 없습니다. 문서 형식을 확인해주세요.",
+              },
+            });
+            return;
+          }
+
+          // 6. 활성 템플릿 조회
+          const templates = await db.correctionGuideTemplate.findMany({
+            where: { isActive: true },
+            orderBy: [{ priority: "desc" }],
+          });
+
+          // 7. GPT로 템플릿 매칭 + 맞춤 안내문 생성
+          const matchResults = await service.matchTemplatesWithGPT(defectItems, templates);
+
+          // 8. 결과 저장
+          await db.correctionGuideAnalysis.update({
+            where: { id: analysis.id },
+            data: {
+              documentS3Key,
+              analysisStatus: "completed",
+              extractedItems: JSON.parse(JSON.stringify(defectItems)) as Prisma.InputJsonValue,
+              matchedTemplates: JSON.parse(JSON.stringify(matchResults)) as Prisma.InputJsonValue,
+              selectedItems: matchResults
+                .filter(m => m.isSelected)
+                .map(m => m.itemNumber) as Prisma.InputJsonValue,
+            },
+          });
+          console.log(`[CorrectionGuide] 분석 완료: ${analysis.id}`);
+        } catch (error) {
+          console.error(`[CorrectionGuide] 분석 실패: ${analysis.id}`, error);
+          await db.correctionGuideAnalysis.update({
+            where: { id: analysis.id },
+            data: {
+              analysisStatus: "failed",
+              errorMessage: error instanceof Error ? error.message : "알 수 없는 오류",
+            },
+          });
         }
+      })();
 
-        // 5. 활성 템플릿 조회
-        const templates = await db.correctionGuideTemplate.findMany({
-          where: { isActive: true },
-          orderBy: [{ priority: "desc" }],
-        });
-
-        // 6. GPT로 템플릿 매칭
-        const matchResults = await service.matchTemplatesWithGPT(defectItems, templates);
-
-        // 7. 결과 저장
-        const updatedAnalysis = await db.correctionGuideAnalysis.update({
-          where: { id: analysis.id },
-          data: {
-            documentS3Key,
-            analysisStatus: "completed",
-            extractedItems: JSON.parse(JSON.stringify(defectItems)) as Prisma.InputJsonValue,
-            matchedTemplates: JSON.parse(JSON.stringify(matchResults)) as Prisma.InputJsonValue,
-            selectedItems: matchResults
-              .filter(m => m.isSelected)
-              .map(m => m.itemNumber) as Prisma.InputJsonValue,
-          },
-        });
-
-        return updatedAnalysis;
-      } catch (error) {
-        // 분석 실패 처리
-        await db.correctionGuideAnalysis.update({
-          where: { id: analysis.id },
-          data: {
-            analysisStatus: "failed",
-            errorMessage: error instanceof Error ? error.message : "알 수 없는 오류",
-          },
-        });
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: error instanceof Error ? error.message : "분석에 실패했습니다",
-        });
-      }
+      // 즉시 분석 ID 반환 (프론트엔드에서 폴링)
+      return analysis;
     }),
 
   // 선택 항목 업데이트

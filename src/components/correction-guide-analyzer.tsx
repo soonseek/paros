@@ -175,16 +175,48 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
     }
   }, [latestAnalysis?.id]);
 
-  // 분석 실행 mutation
+  // 분석 실행 mutation (비동기 - 즉시 반환 후 폴링)
+  const [pollingAnalysisId, setPollingAnalysisId] = useState<string | null>(null);
+  
   const analyzeMutation = api.correctionGuide.analyzeDocument.useMutation({
-    onSuccess: () => {
-      toast.success("보정권고서 분석이 완료되었습니다");
-      void utils.correctionGuide.getAnalysesForCase.invalidate({ caseId });
+    onSuccess: (data) => {
+      // 분석이 비동기로 시작됨 - 폴링 시작
+      setPollingAnalysisId(data.id);
+      toast.info("보정권고서 분석을 시작합니다...");
     },
     onError: (error) => {
       toast.error(error.message || "분석에 실패했습니다");
     },
   });
+
+  // 분석 상태 폴링
+  const { data: pollingData } = api.correctionGuide.getAnalysis.useQuery(
+    { id: pollingAnalysisId! },
+    {
+      enabled: !!pollingAnalysisId,
+      refetchInterval: (query) => {
+        const status = query.state.data?.analysisStatus;
+        if (status === "completed" || status === "failed") return false;
+        return 2000; // 2초마다 폴링
+      },
+    }
+  );
+
+  // 폴링 결과 처리
+  useEffect(() => {
+    if (!pollingData || !pollingAnalysisId) return;
+    
+    if (pollingData.analysisStatus === "completed") {
+      toast.success("보정권고서 분석이 완료되었습니다");
+      void utils.correctionGuide.getAnalysesForCase.invalidate({ caseId });
+      setPollingAnalysisId(null);
+      setIsUploading(false);
+    } else if (pollingData.analysisStatus === "failed") {
+      toast.error(pollingData.errorMessage || "분석에 실패했습니다");
+      setPollingAnalysisId(null);
+      setIsUploading(false);
+    }
+  }, [pollingData?.analysisStatus, pollingAnalysisId]);
 
   // 선택 항목 업데이트 mutation
   const updateSelectionMutation = api.correctionGuide.updateSelectedItems.useMutation({
@@ -271,9 +303,9 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
     const file = files[0];
     if (!file) return;
     
-    const allowedTypes = ["application/pdf", "image/jpeg", "image/png", "image/gif", "image/webp"];
-    if (!allowedTypes.includes(file.type)) {
-      toast.error("PDF 또는 이미지 파일만 업로드할 수 있습니다");
+    const allowedTypes = ["application/pdf"];
+    if (!allowedTypes.includes(file.type) && !file.name.toLowerCase().endsWith(".pdf")) {
+      toast.error("PDF 파일만 업로드할 수 있습니다");
       return;
     }
 
@@ -302,9 +334,9 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
         fileData,
         fileType: file.type,
       });
+      // isUploading은 폴링 완료 시 false로 변경됨
     } catch (error) {
       console.error("파일 업로드 실패:", error);
-    } finally {
       setIsUploading(false);
     }
   }, [caseId, analyzeMutation]);
@@ -552,7 +584,7 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
   // 상태 판단
   const showUploadArea = !latestAnalysis || latestAnalysis.analysisStatus === "failed";
   const isProcessing = isUploading || analyzeMutation.isPending;
-  const hasResults = latestAnalysis && latestAnalysis.analysisStatus === "completed" && matchResults.length > 0;
+  const hasResults = latestAnalysis?.analysisStatus === "completed" && matchResults.length > 0;
 
   // 미리보기에 표시할 전체 항목 수
   const totalPreviewItems = selectedMatchResults.length + manualItems.length;
@@ -614,7 +646,7 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
             <input
               ref={fileInputRef}
               type="file"
-              accept=".pdf,image/*"
+              accept=".pdf"
               className="hidden"
               onChange={(e) => e.target.files && void handleFiles(e.target.files)}
             />
@@ -627,13 +659,11 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
                   보정권고/명령서 업로드
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  파일을 드래그하거나 클릭하여 선택하세요
+                  PDF 파일을 드래그하거나 클릭하여 선택하세요
                 </p>
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Badge variant="secondary">PDF</Badge>
-                <Badge variant="secondary">JPG</Badge>
-                <Badge variant="secondary">PNG</Badge>
                 <span>최대 20MB</span>
               </div>
             </div>
@@ -657,7 +687,7 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
         )}
 
         {/* 분석 실패 */}
-        {latestAnalysis && latestAnalysis.analysisStatus === "failed" && !isProcessing && (
+        {latestAnalysis?.analysisStatus === "failed" && !isProcessing && (
           <div className="py-12 text-center bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800 mb-4">
             <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
             <p className="font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -701,7 +731,7 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".pdf,image/*"
+                    accept=".pdf"
                     className="hidden"
                     onChange={(e) => e.target.files && void handleFiles(e.target.files)}
                   />
@@ -820,11 +850,26 @@ export function CorrectionGuideAnalyzer({ caseId, userRole }: CorrectionGuideAna
 
                           {/* 템플릿 내용 미리보기 또는 수동 추가 버튼 */}
                           {hasTemplate ? (
-                            <div>
-                              <h4 className="text-xs font-semibold text-gray-500 mb-1.5">안내 내용</h4>
-                              <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap line-clamp-4">
-                                {item.matchedTemplate?.content}
-                              </p>
+                            <div className="space-y-3">
+                              {/* 매칭된 템플릿 정보 */}
+                              {item.matchedTemplate?.originalContent && (
+                                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-md p-3 border border-gray-200 dark:border-gray-700">
+                                  <h4 className="text-xs font-semibold text-gray-400 mb-1.5 flex items-center gap-1">
+                                    <FileText className="h-3 w-3" />
+                                    매칭 템플릿: {item.matchedTemplate?.title}
+                                  </h4>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 whitespace-pre-wrap line-clamp-4">
+                                    {item.matchedTemplate.originalContent}
+                                  </p>
+                                </div>
+                              )}
+                              {/* 수정된 안내 내용 */}
+                              <div>
+                                <h4 className="text-xs font-semibold text-gray-500 mb-1.5">안내 내용 (흠결사항 반영)</h4>
+                                <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap line-clamp-4">
+                                  {item.matchedTemplate?.content}
+                                </p>
+                              </div>
                             </div>
                           ) : (
                             <Button

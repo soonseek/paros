@@ -36,11 +36,14 @@ export class CorrectionGuideService {
     const uint8Array = new Uint8Array(fileBuffer);
     const blob = new Blob([uint8Array], { type: mimeType });
     formData.append("document", blob, fileName);
-    formData.append("mode", "enhanced");  // 이미지/복잡한 문서용
-    formData.append("ocr", "force");      // OCR 강제 적용
-    formData.append("output_format", "text");  // 텍스트 추출
+    formData.append("model", "document-parse");
+    
+    // PDF 텍스트 기반이면 auto (직접 파싱), 이미지면 force (OCR 강제)
+    const isPdf = mimeType.includes("pdf") || fileName.toLowerCase().endsWith(".pdf");
+    formData.append("ocr", isPdf ? "auto" : "force");
+    formData.append("output_formats", '["text"]');
 
-    const response = await fetch("https://api.upstage.ai/v1/document-ai/document-parse", {
+    const response = await fetch("https://api.upstage.ai/v1/document-digitization", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
@@ -54,10 +57,24 @@ export class CorrectionGuideService {
       throw new Error(`Upstage API 오류: ${response.status} - ${errorText}`);
     }
 
-    const result = await response.json() as { content?: { text?: string }, text?: string };
+    const result = await response.json() as { 
+      content?: { text?: string };
+      elements?: Array<{ content?: { text?: string }; category?: string }>;
+      text?: string;
+    };
     
-    // 응답에서 텍스트 추출
-    const extractedText = result.content?.text ?? result.text ?? "";
+    // 응답에서 텍스트 추출 (elements 기반 또는 content 기반)
+    let extractedText = "";
+    if (result.elements && result.elements.length > 0) {
+      // elements에서 텍스트 추출 (표 포함)
+      extractedText = result.elements
+        .map(el => el.content?.text ?? "")
+        .filter(t => t.length > 0)
+        .join("\n");
+    }
+    if (!extractedText) {
+      extractedText = result.content?.text ?? result.text ?? "";
+    }
     
     console.log(`[CorrectionGuideService] OCR 완료: ${extractedText.length}자 추출`);
     
@@ -65,22 +82,128 @@ export class CorrectionGuideService {
   }
 
   /**
-   * 텍스트에서 "흠결사항" 섹션의 항목들 추출
+   * 텍스트에서 보정권고/명령 항목들 추출
+   * - GPT 기반: 표 형태, 다양한 포맷, 비정형 문서 대응
+   * - 폴백: regex 기반 추출
    */
-  extractDefectItems(text: string): ExtractedDefectItem[] {
+  async extractDefectItemsWithAI(text: string): Promise<ExtractedDefectItem[]> {
+    // 텍스트가 너무 짧으면 regex로 폴백
+    if (text.length < 30) {
+      return this.extractNumberedItems(text);
+    }
+
+    try {
+      const apiKey = process.env.OPENAI_API_KEY;
+      if (!apiKey) {
+        console.log("[CorrectionGuideService] OpenAI 키 없음, regex 폴백");
+        return this.extractDefectItemsRegex(text);
+      }
+
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: `당신은 법원 보정권고/보정명령/자료제출목록 문서에서 제출/보정 항목을 추출하는 전문가입니다.
+
+문서는 크게 두 가지 형태입니다:
+
+**A. 평문형 보정권고 (보정권고서):**
+- 번호 목록: "1.", "2.", "3." 등
+- [대괄호] 구분 제목: [부양가족], [주거], [금융자료], [보험] 등
+- 하위 항목: "가.", "나.", "다.", "라." 또는 "①", "②"
+- 장문 서술형 (한 항목이 여러 문단, 구체적 지시사항 포함)
+- 일부 항목 내에 도표/표 포함 가능
+
+**B. 표(테이블)형 자료제출목록:**
+- 순번 | 제출서류 | 제출여부 | 미제출사유 | 발급기관
+- 대분류/소분류 구조 (인적사항, 재산, 소득, 보험 등)
+- 추가질문사항 체크리스트
+
+**추출 규칙:**
+1. 각 번호 항목을 개별 항목으로 추출
+2. 하위 항목(가/나/다)이 독립적 요구사항이면 상위 번호와 합쳐서 하나의 항목으로 (예: "3. 가. ~, 나. ~, 다. ~"는 하나의 항목 3)
+3. [대괄호] 제목이 있으면 항목 내용 앞에 포함 (예: "[부양가족] 배우자의 급여 등 수입을 확인할 수 있는 자료를...")
+4. 항목 설명에 포함된 세부 조건(기간, 서류명, 유의사항)도 원문 그대로 추출
+5. 표 형태에서는 각 행을 개별 항목으로, 대분류명을 앞에 붙임
+6. 사건번호, 법원명, 날짜, 채무자 인적사항, "등본입니다" 등 메타정보는 제외
+7. 항목 번호가 없으면 순서대로 1, 2, 3... 부여
+8. 원문을 요약하지 말고 그대로 유지 (긴 항목도 전문 포함)
+
+JSON 응답:
+{ "items": [ { "number": 1, "content": "항목 원문 전체 (하위항목 포함)" } ] }`
+            },
+            {
+              role: "user",
+              content: `다음 문서에서 제출/보정 항목을 추출하세요:\n\n${text.substring(0, 25000)}`
+            }
+          ],
+          temperature: 0.1,
+          max_tokens: 8000,
+          response_format: { type: "json_object" },
+        }),
+      });
+
+      if (!response.ok) {
+        console.error("[CorrectionGuideService] GPT 항목 추출 실패, regex 폴백");
+        return this.extractDefectItemsRegex(text);
+      }
+
+      const gptResult = await response.json() as {
+        choices?: Array<{ message?: { content?: string } }>;
+      };
+      const content = gptResult.choices?.[0]?.message?.content ?? "{}";
+      const parsed = JSON.parse(content) as { items?: Array<{ number: number; content: string }> };
+      
+      const items = (parsed.items ?? [])
+        .filter(item => item.content && item.content.length >= 5)
+        .map((item, idx) => ({
+          number: item.number || (idx + 1),
+          content: item.content.trim(),
+        }));
+
+      console.log(`[CorrectionGuideService] GPT 기반 ${items.length}개 항목 추출됨`);
+      
+      if (items.length > 0) return items;
+      
+      // GPT가 항목을 못 찾으면 regex 폴백
+      return this.extractDefectItemsRegex(text);
+    } catch (error) {
+      console.error("[CorrectionGuideService] GPT 항목 추출 에러:", error);
+      return this.extractDefectItemsRegex(text);
+    }
+  }
+
+  /**
+   * regex 기반 항목 추출 (폴백)
+   */
+  extractDefectItemsRegex(text: string): ExtractedDefectItem[] {
     const items: ExtractedDefectItem[] = [];
     
     // "흠결사항" 키워드 이후의 텍스트 찾기
-    const defectSectionMatch = text.match(/흠결사항[\s\S]*?(?=(?:\n\n[가-힣]+\s*$|$))/i);
+    const defectSectionMatch = /흠결사항[\s\S]*?(?=(?:\n\n[가-힣]+\s*$|$))/i.exec(text);
     
     if (!defectSectionMatch) {
       console.log("[CorrectionGuideService] '흠결사항' 섹션을 찾을 수 없음, 전체 텍스트에서 번호 항목 추출 시도");
-      // 흠결사항 섹션이 없으면 전체 텍스트에서 번호 패턴 찾기
       return this.extractNumberedItems(text);
     }
 
     const defectSection = defectSectionMatch[0];
     return this.extractNumberedItems(defectSection);
+  }
+
+  /**
+   * 기존 extractDefectItems - 하위 호환용 (GPT 기반으로 우회)
+   */
+  extractDefectItems(text: string): ExtractedDefectItem[] {
+    // 동기 호출 필요 시 regex 폴백
+    return this.extractDefectItemsRegex(text);
   }
 
   /**
@@ -175,13 +298,17 @@ export class CorrectionGuideService {
     }));
 
     // GPT 프롬프트 구성
-    const systemPrompt = `당신은 법률 문서 분석 전문가입니다. 보정권고/명령서의 흠결사항과 미리 준비된 안내 템플릿을 매칭하는 작업을 수행합니다.
+    const systemPrompt = `당신은 법률 문서 분석 전문가입니다. 보정권고/명령서의 흠결사항 각각에 대해:
+1. 가장 적절한 안내 템플릿을 매칭하고
+2. 템플릿 원문을 **최소한으로만 수정**하여 흠결사항의 구체적 사실을 대입하세요.
 
-주어진 흠결사항 각각에 대해 가장 적절한 템플릿을 찾아 매칭하세요. 
-매칭 시 다음을 고려하세요:
-1. 흠결사항의 내용과 템플릿의 제목/내용의 관련성
-2. 템플릿의 specialNotes(특이사항)에 명시된 조건
-3. 법률 용어와 맥락의 일치도
+**수정 원칙 (매우 중요):**
+- 템플릿의 어투, 문체, 간결함을 그대로 유지하세요
+- 확대 해석하거나 친절한 설명을 추가하지 마세요
+- 수정은 오직 "특수 사실의 대입" 수준만 허용합니다
+  예: "XX 은행" → "하나은행", "해당 서류" → "주민등록등본" 등
+- 템플릿에 없는 문장이나 안내를 새로 만들지 마세요
+- 템플릿 원문이 3줄이면 수정본도 3줄 이내로 유지하세요
 
 응답 형식 (JSON):
 {
@@ -190,24 +317,27 @@ export class CorrectionGuideService {
       "itemNumber": 1,
       "templateId": "template-uuid 또는 null",
       "confidenceScore": 85,
-      "reason": "매칭 판단 근거를 한국어로 설명"
+      "reason": "매칭 판단 근거",
+      "customizedContent": "템플릿 원문에서 특수 사실만 대입한 수정본"
     }
   ]
 }
 
-confidenceScore는 0-100 사이이며:
+confidenceScore는 0-100 사이:
 - 90 이상: 매우 확실한 매칭
-- 70-89: 높은 확률의 매칭
+- 70-89: 높은 확률
 - 50-69: 중간 확률
-- 50 미만: 낮은 확률 (null 반환 권장)`;
+- 50 미만: 낮은 확률 (null 반환 권장)
 
-    const userPrompt = `## 템플릿 목록
+매칭되는 템플릿이 없으면 templateId를 null로, customizedContent는 흠결사항 원문을 그대로 넣으세요.`;
+
+    const userPrompt = `## 안내 템플릿 목록
 ${JSON.stringify(templateSummary, null, 2)}
 
-## 흠결사항 목록
+## 보정권고서 흠결사항 목록
 ${defectItems.map(item => `${item.number}. ${item.content}`).join("\n")}
 
-각 흠결사항에 가장 적합한 템플릿을 매칭해주세요.`;
+각 흠결사항에 대해 가장 적합한 템플릿을 매칭하고, 템플릿 원문에서 흠결사항의 구체적 사실(기관명, 서류명, 기한, 인명 등)만 대입하여 customizedContent를 작성하세요. 어투와 분량은 템플릿 원문 그대로 유지하세요.`;
 
     // OpenAI API 호출
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -223,7 +353,7 @@ ${defectItems.map(item => `${item.number}. ${item.content}`).join("\n")}
           { role: "user", content: userPrompt },
         ],
         temperature: 0.3,
-        max_tokens: 2000,
+        max_tokens: 8000,
         response_format: { type: "json_object" },
       }),
     });
@@ -239,7 +369,7 @@ ${defectItems.map(item => `${item.number}. ${item.content}`).join("\n")}
     };
     const content = gptResult.choices?.[0]?.message?.content ?? "{}";
 
-    let matchData: { matches?: Array<{ itemNumber: number; templateId?: string | null; confidenceScore: number; reason: string }> };
+    let matchData: { matches?: Array<{ itemNumber: number; templateId?: string | null; confidenceScore: number; reason: string; customizedContent?: string }> };
     try {
       matchData = JSON.parse(content) as typeof matchData;
     } catch {
@@ -247,12 +377,17 @@ ${defectItems.map(item => `${item.number}. ${item.content}`).join("\n")}
       matchData = { matches: [] };
     }
 
-    // 결과 조합
+    // 결과 조합 - customizedContent 우선 사용, originalContent도 함께 반환
     const results: TemplateMatchResult[] = defectItems.map(item => {
       const match = matchData.matches?.find(m => m.itemNumber === item.number);
       const template = match?.templateId 
         ? templates.find(t => t.id === match.templateId) 
         : null;
+
+      // GPT가 생성한 맞춤 안내문이 있으면 사용, 없으면 템플릿 원문 사용
+      const finalContent = match?.customizedContent 
+        ?? template?.content 
+        ?? "";
 
       return {
         itemNumber: item.number,
@@ -260,13 +395,22 @@ ${defectItems.map(item => `${item.number}. ${item.content}`).join("\n")}
         matchedTemplate: template ? {
           id: template.id,
           title: template.title,
-          content: template.content,
+          content: finalContent,
+          originalContent: template.content, // 템플릿 원본 내용
           images: (template.images as unknown as FileInfo[]) ?? [],
           files: (template.files as unknown as FileInfo[]) ?? [],
+        } : match?.customizedContent ? {
+          // 템플릿 매칭이 없어도 GPT가 안내문을 생성한 경우
+          id: "ai-generated",
+          title: `흠결사항 ${item.number} 안내`,
+          content: match.customizedContent,
+          originalContent: null,
+          images: [],
+          files: [],
         } : null,
         confidenceScore: match?.confidenceScore ?? 0,
         matchReason: match?.reason ?? "매칭 결과를 찾을 수 없습니다",
-        isSelected: (match?.confidenceScore ?? 0) >= 50,  // 50% 이상이면 기본 선택
+        isSelected: !!(template ?? match?.customizedContent),  // 매칭 또는 AI 생성 안내문이 있으면 기본 선택
       };
     });
 

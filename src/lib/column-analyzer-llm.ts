@@ -78,7 +78,12 @@ ${JSON.stringify(sampleData, null, 2)}
 - "separate_columns": 입금액/출금액이 별도 컬럼으로 분리됨
 - "type_column": 거래구분 컬럼에 "입금"/"출금" 텍스트로 표시
 - "sign_in_type": 거래구분 컬럼에 [+]/[-] 기호로 표시
-- "amount_sign": 금액 자체에 +/- 부호가 포함됨
+- "amount_sign": 금액 자체에 +/- 부호가 포함됨 (예: -50,000 = 출금, +30,000 = 입금)
+
+## amount_sign 타입 (D형) 주의:
+- 거래금액 컬럼 하나에 +50,000 또는 -50,000처럼 부호가 포함된 경우
+- 이 경우 transactionType 컬럼은 null로 설정
+- amount 컬럼만 지정하면 됨
 
 ## 중요 주의사항:
 - 해당하지 않는 컬럼은 null로 설정

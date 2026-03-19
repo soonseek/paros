@@ -12,7 +12,7 @@
  * @module lib/export/excel-export-helper
  */
 
-import ExcelJS from 'exceljs';
+import type ExcelJS from 'exceljs';
 import { writeExcelBuffer } from './excel';
 
 /**

@@ -113,7 +113,7 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess, userR
     } catch (error) {
       console.error("[LocalStorage Load Error]", error);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [caseId]);
 
   // Backend upload mutation (Story 3.3)
@@ -222,8 +222,8 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess, userR
                   console.log("[Upload Zone] Parsing templateMatch from reasoning:", llmAnalysisData.reasoning);
                   // "템플릿 매칭 (Layer 2): 입출금거래내역 [기업은행]" 파싱
                   const templateRegex = /템플릿 매칭 \(Layer (\d+)\): ([^\[]+)(?:\[([^\]]+)\])?/;
-                  const match = llmAnalysisData.reasoning.match(templateRegex);
-                  if (match && match[1] && match[2]) {
+                  const match = templateRegex.exec(llmAnalysisData.reasoning);
+                  if (match?.[1] && match[2]) {
                     templateMatch = {
                       templateName: match[2].trim(),
                       bankName: match[3] ?? undefined,
@@ -403,6 +403,23 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess, userR
           // 1단계: 앞 3페이지만 추출하여 템플릿 매칭 테스트
           const preAnalysisResult = await preAnalyzeFileMutation.mutateAsync({ documentId });
           
+          // 디버그: 프리뷰 데이터를 브라우저 콘솔에 출력
+          console.log('[양식매칭] preAnalysisResult:', preAnalysisResult);
+          console.log('[양식매칭] headers:', preAnalysisResult.headers);
+          console.log('[양식매칭] sampleRows (raw OCR data):', preAnalysisResult.sampleRows);
+          console.log('[양식매칭] parsedSampleData:', preAnalysisResult.parsedSampleData);
+          console.log('[양식매칭] matchResult:', preAnalysisResult.matchResult);
+          if (preAnalysisResult.sampleRows) {
+            (preAnalysisResult.sampleRows as unknown[][]).forEach((row, idx) => {
+              console.log(`[양식매칭] Row ${idx + 1} raw:`, JSON.stringify(row));
+            });
+          }
+          if (preAnalysisResult.parsedSampleData) {
+            (preAnalysisResult.parsedSampleData as Record<string, unknown>[]).forEach((item, idx) => {
+              console.log(`[양식매칭] Parsed Row ${idx + 1}:`, JSON.stringify(item));
+            });
+          }
+          
           // 매칭 확인 모달 표시 (성공/실패 모두)
           setPendingDocumentId(documentId);
           setPreAnalysisData({
@@ -410,7 +427,7 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess, userR
             totalPages: preAnalysisResult.totalPdfPages,
             previewPages: preAnalysisResult.previewPages,
             headers: preAnalysisResult.headers,
-            sampleRows: preAnalysisResult.sampleRows,
+            sampleRows: preAnalysisResult.sampleRows as string[][],
             parsedSampleData: preAnalysisResult.parsedSampleData,
             matchResult: preAnalysisResult.matchResult,
             availableTemplates: preAnalysisResult.availableTemplates,
@@ -474,8 +491,6 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess, userR
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     onDrop,
     accept: {
-      "application/vnd.ms-excel": [".xlsx", ".xls"],
-      "text/csv": [".csv"],
       "application/pdf": [".pdf"],
     },
     multiple: true,
@@ -741,7 +756,7 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess, userR
                         <>파일을 드래그하거나 <span className="text-primary underline">클릭</span></>
                       )}
                     </p>
-                    <p className="text-xs text-muted-foreground">Excel, CSV, PDF • 최대 1GB</p>
+                    <p className="text-xs text-muted-foreground">PDF • 최대 1GB</p>
                   </div>
                 </div>
               )}

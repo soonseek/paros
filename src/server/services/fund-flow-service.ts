@@ -16,7 +16,7 @@
  * @module server/services/fund-flow-service
  */
 
-import { PrismaClient, TransactionRelationType } from "@prisma/client";
+import { type PrismaClient, TransactionRelationType } from "@prisma/client";
 
 /**
  * 추적된 거래 체인의 노드

@@ -1,203 +1,144 @@
 <analysis>**original_problem_statement:**
-The user requested the implementation of a Correction Recommendation Guide feature. This involves:
-1.  Uploading an image-based PDF (보정권고/명령서).
-2.  Using the Upstage API to parse the document and extract numbered sections labeled 흠결사항 (defect items).
-3.  Using GPT-5.2 to analyze each defect item and match it with a pre-existing Correction Guide Template.
-4.  Displaying the analysis results, allowing the user to select, edit, and manually add guide items.
-5.  Generating a public, shareable link for the final guide, which must persist all user edits and additions.
+The user's initial goal was to fix bugs and enhance a legal tech application. During this session, the scope narrowed to two critical, complex bugs:
 
-Over several iterations, the user provided extensive feedback, leading to the following refinements and bug fixes:
-*   **UI/UX Overhaul:**
-    *   Implement a two-column layout showing analysis results on the left and a live preview on the right.
-    *   Improve the display for items with no matching template.
-    *   Add in-place editing for guide content and modals for manually adding new items.
-    *   Move the Copy Share Link button to the preview header.
-*   **Functionality Changes:**
-    *   Remove the PDF download feature entirely.
-    *   Implement data persistence: all manual additions and edits must be saved to the database and be reflected on the shared link page.
-    *   Add business logic to deduplicate identical matched templates and filter out invalid defect items (e.g., numbers over 100).
-*   **Bug Fixes:**
-    *   Resolved a client-side error with the Copy Link button ( issue).
+1.  **Loan Usage Tracking:** The system incorrectly calculated loan usage, initially by counting internal transfers as expenses. Subsequent fixes revealed deeper issues, such as not tracking fund usage after a transfer, incorrect remaining balances (negative values), and a confusing UI. The user requested a complete overhaul of the logic and presentation to make it accurate and intuitive.
+2.  **OCR Date Parsing Failure:** The transaction file uploader failed to parse dates correctly when the OCR service merged the date/time and memo columns. This issue became more complex when it was discovered that the OCR output was inconsistent, sometimes placing the date in the row number column () instead of the transaction date column (), and behaving differently across different pages of the same document.
 
-The user explicitly stated that testing can only be performed in the production environment, meaning the agent cannot conduct functional tests.
+The user also requested the removal of confusing columns () and better visual grouping of related transactions in the UI.
 
 **User's preferred language**: Korean
 
 **what currently exists?**
-The application is a full-stack Next.js monolith with a tRPC API, Prisma ORM, and PostgreSQL database. It serves as a case management tool for a law firm.
+The application is a Next.js/tRPC/PostgreSQL monolith. The agent has performed multiple iterative fixes on two main fronts: loan usage tracking and OCR date parsing.
 
-The Correction Recommendation Guide feature has been substantially built out, including:
-- Integration with Upstage for document parsing and GPT-5.2 for analysis.
-- A new database model () to store analysis results, user selections, and custom modifications.
-- A complex, interactive two-column UI on the case detail page () for building the guide.
-- A public, shareable page () to display the final guide.
-- tRPC endpoints to handle file analysis, saving custom/edited content, and retrieving guide data.
+The loan tracking logic in  has been significantly refactored. It now attempts to track funds after they are transferred to a new account, groups related transfer/withdrawal transactions for clarity, and uses sentinel values to control UI display. The corresponding frontend components have been updated to remove confusing data and improve visual layout.
 
-The core logic is in place, but the most recent changes to ensure data persistence have not been verified by the user.
+The OCR parsing logic in  has been enhanced to handle malformed date strings. It uses regex to find dates within combined text and includes a fallback to check the row number column if the primary date column is empty. Extensive client-side and server-side logging has been added to facilitate debugging this issue.
+
+However, both major fixes are still incomplete and failing user verification.
 
 **Last working item**:
-- **Last item agent was working:** The agent was implementing data persistence for manually added and edited guide content. This involved modifying the database schema, creating tRPC endpoints to save changes, and updating the frontend to call these endpoints. The agent also moved the Copy Share Link button to the preview card's header as requested.
+- **Last item agent was working:** Debugging a persistent OCR parsing bug. After implementing a fallback to check multiple columns for a date, the user reported that the parser still behaves differently for page 1 and page 2 of the same uploaded PDF. The agent was about to investigate the logs for a multi-page document to understand this new inconsistency.
 - **Status:** IN PROGRESS
-- **Agent Testing Done:** N (Only static type-checking and build command were run. Functional testing is not possible for the agent.)
-- **Which testing method agent to use?** User Manual Testing (The user must deploy and test in their environment).
-- **User Testing Done:** N
+- **Agent Testing Done:** N (The issue requires analyzing user-provided logs from a specific file upload, which cannot be replicated by the testing agent.)
+- **Which testing method agent to use?** Manual debugging. The agent must instruct the user to upload the problematic file again and then carefully analyze the full set of server-side () and browser console logs to identify why OCR output or parsing logic differs between pages.
+- **User Testing Done:** Y (User confirmed the latest fix is still failing.)
 
 **All Pending/In progress Issue list**:
-- **Issue 1 (P0): Data Persistence for Correction Guides**
-    - The core user request to save manually added and edited guide content is implemented but completely unverified.
-- **Issue 2 (P1): Broken ESLint Configuration**
-    - The ESLint setup fails to parse TypeScript files, preventing effective static analysis. This is a recurring issue from the previous session.
+- **Issue 1 (P0): Inconsistent OCR Date Parsing Across Pages**
+- **Issue 2 (P1): Loan Usage Tracking Full Workflow Verification**
+- **Issue 3 (P2): Transaction Order Reversal** (from previous fork)
+- **Issue 4 (P3): Correction Recommendation Guide Full Workflow Verification** (from previous fork)
+- **Issue 5 (P3): Production Deployment Mismatch** (from previous fork)
 
 **Issues Detail:**
-- **Issue 1: Data Persistence for Correction Guides**
-    - **Attempted fixes:** The agent created a comprehensive solution:
-        1.  Added  and  fields to the  model in .
-        2.  Created  and  mutations in the  tRPC router.
-        3.  Updated the  component to call these mutations on user actions.
-        4.  Modified the public page  to fetch and display this persisted data.
-    - **Next debug checklist:** The user needs to test the following workflow:
-        1.  Analyze a document.
-        2.  Manually add a new guide item.
-        3.  Edit an existing guide item.
-        4.  Generate and open the shared link.
-        5.  Verify that the added and edited content appears correctly on the shared link page.
-        6.  Refresh the case detail page and verify the changes are still present.
-    - **Why fix this issue and what will be achieved with the fix?** This is the critical final step to make the feature usable. It ensures user work is not lost and the shared link is an accurate representation of the finalized guide.
-    - **Status:** IN PROGRESS
-    - **Is recurring issue?** N
-    - **Should Test frontend/backend/both after fix?** Both
-    - **Blocked on other issue:** None
+- **Issue 1: Inconsistent OCR Date Parsing Across Pages**
+  - **Attempted fixes:**
+    1.  Enhanced  function with regex to extract  from a combined string.
+    2.  Implemented date carry-forward logic for rows missing a date.
+    3.  Added extensive logging on both client and server to trace the parsing flow.
+    4.  Implemented a fallback mechanism in  to check  for a date if the designated date column  fails.
+  - **Next debug checklist:**
+    1.  The immediate priority is to analyze why page 1 and page 2 are parsed differently.
+    2.  Inspect the code in  and  in  to see how the logic handles iterating through multiple pages from the OCR result.
+    3.  Hypothesize if the  OCR service provides different data structures for the first vs. subsequent pages.
+    4.  Request fresh logs from the user for a full multi-page file upload and compare the raw OCR data for each page.
+  - **Why fix this issue and what will be achieved with the fix?** This is a critical data ingestion bug that prevents users from successfully uploading their primary financial documents, blocking a core feature.
+  - **Status:** IN PROGRESS
+  - **Is recurring issue?** Y
+  - **Should Test frontend/backend/both after fix?** Backend.
+  - **Blocked on other issue:** None.
 
-- **Issue 2: Broken ESLint Configuration**
-    - **Attempted fixes:** None in this session. The agent has worked around it by relying on TypeScript compiler () errors.
-    - **Next debug checklist:**
-        - Review  for incorrect parser or plugin settings.
-        - Verify  is correctly configured to work with the project's .
-        - Run  for verbose error output.
-    - **Why fix this issue and what will be achieved with the fix?** Fixing this will enable static code analysis, improving code quality and catching potential errors early.
-    - **Status:** NOT STARTED
-    - **Is recurring issue?** Y
-    - **Should Test frontend/backend/both after fix?** Frontend
-    - **Blocked on other issue:** None
+- **Issue 2: Loan Usage Tracking Full Workflow Verification**
+  - **Attempted fixes:** The logic in  () was rewritten multiple times to handle transfers. The final version regroups transactions for clarity and sends a sentinel value () for the remaining balance on transferred-fund withdrawals. The frontend ( and ) was updated to render this correctly and remove the confusing Balance column.
+  - **Next debug checklist:** After the P0 OCR bug is fixed, the user must perform a full end-to-end test on the loan tracking feature with a clean data set to confirm all calculations and UI presentations are correct. The latest user feedback on this was that the history was cutting off prematurely, which has not been re-verified after the last set of changes.
+  - **Why fix this issue and what will be achieved with the fix?** This is a core feature for financial analysis in the app. Its accuracy and usability are paramount.
+  - **Status:** USER VERIFICATION PENDING
+  - **Is recurring issue?** Y
+  - **Should Test frontend/backend/both after fix?** Both.
+  - **Blocked on other issue:** Issue 1. The user cannot test this properly without being able to upload data correctly.
+
+- **Issue 3: Transaction Order Reversal**
+  - **Status:** USER VERIFICATION PENDING (from previous fork).
+
+- **Issue 4: Correction Recommendation Guide Full Workflow Verification**
+  - **Status:** USER VERIFICATION PENDING (from previous fork).
+
+- **Issue 5: Production Deployment Mismatch**
+  - **Status:** BLOCKED (on user action, from previous fork).
 
 **In progress Task List**:
-- **Task 1: Complete and Verify Correction Guide Feature**
-    - **Where to resume:** The user needs to test the latest implementation for data persistence. All code has been written.
-    - **What will be achieved with this?** The Correction Recommendation Guide feature will be functionally complete as per the latest user requirements.
-    - **Status:** IN PROGRESS
-    - **Should Test frontend/backend/both after fix?** Both
-    - **Blocked on something:** User testing.
+- **Task 1: Resolve OCR Date Parsing**
+  - **Where to resume:** Analyzing the discrepancy between page 1 and page 2 parsing, starting with an inspection of the multi-page handling logic in .
+  - **What will be achieved with this?** Users will be able to reliably upload multi-page bank statements where OCR produces inconsistent results.
+  - **Status:** IN PROGRESS
+  - **Should Test frontend/backend/both after fix?** Backend.
+  - **Blocked on something:** Waiting for user to provide logs for a multi-page upload.
 
 **Upcoming and Future Tasks**
-- **Upcoming Tasks:**
-    - **P0: User Acceptance Testing:** The user must test the entire Correction Recommendation Guide feature flow in their environment. The agent should be prepared to receive feedback and perform further bug fixes.
+- **P0: Full User Acceptance Testing:** Once the loan tracking and OCR bugs are confirmed fixed, the user must conduct a thorough review of all features and fixes.
+- **P1: Verify Transaction Sort Order Fix:** User needs to test the fix for the recurring transaction sorting issue on their production server.
+- **P1: Verify Correction Recommendation Guide Overhaul:** User needs to perform end-to-end testing of this entire feature.
 
 **Completed work in this session**
-- **Core Feature Implementation (Correction Guide Analysis):**
-    - Integrated Upstage and GPT-5.2 APIs using .
-    - Created  model in  to persist guide data.
-    - Implemented a new tRPC router () and service ().
-    - Built the main UI component () and the public share page ().
-- **Iterative Refinements and Bug Fixes:**
-    - Re-architected the UI into a two-column layout with a live preview.
-    - Implemented in-place editing and manual addition of guide items.
-    - Fixed client-side clipboard API errors and added toast notifications ().
-    - Removed the PDF generation feature as requested by the user.
-    - Added business logic to filter analysis results and deduplicate templates.
-- **Dependency and Build Management:**
-    - Installed missing dependencies (, ).
-    - Resolved numerous TypeScript build errors related to Prisma JSON types and prop mismatches by creating a shared types file ().
-    - Diagnosed and worked around an unstable  environment by running the Next.js development server directly.
-
-**Earlier issues found/mentioned but not fixed**
-- **ESLint Configuration**: A broken ESLint configuration, mentioned in the initial handoff summary, was not addressed. It prevents static analysis, though the application builds correctly.
+- **Iterative Bug Fixing for Loan Tracking:** Implemented multiple versions of the loan tracking logic, culminating in a version that regroups transactions for clarity, removes the confusing  column, and uses special UI treatment for withdrawals made from transferred funds.
+- **Debugging Infrastructure:** Added extensive, targeted client-side and server-side logging to diagnose the complex OCR parsing issue, which proved crucial in identifying the root causes.
+- **Removed Deprecated Logs:** Cleaned up old, irrelevant console logs related to transaction sorting.
 
 **Known issue recurrence from previous fork**
-- **ESLint Configuration**: The ESLint configuration was reported as broken in the previous fork and remains unfixed.
-- **Recurrence count**: 2
-- **Status**: NOT STARTED
+- **Transaction Order Reversal**: Status remains .
+- **Production Deployment Mismatch**: Status remains .
 
 **Code Architecture**
-
+trackMultipleLoans
 
 **Key Technical Concepts**
-- **Framework**: Next.js (with TypeScript)
-- **API**: tRPC
-- **Database**: PostgreSQL with Prisma ORM
-- **Authentication**: NextAuth.js
-- **Styling**: TailwindCSS, Shadcn UI
-- **File Storage**: AWS S3
-- **External APIs**:
-    - **Upstage API**: For Document AI / OCR on PDFs.
-    - **OpenAI GPT-5.2**: For natural language processing to match defects with templates.
-
-**key DB schema**
-- **SharedCorrectionGuide**: 
-
-**changes in tech stack**
-- None.
+- **Complex Debugging:** Extensive use of client-side and server-side logging to diagnose issues stemming from inconsistent third-party (OCR) data.
+- **Iterative Refinement:** The agent and user worked in a tight loop to incrementally fix complex business logic (loan tracking) and data parsing issues.
+- **Backend-for-Frontend (BFF):** The backend was modified to pre-process and format data specifically to simplify the frontend's display logic (e.g., regrouping transactions, using sentinel values).
+- **Fallback Logic:** Implemented robust parsing by adding fallback mechanisms to handle unpredictable data formats.
 
 **All files of reference**
-- : The primary frontend component for the feature. Contains all client-side logic for analysis, editing, and saving.
-- : The tRPC router handling all backend logic for the feature, including analysis calls and DB mutations.
-- : The service layer that orchestrates calls to the Upstage and OpenAI APIs.
-- : Defines the  table, which is central to the data persistence requirement.
-- : The public, unauthenticated page that displays the final guide.
-
-**Areas that need refactoring**:
-- The  service and related font files () could be removed since the PDF generation feature was cancelled by the user.
-
-**key api endpoints**
-- **tRPC Mutations:**
-  - : Kicks off the PDF parsing and AI analysis.
-  - : Generates a unique slug and saves the initial guide state.
-  - : Saves manually added guide items to the DB.
-  - : Saves user edits to existing guide items to the DB.
-- **tRPC Queries:**
-  - : Fetches guide data for the public link page.
+- ****: The center of the current P0 bug. Contains the main OCR data handling logic for both preview and final save. Was heavily modified to add logging and parsing fallbacks.
+- ****: Contains the complex and repeatedly refactored  function for loan usage tracking.
+- ****: The  function was enhanced with regex to be more robust.
+- ****: Modified to add client-side  statements for debugging the pre-analysis step.
+- ****: UI logic updated to hide the 'Balance' column and apply conditional styling to rows.
+- ****: Logic for Excel export was updated to remove the 'Balance' column.
 
 **Critical Info for New Agent**
-- **User Must Test:** The user has stated that testing is only possible in their production environment. You CANNOT perform functional tests. Your development cycle will be: write code -> ensure it builds -> hand off to the user for testing -> wait for feedback.
-- **Data Persistence is the Goal:** The last set of changes was focused on saving all user modifications (edits, manual additions) to the database. This implementation is complete but **unverified**. This is the highest priority item to get confirmed by the user.
-- **API Keys are in DB:** Do not ask for API keys for OpenAI or Upstage. The application is designed to fetch these from the database via an admin settings panel.
-- **PDF Feature is Removed:** The user explicitly requested the removal of the Download PDF button. Do not re-implement this feature or related code unless specifically asked.
-
-**documents and test reports created in this job**
--  (updated multiple times)
+- **P0 is the OCR Bug:** Your immediate and highest priority is to solve the inconsistent date parsing. The user has reported that page 1 and page 2 of the same PDF are parsed differently. You must get logs from a multi-page upload to see the raw OCR data for each page and find the discrepancy. The key file is .
+- **Loan Logic is Fragile:** The loan tracking logic in  () has been through many changes and is very complex. Do not modify it unless necessary. It is pending full user verification after the OCR bug is fixed.
+- **Follow the Logging Pattern:** The add logs - user to test - logs cycle has been effective. The user is checking both browser and server logs. Continue this pattern. Your next step is to analyze the logs for a multi-page document.
+- **Verify Deployment Issues are Resolved:** Remember the recurring issue of Production Deployment Mismatch. Before debugging any issue that seems like a regression, confirm with the user they have deployed the latest code.
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User (Pending):** Manually added and edited content doesn't persist on refresh or in the shared link. Move the copy link button to the preview header.
-2.  **Agent:** Acknowledged. Implemented DB persistence and moved the button.
-3.  **User:** Add a Manually Add Guide button, which pre-fills context when applicable.
-4.  **Agent:** Acknowledged. Implemented the feature.
-5.  **User:** Reported multiple issues: clipboard error, requested PDF button removal, requested deduplication, requested filtering logic, and requested UI changes (collapse behavior, edit button).
-6.  **Agent:** Acknowledged. Implemented all fixes.
-7.  **User:** Reported a  error.
-8.  **Agent:** Fixed by installing missing packages.
-9.  **User:** Reported PDF encoding errors, a broken link copy button, and poor UX, requesting a two-column layout.
-10. **Agent:** Acknowledged and began a major UI/UX refactor.
+1.  **User:** Reports that page 1 and page 2 are parsed differently. (IN PROGRESS)
+2.  **User:** Provided detailed browser console logs for analysis. (Resolved by agent, led to final fix attempt)
+3.  **User:** States that no console logs are appearing. (Resolved by agent, moved logs to client-side)
+4.  **User:** States that the expected server logs are not appearing in the 'Format Matching' modal. (Resolved by agent, added logs to pre-analysis step)
+5.  **User:** Reports that parsing is still not working and asks for better debug logs and removal of old logs. (Resolved by agent, added detailed logs)
+6.  **User:** Corrects the agent's implementation, stating memo should not be merged. (Resolved by agent, logic removed)
+7.  **User:** Introduces the new OCR parsing bug. (IN PROGRESS)
+8.  **User:** Reports multiple UI/UX issues with the loan tracking results (confusing balance, separated rows). (Resolved by agent, UI/backend logic updated)
+9.  **User:** Asks why the transaction history cuts off mid-way. (Resolved by agent, but the fix was rejected by user)
+10. **User:** Reports that the remaining loan amount has negative values and is mostly zero. (Resolved by agent)
 
 **Project Health Check:**
 - **Broken**:
-    - ESLint configuration is non-functional.
-- **Mocked**:
-    - None. The feature mockup has been replaced with a full implementation.
+    - **OCR Data Ingestion:** Critically broken due to inconsistent parsing across pages.
 - **In Progress/Unverified**:
-    - The entire Correction Recommendation Guide feature, particularly the data persistence logic for user edits and additions.
+    - **Loan Usage Tracking:** The complex logic and UI have been refactored but await full user acceptance testing.
+    - **Transaction Sort Order Fix:** Awaiting user verification from a previous session.
+    - **Correction Recommendation Guide:** Awaiting user verification from a previous session.
 
 **3rd Party Integrations**
-- **AWS S3**: For file attachments on .
-- **Upstage API**: Document AI for parsing PDFs. Integrated via .
-- **OpenAI GPT-5.2**: LLM for analysis. Integrated via .
+- **AWS S3**: For file storage.
+- **Upstage API**: For OCR and Document Parsing. This is the source of the inconsistent data causing the current P0 bug.
+- **OpenAI GPT-4o**: For advanced data extraction and content generation.
 
 **Testing status**
-- **Testing agent used after significant changes:** NO
+- **Testing agent used after significant changes:** YES (but the fixes were found to be incomplete by the user).
 - **Troubleshoot agent used after agent stuck in loop:** NO
 - **Test files created:** None.
-- **Known regressions:** The primary issue is that user modifications to guides are not persisting, which was the last problem the user reported and the agent just implemented a fix for.
-
-**Credentials to test flow:**
-- An  or  user is required to access the case detail page and use the feature. Testing must be conducted by the user in their own environment.
-
-**What agent forgot to execute**
-- The agent did not fix the root cause of the broken ESLint configuration, an issue carried over from the previous session.</analysis>
+- **Known regressions:** Both the loan tracking and OCR parsing have had multiple failed fixes, indicating their complexity. The user is the primary source of regression testing.</analysis>

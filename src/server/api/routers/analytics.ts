@@ -39,7 +39,7 @@ export const analyticsRouter = createTRPCRouter({
       select: { role: true },
     });
 
-    if (!user || user.role !== "ADMIN") {
+    if (user?.role !== "ADMIN") {
       throw new TRPCError({
         code: "FORBIDDEN",
         message: "학습 통계 조회는 관리자만 가능합니다.",
@@ -265,7 +265,7 @@ export const analyticsRouter = createTRPCRouter({
         select: { role: true },
       });
 
-      if (!user || user.role !== "ADMIN") {
+      if (user?.role !== "ADMIN") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "분류 규칙 조회는 관리자만 가능합니다.",
@@ -335,7 +335,7 @@ export const analyticsRouter = createTRPCRouter({
         select: { role: true },
       });
 
-      if (!user || user.role !== "ADMIN") {
+      if (user?.role !== "ADMIN") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "규칙 토글은 관리자만 가능합니다.",

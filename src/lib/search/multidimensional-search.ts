@@ -81,7 +81,7 @@ export function applySearchFilters(
 
   // 태그 검색 (Task 5) - OR 조건
   if (filters.tags && filters.tags.length > 0) {
-    filtered = filterByTags(filtered, filters.tags) as Transaction[];
+    filtered = filterByTags(filtered, filters.tags);
   }
 
   return filtered;

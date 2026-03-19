@@ -26,7 +26,7 @@ export class SettingsService {
       where: { key },
     });
 
-    if (!setting || !setting.value) {
+    if (!setting?.value) {
       return null;
     }
 

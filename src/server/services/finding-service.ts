@@ -6,7 +6,7 @@
  * @module server/services/finding-service
  */
 
-import { PrismaClient } from "@prisma/client";
+import { type PrismaClient } from "@prisma/client";
 import { normalizeCreditorName } from "./creditor-service";
 
 // ============================================================================

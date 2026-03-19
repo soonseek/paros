@@ -9,7 +9,7 @@
  * - 채권자명 정규화 (향후 Task 5)
  */
 
-import { PrismaClient } from "@prisma/client";
+import { type PrismaClient } from "@prisma/client";
 
 /**
  * Story 6.4: relatedCreditorNames JSON 파싱

@@ -29,10 +29,10 @@ export interface CellStyle {
     wrapText?: boolean;
   };
   border?: {
-    top?: { style: 'thin' | 'medium' | 'thin'; color?: { argb: string } };
-    left?: { style: 'thin' | 'medium' | 'thin'; color?: { argb: string } };
-    bottom?: { style: 'thin' | 'medium' | 'thin'; color?: { argb: string } };
-    right?: { style: 'thin' | 'medium' | 'thin'; color?: { argb: string } };
+    top?: { style: 'thin' | 'medium'  ; color?: { argb: string } };
+    left?: { style: 'thin' | 'medium'  ; color?: { argb: string } };
+    bottom?: { style: 'thin' | 'medium'  ; color?: { argb: string } };
+    right?: { style: 'thin' | 'medium'  ; color?: { argb: string } };
   };
   numFmt?: string;
 }

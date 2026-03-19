@@ -5,7 +5,7 @@ import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { FILE_VALIDATION, validateFileSignature } from "~/lib/file-validation";
 import { uploadFile, deleteFile, downloadFile } from "~/lib/storage";
 import { analyzeFileStructure } from "~/lib/file-analyzer";
-import { extractAndSaveTransactions, type ColumnMapping } from "~/lib/data-extractor";
+import { extractAndSaveTransactions, parseDate, type ColumnMapping } from "~/lib/data-extractor";
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 /**
@@ -89,7 +89,10 @@ export const fileRouter = createTRPCRouter({
       }
 
       // 2. MIME type validation (MEDIUM-3: Check against allowed types)
+      // PDF 확장자 파일은 MIME 타입이 비표준이어도 허용 (ePapyrus 등)
+      const isPdfByExtension = fileName.toLowerCase().endsWith(".pdf");
       if (
+        !isPdfByExtension &&
         !FILE_VALIDATION.ALLOWED_MIME_TYPES.includes(
           fileType as (typeof FILE_VALIDATION.ALLOWED_MIME_TYPES)[number]
         )
@@ -318,7 +321,10 @@ export const fileRouter = createTRPCRouter({
         }
 
         // MIME type validation
+        // PDF 확장자 파일은 MIME 타입이 비표준이어도 허용 (ePapyrus 등)
+        const isPdfByExtension = fileName.toLowerCase().endsWith(".pdf");
         if (
+          !isPdfByExtension &&
           !FILE_VALIDATION.ALLOWED_MIME_TYPES.includes(
             fileType as (typeof FILE_VALIDATION.ALLOWED_MIME_TYPES)[number]
           )
@@ -1254,7 +1260,7 @@ export const fileRouter = createTRPCRouter({
         const upstageApiKey = await settingsService.getSetting('UPSTAGE_API_KEY');
         
         // PDF 로드 및 페이지 수 확인
-        const pdfDoc = await PDFDocument.load(fileBuffer);
+        const pdfDoc = await PDFDocument.load(fileBuffer, { ignoreEncryption: true });
         const totalPdfPages = pdfDoc.getPageCount();
         const previewPages = Math.min(3, totalPdfPages); // 최대 3페이지
         
@@ -1307,7 +1313,7 @@ export const fileRouter = createTRPCRouter({
         }
         
         // 매칭된 템플릿이 있으면 파싱된 샘플 데이터 생성
-        let parsedSampleData: {
+        const parsedSampleData: {
           transactionDate: string;
           deposit: number;
           withdrawal: number;
@@ -1333,6 +1339,7 @@ export const fileRouter = createTRPCRouter({
           // 샘플 데이터 파싱 (최대 10행)
           const sampleRows = tableData.rows.slice(0, 10);
           for (const row of sampleRows) {
+            const rowIdx = sampleRows.indexOf(row);
             const dateIdx = columnMapping.date;
             const depositIdx = columnMapping.deposit;
             const withdrawalIdx = columnMapping.withdrawal;
@@ -1342,12 +1349,32 @@ export const fileRouter = createTRPCRouter({
             const amountIdx = columnMapping.amount;
             const transactionTypeIdx = columnMapping.transaction_type;
             
+            const rawDateValue = dateIdx !== undefined && dateIdx >= 0 ? row[dateIdx] : undefined;
             const dateValue = dateIdx !== undefined && dateIdx >= 0 ? String(row[dateIdx] || '') : '';
             const balanceValue = balanceIdx !== undefined && balanceIdx >= 0 ? row[balanceIdx] : '';
             const memoValue = memoIdx !== undefined && memoIdx >= 0 ? String(row[memoIdx] || '') : '';
             
+            // 날짜 파싱: col[dateIdx]에서 날짜를 못 찾으면 col[0]에서도 시도
+            const parsedDate = parseDate(rawDateValue);
+            const fallbackDate = (!parsedDate && dateIdx !== 0) ? parseDate(row[0]) : null;
+            const resolvedDateStr = parsedDate 
+              ? formatDateForPreview(parsedDate) 
+              : fallbackDate 
+                ? formatDateForPreview(fallbackDate)
+                : dateValue; // 파싱 실패 시 원본 그대로
+            
+            // 날짜 파싱 디버깅 (모든 샘플 행)
+            console.log(`[PreAnalyze] ===== Sample Row ${rowIdx + 1} DATE PARSING =====`);
+            console.log(`[PreAnalyze] Row ${rowIdx + 1} dateColumnIndex: ${dateIdx}`);
+            console.log(`[PreAnalyze] Row ${rowIdx + 1} rawDateValue:`, JSON.stringify(rawDateValue));
+            console.log(`[PreAnalyze] Row ${rowIdx + 1} col[0] value:`, JSON.stringify(row[0]));
+            console.log(`[PreAnalyze] Row ${rowIdx + 1} parseDate(col[${dateIdx}]):`, parsedDate?.toISOString() ?? 'null');
+            console.log(`[PreAnalyze] Row ${rowIdx + 1} parseDate(col[0]) fallback:`, fallbackDate?.toISOString() ?? 'null');
+            console.log(`[PreAnalyze] Row ${rowIdx + 1} resolvedDateStr: "${resolvedDateStr}"`);
+            console.log(`[PreAnalyze] ==========================================`);
+            
             // 첫 번째 행에서 memo 값 로깅
-            if (sampleRows.indexOf(row) === 0) {
+            if (rowIdx === 0) {
               console.log(`[PreAnalyze] First row memo parsing - memoIdx: ${memoIdx}, row[memoIdx]: ${memoIdx !== undefined && memoIdx >= 0 ? row[memoIdx] : 'N/A'}, memoValue: "${memoValue}"`);
             }
             
@@ -1413,9 +1440,9 @@ export const fileRouter = createTRPCRouter({
             const balance = parseAmount(balanceValue);
             
             // 유효한 거래만 추가 (날짜 또는 금액이 있어야 함)
-            if (dateValue || deposit > 0 || withdrawal > 0) {
+            if (dateValue || resolvedDateStr || deposit > 0 || withdrawal > 0) {
               parsedSampleData.push({
-                transactionDate: dateValue,
+                transactionDate: resolvedDateStr || dateValue,
                 deposit,
                 withdrawal,
                 balance,
@@ -1442,7 +1469,7 @@ export const fileRouter = createTRPCRouter({
             templateName: matchedTemplate.name,
             bankName: matchedTemplate.bankName,
             confidence,
-            identifiers: matchedTemplate.identifiers as string[],
+            identifiers: matchedTemplate.identifiers,
             columnSchema: matchedTemplate.columnSchema as {
               columns: Record<string, { index: number; header: string }>;
             } | null,
@@ -1506,7 +1533,7 @@ export const fileRouter = createTRPCRouter({
         const rawData = XLSX.utils.sheet_to_json(worksheet, {
           header: 1,
           defval: "",
-        }) as string[][];
+        });
         
         if (rawData.length === 0) {
           throw new TRPCError({
@@ -1792,7 +1819,7 @@ export const fileRouter = createTRPCRouter({
           throw new TRPCError({ code: "BAD_REQUEST", message: "워크시트를 찾을 수 없습니다" });
         }
         
-        const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" }) as string[][];
+        const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
         headers = (rawData[0] || []).map(h => String(h));
         rows = rawData.slice(1);
       }
@@ -1934,6 +1961,14 @@ export const fileRouter = createTRPCRouter({
     }),
 });
 
+
+function formatDateForPreview(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}.${m}.${d}`;
+}
+
 /**
  * MEDIUM-2 FIX: Separate function for extraction logic to enable timeout
  *
@@ -2009,7 +2044,7 @@ async function performExtraction(
     rawData = XLSX.utils.sheet_to_json(worksheet, {
       header: 1,
       defval: "",
-    }) as unknown[][];
+    });
 
     headerRow = rawData[0] as string[];
   }

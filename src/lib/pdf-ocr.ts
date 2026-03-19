@@ -104,7 +104,7 @@ async function parsePdfInChunks(
   pagesPerChunk: number
 ): Promise<TableData> {
   // PDF 로드
-  const pdfDoc = await PDFDocument.load(pdfBuffer);
+  const pdfDoc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
   const totalPages = pdfDoc.getPageCount();
   
   console.log(`[PDF Chunking] 총 ${totalPages}페이지, ${pagesPerChunk}페이지씩 분할 처리`);
@@ -188,13 +188,13 @@ async function parseSinglePdf(
 
   // Add Upstage API parameters (based on official Python guide)
   // Reference: https://console.upstage.ai/docs/capabilities/digitize/document-parsing
-  formData.append("model", "document-parse-nightly");
-  formData.append("ocr", "force"); // Auto OCR mode
+  formData.append("model", "document-parse");
+  formData.append("ocr", "auto"); // auto: 텍스트 PDF는 직접 파싱, 이미지 PDF만 OCR
   formData.append("chart_recognition", "true"); // Enable chart recognition
   formData.append("coordinates", "true"); // Enable coordinate extraction
   formData.append("output_formats", '["html","text"]'); // Request both HTML and text
   formData.append("base64_encoding", '["figure"]'); // Base64 encode figures
-  formData.append("merge_multipage_tables", "true"); // Base64 encode figures
+  formData.append("merge_multipage_tables", "true"); // 다중 페이지 테이블 병합
 
   try {
     console.log("[Upstage API] Calling document-digitization endpoint...");
@@ -297,7 +297,7 @@ async function parseSinglePdf(
     console.log("[Upstage API] Using fallback: checking top-level content field...");
 
     // Check top-level content.html field (contains full HTML including table images)
-    if (data.content?.html && data.content.html.trim()) {
+    if (data.content?.html?.trim()) {
       console.log(`[Upstage API] Found top-level content.html (${data.content.html.length} chars)`);
       console.log("[Upstage API] Content.html preview:", data.content.html.substring(0, 500));
 
@@ -312,7 +312,7 @@ async function parseSinglePdf(
 
     // Next, try text content from elements
     console.log("[Upstage API] Trying element text fields...");
-    const textElements = data.elements.filter(el => el.content?.text && el.content.text.trim());
+    const textElements = data.elements.filter(el => el.content?.text?.trim());
     if (textElements.length > 0) {
       const allText = textElements.map(el => el.content?.text || "").join("\n");
       console.log(`[Upstage API] Extracted ${allText.length} characters from text fields`);
@@ -586,11 +586,22 @@ function extractFromTableElementsHTML(tableElements: Array<{
     console.log(`  Table ${t.index}: cols=${t.columnCount}, validHeader=${t.hasValidHeaders}, rows=${t.rows.length}, score=${t.score}`);
   });
 
-  // 3단계: 동일한 거래내역 구조의 테이블들 모두 결합
-  // 핵심 개선: 컬럼 수 차이 허용을 더 관대하게 + 모든 테이블 포함 시도
+  // 메인 테이블의 날짜 컬럼 인덱스 감지 (행 정렬에 사용)
+  let mainDateColumnIndex = -1;
+  for (let hi = 0; hi < mainTable.headers.length; hi++) {
+    const colType = inferColumnType(mainTable.headers[hi] || "");
+    if (colType === ColumnType.DATE) {
+      mainDateColumnIndex = hi;
+      break;
+    }
+  }
+  console.log(`[HTML Table] Main table date column index: ${mainDateColumnIndex}`);
+
+  // 3단계: 동일한 거래내역 구조의 테이블들 모두 결합 + 컬럼 정렬
   const allRows: string[][] = [...mainTable.rows];
   let continuationCount = 0;
-  let skippedTables: number[] = [];
+  const skippedTables: number[] = [];
+  let alignedRowCount = 0;
 
   for (const table of parsedTables) {
     // 메인 테이블은 스킵
@@ -602,12 +613,23 @@ function extractFromTableElementsHTML(tableElements: Array<{
     const isSimilarStructure = columnDiff <= 3;
 
     if (isSimilarStructure) {
+      // 컬럼 수가 다르면 정렬 필요
+      const needsAlignment = table.columnCount !== mainTable.columnCount;
+      
+      const alignRow = (row: string[]): string[] => {
+        if (needsAlignment) {
+          alignedRowCount++;
+          return alignRowToMainTable(row, mainTable.columnCount, mainDateColumnIndex);
+        }
+        return row;
+      };
+
       if (table.hasValidHeaders) {
         // 유효한 헤더가 있는 테이블 = 같은 구조의 다른 페이지
         // 헤더 행은 제외하고 데이터만 추가
-        allRows.push(...table.rows);
+        allRows.push(...table.rows.map(alignRow));
         continuationCount++;
-        console.log(`[HTML Table] ✓ Table ${table.index} added (valid header, ${table.rows.length} rows)`);
+        console.log(`[HTML Table] ✓ Table ${table.index} added (valid header, ${table.rows.length} rows, aligned=${needsAlignment})`);
       } else {
         // 헤더가 없는 테이블 = 연속 데이터 테이블
         // 첫 번째 행이 날짜 패턴을 포함하면 데이터로 추가
@@ -615,15 +637,15 @@ function extractFromTableElementsHTML(tableElements: Array<{
         
         if (firstCellLooksLikeDate || table.dataScore > table.headerScore) {
           // 헤더로 인식된 첫 번째 행도 데이터로 추가
-          allRows.push(table.headers);
-          allRows.push(...table.rows);
+          allRows.push(alignRow(table.headers));
+          allRows.push(...table.rows.map(alignRow));
           continuationCount++;
-          console.log(`[HTML Table] ✓ Table ${table.index} added as continuation (${table.rows.length + 1} rows, firstCell=${table.headers[0]?.substring(0, 15)})`);
+          console.log(`[HTML Table] ✓ Table ${table.index} added as continuation (${table.rows.length + 1} rows, aligned=${needsAlignment}, firstCell=${table.headers[0]?.substring(0, 15)})`);
         } else {
           // 헤더가 아닌데 데이터도 아닌 경우 -> 데이터만 추가
-          allRows.push(...table.rows);
+          allRows.push(...table.rows.map(alignRow));
           continuationCount++;
-          console.log(`[HTML Table] ✓ Table ${table.index} added (data only, ${table.rows.length} rows)`);
+          console.log(`[HTML Table] ✓ Table ${table.index} added (data only, ${table.rows.length} rows, aligned=${needsAlignment})`);
         }
       }
     } else {
@@ -638,12 +660,22 @@ function extractFromTableElementsHTML(tableElements: Array<{
     console.log(`[HTML Table] This may cause data loss. Consider reviewing the PDF structure.`);
   }
 
-  console.log(`[HTML Table] Combined: 1 main + ${continuationCount} continuation tables, ${mainTable.columnCount} columns, ${allRows.length} total rows`);
+  if (alignedRowCount > 0) {
+    console.log(`[HTML Table] ✓ ${alignedRowCount} rows were column-aligned to match main table structure`);
+  }
+
+  // 4단계: 최종 행 정규화 - 모든 행이 메인 테이블과 동일한 컬럼 수를 갖도록 보장
+  const normalizedRows = allRows.map(row => {
+    if (row.length === mainTable.columnCount) return row;
+    return alignRowToMainTable(row, mainTable.columnCount, mainDateColumnIndex);
+  });
+
+  console.log(`[HTML Table] Combined: 1 main + ${continuationCount} continuation tables, ${mainTable.columnCount} columns, ${normalizedRows.length} total rows`);
 
   return {
     headers: mainTable.headers,
-    rows: allRows,
-    totalRows: allRows.length,
+    rows: normalizedRows,
+    totalRows: normalizedRows.length,
   };
 }
 
@@ -654,6 +686,69 @@ const datePatterns = [
   /^\d{2}[-./]\d{2}[-./]\d{2}/, // YY-MM-DD, YY.MM.DD
 ];
 
+// 날짜 포함 여부 확인 (문자열 어디에서든)
+const datePatternAnywhere = /\d{4}[-./]\d{1,2}[-./]\d{1,2}/;
+
+/**
+ * 연속 테이블 행을 메인 테이블 컬럼 구조에 맞춰 정렬
+ * 
+ * 핵심 전략: 행에서 날짜가 있는 컬럼 위치를 찾고, 
+ * 메인 테이블의 날짜 컬럼 위치와 일치하도록 행 전체를 시프트
+ * 
+ * @param row - 정렬할 행 데이터
+ * @param mainColumnCount - 메인 테이블의 컬럼 수
+ * @param mainDateColumnIndex - 메인 테이블에서 날짜 컬럼의 인덱스 (-1이면 미검출)
+ * @returns 정렬된 행 데이터
+ */
+function alignRowToMainTable(
+  row: string[],
+  mainColumnCount: number,
+  mainDateColumnIndex: number,
+): string[] {
+  // 행에서 날짜 위치 찾기
+  let rowDateIndex = -1;
+  for (let i = 0; i < row.length; i++) {
+    const cell = (row[i] || '').trim();
+    if (cell && datePatternAnywhere.test(cell)) {
+      rowDateIndex = i;
+      break;
+    }
+  }
+
+  // 날짜 위치를 기준으로 시프트량 계산
+  // 컬럼 수가 다를 때만 시프트 (같은 컬럼 수는 보통 같은 구조)
+  if (rowDateIndex >= 0 && mainDateColumnIndex >= 0 && rowDateIndex !== mainDateColumnIndex && row.length !== mainColumnCount) {
+    const shift = mainDateColumnIndex - rowDateIndex;
+    const aligned = new Array(mainColumnCount).fill('') as string[];
+    
+    for (let i = 0; i < row.length; i++) {
+      const newIndex = i + shift;
+      if (newIndex >= 0 && newIndex < mainColumnCount) {
+        aligned[newIndex] = row[i] || '';
+      }
+    }
+    
+    console.log(`[Row Align] 날짜 기반 정렬: rowDateIdx=${rowDateIndex} → mainDateIdx=${mainDateColumnIndex}, shift=${shift}, cols ${row.length}→${mainColumnCount}`);
+    return aligned;
+  }
+
+  // 이미 정렬 OK + 컬럼 수 같으면 그대로 반환
+  if (row.length === mainColumnCount) {
+    return row;
+  }
+
+  // 날짜 기반 정렬 불가 → 단순 패딩/트리밍
+  if (row.length < mainColumnCount) {
+    const padded = [...row];
+    while (padded.length < mainColumnCount) padded.push('');
+    return padded;
+  }
+
+  // 컬럼이 많으면 잘라내기
+  return row.slice(0, mainColumnCount);
+}
+
+
 /**
  * Parse HTML table string to extract headers and rows
  *
@@ -662,7 +757,7 @@ const datePatterns = [
  */
 function parseHTMLTable(html: string): TableData {
   // First, try to find <table> tag content
-  const tableMatch = html.match(/<table[^>]*>(.*?)<\/table>/is);
+  const tableMatch = /<table[^>]*>(.*?)<\/table>/is.exec(html);
   const tableContent = tableMatch?.[1] ?? html;
 
   // Extract table rows using regex
@@ -735,28 +830,37 @@ function parseHTMLTable(html: string): TableData {
  */
 function extractCellsFromHTML(rowHTML: string): string[] {
   // Remove <tr> tags
-  let cleanRow = rowHTML.replace(/<\/?tr[^>]*>/gi, "");
+  const cleanRow = rowHTML.replace(/<\/?tr[^>]*>/gi, "");
 
-  // Extract <td> or <th> content
-  const cellRegex = /<t[hd][^>]*>(.*?)<\/t[hd]>/gs;
-  const cells = [...cleanRow.matchAll(cellRegex)].map(match => match[1]);
+  // Extract <td> or <th> content WITH colspan support
+  const cellRegex = /<t[hd]([^>]*)>(.*?)<\/t[hd]>/gs;
+  const cells: string[] = [];
 
-  // Clean HTML tags and decode HTML entities
-  // CRITICAL FIX: Do NOT filter empty cells - they represent null/empty values in columns!
-  // Removing empty cells causes column index misalignment (e.g., empty withdrawal becomes deposit)
-  return cells.map(cell => {
-    if (!cell) return '';
-    // Remove any remaining HTML tags
-    let text = cell.replace(/<[^>]+>/g, "");
-    // Decode common HTML entities
+  for (const match of cleanRow.matchAll(cellRegex)) {
+    const attrs = match[1] || '';
+    const content = match[2] || '';
+
+    // Handle colspan: a single <td colspan="3"> should produce 3 cells
+    const colspanMatch = attrs.match(/colspan\s*=\s*["']?(\d+)["']?/i);
+    const colspan = colspanMatch ? parseInt(colspanMatch[1]!, 10) : 1;
+
+    // Clean HTML tags and decode entities
+    let text = content.replace(/<[^>]+>/g, "");
     text = text.replace(/&nbsp;/g, " ")
              .replace(/&lt;/g, "<")
              .replace(/&gt;/g, ">")
              .replace(/&amp;/g, "&")
              .replace(/<br\s*\/?>/gi, " ")
              .trim();
-    return text;
-  });
+
+    cells.push(text);
+    // Fill remaining colspan positions with empty strings
+    for (let i = 1; i < colspan; i++) {
+      cells.push('');
+    }
+  }
+
+  return cells;
 }
 
 /**

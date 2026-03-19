@@ -243,6 +243,7 @@ const CaseDetailPage: NextPage = () => {
         balance: tx.balance ? Number(tx.balance) : 0,
         memo: tx.memo ?? '',
         documentName,
+        rowNumber: (tx as { rowNumber?: number | null }).rowNumber ?? null,
       };
     });
   }, [transactionsData?.transactions, documents]);
@@ -653,7 +654,7 @@ const CaseDetailPage: NextPage = () => {
                 <DialogHeader>
                   <DialogTitle>거래내역서 업로드</DialogTitle>
                   <DialogDescription>
-                    엑셀, CSV, PDF 형식의 파일을 업로드하세요
+                    PDF 형식의 파일을 업로드하세요
                   </DialogDescription>
                 </DialogHeader>
 

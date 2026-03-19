@@ -7,7 +7,7 @@
  * Layer 3: 기존 LLM 컬럼 매핑 (현재 방식)
  */
 
-import { PrismaClient } from "@prisma/client";
+import { type PrismaClient } from "@prisma/client";
 import { env } from "~/env";
 
 /**
@@ -190,7 +190,7 @@ ${templateDescriptions}
     const content = response.choices[0]?.message?.content?.trim() || "";
     
     // JSON 파싱
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    const jsonMatch = /\{[\s\S]*\}/.exec(content);
     if (!jsonMatch) {
       console.warn("[Template Classifier] Layer 2: Invalid JSON response");
       return null;
@@ -452,7 +452,7 @@ export function parseRowWithTemplate(
   withdrawalAmount: number | null;
   balance: number | null;
   memo: string;
-} {
+} | null {
   const getValue = (key: string): string | null => {
     const idx = columnMapping[key];
     if (idx === undefined || idx < 0 || idx >= row.length) return null;
@@ -495,19 +495,44 @@ export function parseRowWithTemplate(
     depositAmount = parseAmount(getValue("deposit"));
     withdrawalAmount = parseAmount(getValue("withdrawal"));
     
-    // 단일 금액 컬럼 + 거래구분
+    // 단일 금액 컬럼 + 거래구분 또는 금액 부호
     if (columnMapping.amount !== undefined) {
       const amount = parseAmount(getValue("amount"));
       const txType = getValue("transaction_type") || "";
       
-      const isDeposit = txType.includes("+") || 
-        txType.includes("입금") || 
-        txType.includes("받기");
-
-      if (isDeposit) {
-        depositAmount = amount;
+      // D형: 거래구분 없이 금액 부호로 판단
+      if (!columnMapping.transaction_type) {
+        if (amount !== null && amount > 0) depositAmount = amount;
+        else if (amount !== null && amount < 0) withdrawalAmount = Math.abs(amount);
       } else {
-        withdrawalAmount = amount;
+        // 입금 관련 키워드
+        const isDeposit = txType.includes("+") || 
+          txType.includes("입금") || 
+          txType.includes("받기") ||
+          txType.includes("충전") ||
+          txType.includes("적립");
+        
+        // 출금 관련 키워드
+        const isWithdrawal = txType.includes("-") || 
+          txType.includes("출금") || 
+          txType.includes("보내기") ||
+          txType.includes("차감") ||
+          txType.includes("이체") ||
+          txType.includes("결제") ||
+          txType.includes("지급") ||
+          txType.includes("인출");
+
+        // 매도/매수 등 비입출금 → 스킵 (null 반환으로 필터링)
+        if (!isDeposit && !isWithdrawal && txType.length > 0) {
+          return null; // 비입출금 거래 스킵
+        }
+
+        if (isDeposit) depositAmount = amount !== null ? Math.abs(amount) : null;
+        else if (isWithdrawal) withdrawalAmount = amount !== null ? Math.abs(amount) : null;
+        else if (amount !== null) {
+          if (amount > 0) depositAmount = amount;
+          else withdrawalAmount = Math.abs(amount);
+        }
       }
     }
 

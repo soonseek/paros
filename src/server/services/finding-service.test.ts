@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { PrismaClient, TransactionNature } from "@prisma/client";
+import { type PrismaClient, TransactionNature } from "@prisma/client";
 import {
   analyzeFindings,
   detectPreferenceRepayment,

@@ -16,6 +16,7 @@ export interface MatchedTemplate {
   id: string;
   title: string;
   content: string;
+  originalContent?: string | null; // 템플릿 원본 내용 (수정 전)
   images: FileInfo[];
   files: FileInfo[];
 }

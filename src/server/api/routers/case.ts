@@ -193,7 +193,7 @@ export const caseRouter = createTRPCRouter({
         filingDateTo: z.date().optional(),
         showArchived: z.boolean().optional(), // NEW: 아카이브 사건 표시 여부
         page: z.number().min(1).default(1),
-        sortBy: z.enum(['filingDate', 'caseNumber', 'debtorName', 'status', 'createdAt']).default('filingDate'),
+        sortBy: z.enum(['filingDate', 'caseNumber', 'debtorName', 'status', 'createdAt']).default('createdAt'),
         sortOrder: z.enum(['asc', 'desc']).default('desc'),
       })
     )
@@ -218,6 +218,7 @@ export const caseRouter = createTRPCRouter({
         select: { role: true },
       });
       const isSuper = currentUser?.role === Role.SUPER;
+      const isSuperOrAdmin = isSuper || currentUser?.role === Role.ADMIN;
 
       // Build where clause with RBAC enforcement
       const where: {
@@ -237,7 +238,7 @@ export const caseRouter = createTRPCRouter({
       };
 
       // Add search filter (case number or debtor name)
-      if (search && search.trim()) {
+      if (search?.trim()) {
         where.OR = [
           { caseNumber: { contains: search.trim(), mode: 'insensitive' } },
           { debtorName: { contains: search.trim(), mode: 'insensitive' } },
@@ -245,7 +246,7 @@ export const caseRouter = createTRPCRouter({
       }
 
       // Add court name filter
-      if (courtName && courtName.trim()) {
+      if (courtName?.trim()) {
         where.courtName = courtName.trim();
       }
 
