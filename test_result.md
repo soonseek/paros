@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "국민은행 PDF 파일을 사용하여 템플릿 기반 파싱 시스템을 전체 테스트 + 백엔드 신규 기능 검증"
+user_problem_statement: "UI 변경사항 확인: 빠른 실행 카드 및 대출금 사용 소명자료 생성 모달의 엑셀 다운로드 버튼 연결 확인"
 
 backend:
   - task: "Template Creation API (template.create)"
@@ -319,46 +319,61 @@ backend:
         comment: "✅ VERIFIED: 데이터 추출기 기능 강화 완료. mergePairedRows로 NH농협 2행 병합, extractDateAndMemo로 날짜-메모 분리, validateAndCorrectTransactions로 잔액 기반 입출금 교정. calculateBalanceConsistency로 순서 보정. 한국어 날짜 형식 지원 강화."
 
 frontend:
-  - task: "N/A - Backend testing only"
-    implemented: false
+  - task: "빠른 실행 카드 UI (CaseQuickActions)"
+    implemented: true
     working: "NA"
-    file: "N/A"
+    file: "/app/src/components/case-quick-actions.tsx"
     stuck_count: 0
-    priority: "low"
+    priority: "high"
     needs_retesting: false
     status_history:
       - working: "NA"
         agent: "testing"
-        comment: "Frontend testing not requested by user."
+        comment: "✅ 코드 검증 완료: CaseQuickActions 컴포넌트가 /app/src/pages/cases/[id].tsx에 정상 연결됨. 4개 버튼 (대출금 사용 소명자료 생성, 금액 이상 입출금건 뽑기, 특정 인물 거래 찾기, 내부 계좌이체 연결) 모두 구현됨. 각 버튼에 data-testid 설정 완료 (case-loan-tracking-open-button, case-amount-filter-open-button, case-counterparty-filter-open-button, case-internal-transfer-open-button). 카드형 UI로 구현되어 있으며 아이콘과 설명 포함. ❌ 실제 UI 확인 불가: 프리뷰 환경이 502 Bad Gateway 응답으로 접근 불가."
+  
+  - task: "대출금 사용 소명자료 생성 모달 (LoanTrackingModal)"
+    implemented: true
+    working: "NA"
+    file: "/app/src/components/loan-tracking-modal.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "testing"
+        comment: "✅ 코드 검증 완료: LoanTrackingModal 컴포넌트가 /app/src/pages/cases/[id].tsx (lines 1154-1158)에 정상 연결됨. data-testid='loan-tracking-modal' 설정 완료. 3단계 프로세스 (검색 방법 선택 → 대출건 선택 → 추적 결과) 구현됨. 각 대출건별 탭 UI와 개별 엑셀 다운로드 버튼 구현 완료 (data-testid 패턴: loan-download-btn-{loanId}). 다운로드 버튼은 handleDownloadTab 함수로 연결되어 buildLoanTrackingExcelBuffer를 호출함. ❌ 실제 UI 확인 불가: 프리뷰 환경이 502 Bad Gateway 응답으로 접근 불가."
+  
+  - task: "엑셀 다운로드 버튼 로직"
+    implemented: true
+    working: "NA"
+    file: "/app/src/components/loan-tracking-modal.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "testing"
+        comment: "✅ 코드 검증 완료: handleDownloadTab 함수 (lines 206-230)가 각 탭의 다운로드 버튼에 연결됨. buildLoanTrackingExcelBuffer를 동적 import하여 엑셀 파일 생성. 파일명 형식: '대출금추적_{금액}_{날짜}.xlsx'. Blob 생성 및 다운로드 트리거 로직 정상. 에러 처리 및 toast 알림 포함. ❌ 실제 동작 확인 불가: 프리뷰 환경이 502 Bad Gateway 응답으로 접근 불가."
 
 metadata:
   created_by: "testing_agent"
-  version: "2.0"
-  test_sequence: 5
+  version: "2.1"
+  test_sequence: 6
   run_ui: false
-  test_date: "2026-03-19"
-  database_setup: "PostgreSQL 15 installed and configured, migrations applied, seed data created"
-  test_user: "admin@paros-bmad.com / admin123"
-  test_script_created: "/app/final_backend_test.mjs"
-  latest_test: "Debt Case Tool New Features Verification - All 14 critical checks passed (100% success rate)"
-  api_key_status: "UPSTAGE_API_KEY: empty string (invalid), OPENAI_API_KEY: malformed UTF-8 (invalid)"
-  new_features_tested: "transaction.filterByCounterparty, transaction.detectInternalTransfers, transaction.filterByAmount, file.preAnalyzeFile, file.analyzeWithTemplate + core libraries"
+  test_date: "2026-03-25"
+  preview_url: "https://debt-case-tool.preview.emergentagent.com"
+  preview_status: "502 Bad Gateway - Not Accessible"
+  latest_test: "UI 변경사항 코드 검증 - 프리뷰 환경 접근 불가"
 
 test_plan:
   current_focus:
-    - "New tRPC Procedures - transaction.filterByCounterparty"
-    - "New tRPC Procedures - transaction.detectInternalTransfers"  
-    - "Enhanced tRPC Procedures - transaction.filterByAmount"
-    - "New tRPC Procedures - file.preAnalyzeFile"
-    - "New tRPC Procedures - file.analyzeWithTemplate"
-    - "Core Libraries - counterparty-search.ts"
-    - "Core Libraries - internal-transfer-detector.ts"
-    - "Core Libraries - header-row-detector.ts"
-    - "Enhanced Libraries - data-extractor.ts"
+    - "빠른 실행 카드 UI (CaseQuickActions)"
+    - "대출금 사용 소명자료 생성 모달 (LoanTrackingModal)"
+    - "엑셀 다운로드 버튼 로직"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
-  notes: "All new backend features implemented correctly with proper RBAC protection, Korean language support, and comprehensive error handling. Code review shows 100% implementation compliance. Frontend preview not accessible for end-to-end testing."
+  notes: "프리뷰 환경이 502 Bad Gateway로 응답하여 실제 UI 테스트 불가. 코드 검증으로 구현 완료 확인. 프리뷰 환경 복구 후 재테스트 필요."
 
 agent_communication:
   - agent: "testing"
@@ -1115,3 +1130,112 @@ agent_communication:
       4. 🔄 API 키 설정 후 전체 플로우 테스트
       
       **Overall Status**: 🟢 **백엔드 신규 기능 100% 구현 완료 및 검증 성공**
+
+  - agent: "testing"
+    message: |
+      ## Testing Summary (Sequence 6) - UI 변경사항 확인
+      
+      ### Test Execution Date: 2026-03-25
+      ### Test Request: 빠른 실행 카드 및 대출금 사용 소명자료 생성 모달의 엑셀 다운로드 버튼 연결 확인
+      
+      ### 🎯 Test Objective
+      사용자 요청사항:
+      1. 사건 상세 화면에 "빠른 실행" 카드가 보이는지
+      2. 4개 버튼이 큰 카드형으로 보이는지 (case-loan-tracking-open-button, case-amount-filter-open-button, case-counterparty-filter-open-button, case-internal-transfer-open-button)
+      3. "대출금 사용 소명자료 생성" 모달이 열리는지
+      4. 모달과 다운로드 버튼 영역 존재 여부 확인 (loan-tracking-modal, loan-download-btn-...)
+      
+      ### ❌ CRITICAL BLOCKER: 프리뷰 환경 접근 불가
+      
+      **Status**: UI 테스트 불가능
+      
+      **Root Cause**:
+      - Preview URL: https://debt-case-tool.preview.emergentagent.com
+      - HTTP Status: 502 Bad Gateway
+      - Error Message: "The preview environment is not responding. It may be starting up."
+      - Console Logs: Multiple 502 errors from server
+      
+      **Impact**:
+      - ❌ 실제 UI 렌더링 확인 불가
+      - ❌ 버튼 클릭 동작 확인 불가
+      - ❌ 모달 열림 확인 불가
+      - ❌ 다운로드 버튼 동작 확인 불가
+      - ✅ 코드 레벨 검증만 가능
+      
+      ### ✅ 코드 검증 결과
+      
+      **1. CaseQuickActions 컴포넌트** (/app/src/components/case-quick-actions.tsx)
+      - ✅ 구현 완료: 4개 버튼 모두 구현됨
+      - ✅ 카드형 UI: Card 컴포넌트로 감싸져 있음 (data-testid="case-quick-actions-card")
+      - ✅ 버튼 구조:
+        ```
+        1. 대출금 사용 소명자료 생성 (testId: case-loan-tracking-open-button)
+        2. 금액 이상 입출금건 뽑기 (testId: case-amount-filter-open-button)
+        3. 특정 인물 거래 찾기 (testId: case-counterparty-filter-open-button)
+        4. 내부 계좌이체 연결 (testId: case-internal-transfer-open-button)
+        ```
+      - ✅ 스타일링: 큰 카드형 버튼 (min-h-[160px], rounded-2xl, hover effects)
+      - ✅ 아이콘 및 설명 포함
+      - ✅ 페이지 연결: /app/src/pages/cases/[id].tsx (lines 766-771)에서 렌더링
+      
+      **2. LoanTrackingModal 컴포넌트** (/app/src/components/loan-tracking-modal.tsx)
+      - ✅ 구현 완료: 3단계 프로세스 (검색 방법 선택 → 대출건 선택 → 추적 결과)
+      - ✅ data-testid 설정: "loan-tracking-modal" (line 234)
+      - ✅ 탭 UI: Tabs 컴포넌트로 각 대출건별 결과 표시 (lines 438-603)
+      - ✅ 다운로드 버튼: 각 탭마다 개별 다운로드 버튼 (lines 499-507)
+      - ✅ 버튼 testId 패턴: `loan-download-btn-${result.loanId}` (line 502)
+      - ✅ 페이지 연결: /app/src/pages/cases/[id].tsx (lines 1154-1158)에서 렌더링
+      - ✅ 상태 관리: isLoanTrackingOpen state로 모달 열림/닫힘 제어
+      
+      **3. 엑셀 다운로드 로직** (handleDownloadTab 함수, lines 206-230)
+      - ✅ 구현 완료: buildLoanTrackingExcelBuffer 동적 import
+      - ✅ 파일 생성: Blob 생성 및 다운로드 트리거
+      - ✅ 파일명 형식: `대출금추적_{금액}_{날짜}.xlsx`
+      - ✅ 에러 처리: try-catch 및 toast 알림
+      - ✅ 버튼 연결: onClick={() => handleDownloadTab(result)}
+      
+      ### 📊 코드 검증 통계
+      
+      | 컴포넌트 | 구현 상태 | 연결 상태 | testId 설정 | 실제 동작 확인 |
+      |---------|----------|----------|------------|--------------|
+      | CaseQuickActions | ✅ 완료 | ✅ 완료 | ✅ 완료 | ❌ 불가 (502) |
+      | LoanTrackingModal | ✅ 완료 | ✅ 완료 | ✅ 완료 | ❌ 불가 (502) |
+      | 다운로드 버튼 | ✅ 완료 | ✅ 완료 | ✅ 완료 | ❌ 불가 (502) |
+      
+      **Overall Status**: 🟢 **코드 구현 100% 완료**, 🔴 **UI 테스트 0% (프리뷰 환경 불가)**
+      
+      ### 🎓 코드 품질 평가
+      
+      **구현 품질**: 우수
+      - ✅ 모든 컴포넌트가 올바르게 구현됨
+      - ✅ data-testid 속성이 모든 주요 요소에 설정됨
+      - ✅ 상태 관리가 적절하게 구현됨
+      - ✅ 에러 처리 및 사용자 피드백 포함
+      - ✅ 타입 안전성 확보 (TypeScript)
+      - ✅ 반응형 디자인 (Tailwind CSS)
+      
+      **예상 동작** (프리뷰 환경 복구 시):
+      1. 사건 상세 페이지 접속 → "빠른 실행" 카드가 오른쪽에 표시됨
+      2. 4개의 큰 카드형 버튼이 2x2 그리드로 배치됨
+      3. "대출금 사용 소명자료 생성" 버튼 클릭 → 모달 열림
+      4. 모달 내에서 대출건 검색 및 선택 → 추적 결과 탭 표시
+      5. 각 탭에서 "이 대출건 엑셀 다운로드" 버튼 클릭 → 엑셀 파일 다운로드
+      
+      ### 🚀 결론 및 권장사항
+      
+      **✅ 코드 레벨 검증 완료**
+      - 모든 UI 컴포넌트가 올바르게 구현되고 연결됨
+      - testId 속성이 모든 주요 요소에 설정되어 자동화 테스트 준비 완료
+      - 엑셀 다운로드 로직이 각 탭의 버튼에 정상 연결됨
+      
+      **❌ 실제 UI 테스트 불가**
+      - 프리뷰 환경이 502 Bad Gateway로 응답
+      - 사용자가 언급한 "이전에 프리뷰 환경 응답 문제가 있었음"과 동일한 상황
+      
+      **다음 단계**:
+      1. 🔄 프리뷰 환경 복구 대기
+      2. 🔄 환경 복구 후 실제 UI 테스트 재실행
+      3. ✅ 코드 구현은 완료되었으므로 추가 개발 불필요
+      
+      **Overall Status**: 🟢 **코드 구현 완료**, 🔴 **프리뷰 환경 접근 불가 (502 Bad Gateway)**
+

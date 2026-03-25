@@ -1,9 +1,10 @@
 {
   "extends": "./tsconfig.json",
   "include": [
-    "src/lib/pdf-ocr.ts",
-    "src/lib/data-extractor.ts",
-    "src/lib/data-extractor.test.ts"
+    "src/lib/export/excel.ts",
+    "src/lib/export/loan-tracking-excel.ts",
+    "src/lib/export/loan-tracking-excel.test.ts",
+    "src/components/loan-tracking-modal.tsx"
   ],
   "exclude": []
 }

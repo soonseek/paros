@@ -27,7 +27,6 @@ import { Badge } from "~/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
-import * as XLSX from "xlsx";
 import { api } from "~/utils/api";
 import { toast } from "sonner";
 
@@ -204,37 +203,30 @@ export function LoanTrackingModal({ isOpen, onClose, caseId }: LoanTrackingModal
   };
 
   // 개별 탭 엑셀 다운로드 (요약 없이 전체 내역만)
-  const handleDownloadTab = (result: NonNullable<typeof trackingQuery.data>["results"][0]) => {
-    // 전체 내역만 포함 (요약 없음)
-    const excelData = result.trackedItems.map((item, idx) => ({
-      "순번": idx + 1,
-      "날짜": formatDate(item.date),
-      "구분": item.type,
-      "금액": item.amount,
-      "남은 대출금": item.remainingLoan === -1 ? "" : item.remainingLoan,
-      "비고": item.memo || "",
-      "거래내역 파일": item.documentName || "",
-      "이동 대상 계좌": item.transferTo || (item.transferFrom ? `← ${item.transferFrom}` : ""),
-    }));
+  const handleDownloadTab = async (result: NonNullable<typeof trackingQuery.data>["results"][0]) => {
+    try {
+      const { buildLoanTrackingExcelBuffer } = await import("~/lib/export/loan-tracking-excel");
+      const buffer = await buildLoanTrackingExcelBuffer(result);
+      const blob = new Blob(
+        [buffer],
+        { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+      );
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const loanDate = formatDate(result.loanDate).replace(/\./g, "-");
 
-    const ws = XLSX.utils.json_to_sheet(excelData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "대출금 사용 내역");
+      link.href = url;
+      link.download = `대출금추적_${formatAmount(result.loanAmount)}_${loanDate}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
 
-    ws["!cols"] = [
-      { wch: 6 },  // 순번
-      { wch: 12 }, // 날짜
-      { wch: 10 }, // 구분
-      { wch: 15 }, // 금액
-      { wch: 15 }, // 남은 대출금
-      { wch: 30 }, // 비고
-      { wch: 25 }, // 거래내역 파일
-      { wch: 25 }, // 이동 대상 계좌
-    ];
-
-    const loanDate = formatDate(result.loanDate).replace(/\./g, "-");
-    XLSX.writeFile(wb, `대출금추적_${formatAmount(result.loanAmount)}_${loanDate}.xlsx`);
-    toast.success("엑셀 파일이 다운로드되었습니다");
+      toast.success("엑셀 파일이 다운로드되었습니다");
+    } catch (error) {
+      console.error("[Loan Tracking Excel Export Error]", error);
+      toast.error("엑셀 다운로드 중 오류가 발생했습니다");
+    }
   };
 
   return (
