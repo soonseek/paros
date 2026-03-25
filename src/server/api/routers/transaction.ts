@@ -2925,7 +2925,8 @@ export const transactionRouter = createTRPCRouter({
           }
 
           // remainingLoan 재계산
-          // 이동 대상 계좌 출금(transferFrom)은 남은 대출금에 영향 안 줌 → -1 (프론트에서 "-" 표시)
+          // 이동 자체는 소진이 아니므로 유지하되,
+          // 이동 대상 계좌에서 실제로 출금된 금액은 대출금 사용으로 보고 차감한다.
           let runningLoan = loanAmount;
           for (const item of regrouped) {
             if (item.type === "대출실행") {
@@ -2933,8 +2934,10 @@ export const transactionRouter = createTRPCRouter({
             } else if (item.type === "이동") {
               item.remainingLoan = runningLoan;
             } else if (item.transferFrom) {
-              // 이동 대상 계좌의 출금: 남은 대출금 표시 안 함
-              item.remainingLoan = -1;
+              // 이동 대상 계좌의 실제 출금: 남은 대출금 차감
+              runningLoan -= item.amount;
+              if (runningLoan < 0) runningLoan = 0;
+              item.remainingLoan = runningLoan;
             } else {
               // 대출 계좌의 직접 출금만 남은 대출금 차감
               runningLoan -= item.amount;
