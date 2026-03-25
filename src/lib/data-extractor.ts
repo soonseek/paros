@@ -322,6 +322,18 @@ export function parseDate(
       }
     }
 
+    // 1.5차: 구분자 없는 YYYYMMDD 또는 YYYYMMDDHHMMSS 형식
+    const compactDatePattern = /^(\d{4})(\d{2})(\d{2})(?:\d{6})?$/;
+    const compactMatch = trimmed.match(compactDatePattern);
+    if (compactMatch && compactMatch[1] && compactMatch[2] && compactMatch[3]) {
+      const year = parseInt(compactMatch[1], 10);
+      const month = parseInt(compactMatch[2], 10) - 1;
+      const day = parseInt(compactMatch[3], 10);
+      if (year >= 1900 && year <= 2100 && month >= 0 && month <= 11 && day >= 1 && day <= 31) {
+        return new Date(year, month, day);
+      }
+    }
+
     // 2차: "01.08" 또는 "01-08" 패턴
     // 기준 날짜가 있으면 그 연도를 우선 사용하고, 연말/연초 경계는 보정한다.
     // 없으면 현재 연도 사용

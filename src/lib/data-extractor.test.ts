@@ -21,6 +21,14 @@ describe("data-extractor 회귀 방지", () => {
     expect(parsed?.getDate()).toBe(8);
   });
 
+  it("구분자 없는 YYYYMMDD 날짜도 파싱한다", () => {
+    const parsed = parseDate("20251125");
+
+    expect(parsed?.getFullYear()).toBe(2025);
+    expect(parsed?.getMonth()).toBe(10);
+    expect(parsed?.getDate()).toBe(25);
+  });
+
   it("연말 기준 날짜는 연초로 넘어가면 다음 해로 보정한다", () => {
     const parsed = parseDate("01.02", {
       referenceDate: new Date("2024-12-31T00:00:00.000Z"),
