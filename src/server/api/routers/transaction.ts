@@ -2928,6 +2928,7 @@ export const transactionRouter = createTRPCRouter({
           // 이동 자체는 소진이 아니므로 유지하되,
           // 이동 대상 계좌에서 실제로 출금된 금액은 대출금 사용으로 보고 차감한다.
           let runningLoan = loanAmount;
+          const finalizedItems: TrackedItem[] = [];
           for (const item of regrouped) {
             if (item.type === "대출실행") {
               item.remainingLoan = runningLoan;
@@ -2944,10 +2945,16 @@ export const transactionRouter = createTRPCRouter({
               if (runningLoan < 0) runningLoan = 0;
               item.remainingLoan = runningLoan;
             }
+
+            finalizedItems.push(item);
+
+            if (runningLoan <= 0) {
+              break;
+            }
           }
 
           const totalUsed = loanAmount - Math.max(0, runningLoan);
-          const transferCount = regrouped.filter(t => t.type === "이동").length;
+          const transferCount = finalizedItems.filter(t => t.type === "이동").length;
 
           return {
             loanId: loan.id,
@@ -2955,11 +2962,11 @@ export const transactionRouter = createTRPCRouter({
             loanAmount,
             loanMemo: loan.memo || "",
             loanDocumentName: loan.document?.originalFileName || "",
-            trackedItems: regrouped,
+            trackedItems: finalizedItems,
             summary: {
               loanAmount,
               totalUsed,
-              usageCount: regrouped.filter(t => t.type === "출금").length,
+              usageCount: finalizedItems.filter(t => t.type === "출금").length,
               transferCount,
               remainingLoan: Math.max(0, runningLoan),
               exhausted: runningLoan <= 0,
