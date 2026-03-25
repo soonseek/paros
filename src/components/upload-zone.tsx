@@ -2,6 +2,14 @@ import { useCallback, useState, useRef, useEffect } from "react";
 import { useDropzone, type FileRejection } from "react-dropzone";
 import { Button } from "~/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "~/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "~/components/ui/dialog";
 import { Upload, X, AlertCircle, FileText, FileSpreadsheet, FileCheck } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "~/utils/api";
@@ -11,6 +19,7 @@ import { useRealtimeProgress } from "~/hooks/use-realtime-progress";
 import { FilePreviewModal } from "~/components/file-preview-modal";
 import { FileDeleteButton } from "~/components/file-delete-button";
 import { TemplateMatchConfirmModal } from "~/components/template-match-confirm-modal";
+import { UNSUPPORTED_MERGED_LEDGER_MESSAGE } from "~/lib/woori-merged-ledger";
 
 interface FileUploadProps {
   caseId: string;
@@ -37,6 +46,10 @@ export const TRANSACTION_UPLOAD_ACCEPT = {
   "text/csv": [".csv"],
   "application/csv": [".csv"],
 } as const;
+
+export function isUnsupportedTransactionStatementError(message: string): boolean {
+  return message.includes(UNSUPPORTED_MERGED_LEDGER_MESSAGE);
+}
 
 // Use centralized constant (MEDIUM-1 fix)
 const MAX_FILE_SIZE = FILE_VALIDATION.MAX_FILE_SIZE_BYTES;
@@ -69,6 +82,8 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess, userR
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [fileErrors, setFileErrors] = useState<string[]>([]);
+  const [unsupportedDialogOpen, setUnsupportedDialogOpen] = useState(false);
+  const [unsupportedDialogMessage, setUnsupportedDialogMessage] = useState(UNSUPPORTED_MERGED_LEDGER_MESSAGE);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Story 3.5: Track analysis progress state
@@ -186,6 +201,11 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess, userR
     }[];
   } | null>(null);
   const [isModalProcessing, setIsModalProcessing] = useState(false);
+
+  const showUnsupportedDocumentDialog = useCallback((message?: string) => {
+    setUnsupportedDialogMessage(message || UNSUPPORTED_MERGED_LEDGER_MESSAGE);
+    setUnsupportedDialogOpen(true);
+  }, []);
 
   // Story 3.5: Get analysis result query for completion summary
   const getAnalysisResultQuery = api.file.getAnalysisResult.useQuery(
@@ -450,7 +470,11 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess, userR
           const errorMsg =
             error instanceof Error ? error.message : "파일 처리 실패";
           setFileErrors((prev) => [...prev, `처리 실패: ${errorMsg}`]);
-          toast.error(`파일 처리 실패: ${errorMsg}`);
+          if (isUnsupportedTransactionStatementError(errorMsg)) {
+            showUnsupportedDocumentDialog(errorMsg);
+          } else {
+            toast.error(`파일 처리 실패: ${errorMsg}`);
+          }
           setAnalyzingDocumentId(null);
 
           // Story 3.7: Update document status to failed
@@ -586,7 +610,11 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess, userR
       setIsMatchConfirmModalOpen(false);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "분석 실패";
-      toast.error(errorMsg);
+      if (isUnsupportedTransactionStatementError(errorMsg)) {
+        showUnsupportedDocumentDialog(errorMsg);
+      } else {
+        toast.error(errorMsg);
+      }
       
       setUploadedDocuments((prev) =>
         prev.map((doc) =>
@@ -638,7 +666,11 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess, userR
       setIsMatchConfirmModalOpen(false);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "템플릿 적용 실패";
-      toast.error(errorMsg);
+      if (isUnsupportedTransactionStatementError(errorMsg)) {
+        showUnsupportedDocumentDialog(errorMsg);
+      } else {
+        toast.error(errorMsg);
+      }
       
       setUploadedDocuments((prev) =>
         prev.map((doc) =>
@@ -690,7 +722,11 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess, userR
       setIsMatchConfirmModalOpen(false);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "LLM 분석 실패";
-      toast.error(errorMsg);
+      if (isUnsupportedTransactionStatementError(errorMsg)) {
+        showUnsupportedDocumentDialog(errorMsg);
+      } else {
+        toast.error(errorMsg);
+      }
       
       setUploadedDocuments((prev) =>
         prev.map((doc) =>
@@ -925,6 +961,28 @@ export function FileUploadZone({ caseId, onFilesSelected, onUploadSuccess, userR
           userRole={userRole}
         />
       )}
+
+      <Dialog open={unsupportedDialogOpen} onOpenChange={setUnsupportedDialogOpen}>
+        <DialogContent data-testid="unsupported-transaction-document-dialog">
+          <DialogHeader>
+            <DialogTitle data-testid="unsupported-transaction-document-dialog-title">
+              처리 불가 문서
+            </DialogTitle>
+            <DialogDescription data-testid="unsupported-transaction-document-dialog-description">
+              {unsupportedDialogMessage}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              onClick={() => setUnsupportedDialogOpen(false)}
+              data-testid="unsupported-transaction-document-dialog-close-button"
+            >
+              확인
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

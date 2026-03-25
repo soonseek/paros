@@ -1,10 +1,9 @@
 {
   "extends": "./tsconfig.json",
   "include": [
-    "src/lib/woori-merged-ledger.ts",
-    "src/lib/woori-merged-ledger.test.ts",
-    "src/lib/file-analyzer.ts",
-    "src/server/api/routers/file.ts"
+    "src/components/upload-zone.tsx",
+    "src/components/upload-zone-unsupported.test.ts",
+    "src/lib/woori-merged-ledger.ts"
   ],
   "exclude": []
 }
