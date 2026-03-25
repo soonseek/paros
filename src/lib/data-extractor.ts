@@ -191,7 +191,7 @@ function validateAndCorrectTransactions(
     const tx = sortedTransactions[i];
     if (!tx) continue;
     
-    const currentBalance = tx.balance ? Number(tx.balance) : null;
+    const currentBalance = tx.balance != null ? Number(tx.balance) : null;
     const depositAmount = tx.depositAmount ? Math.abs(Number(tx.depositAmount)) : 0;
     const withdrawalAmount = tx.withdrawalAmount ? Math.abs(Number(tx.withdrawalAmount)) : 0;
     
@@ -205,7 +205,7 @@ function validateAndCorrectTransactions(
     let prevBalance: number | null = null;
     if (i > 0) {
       const prevTx = sortedTransactions[i - 1];
-      prevBalance = prevTx?.balance ? Number(prevTx.balance) : null;
+      prevBalance = prevTx?.balance != null ? Number(prevTx.balance) : null;
     }
     
     // 이전 잔액이 없으면 검증 불가 → 그대로 통과 (첫 거래 등)
@@ -592,8 +592,8 @@ export function parseBalance(balanceValue: unknown): number | null {
   }
 
   if (typeof balanceValue === "string") {
-    // 모든 숫자 패턴 찾기 (쉼표 포함)
-    const numberPattern = /[\d,]+/g;
+    // 음수 잔액 보존을 위해 부호 포함 숫자 패턴 사용
+    const numberPattern = /[+-]?[\d,]+/g;
     const matches = balanceValue.match(numberPattern);
     
     if (!matches || matches.length === 0) {

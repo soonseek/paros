@@ -2083,7 +2083,7 @@ export const transactionRouter = createTRPCRouter({
         const tx = transactions[i];
         if (!tx) continue;
 
-        const currentBalance = tx.balance ? Number(tx.balance) : null;
+        const currentBalance = tx.balance != null ? Number(tx.balance) : null;
         const depositAmount = tx.depositAmount ? Math.abs(Number(tx.depositAmount)) : 0;
         const withdrawalAmount = tx.withdrawalAmount ? Math.abs(Number(tx.withdrawalAmount)) : 0;
 
@@ -2094,7 +2094,7 @@ export const transactionRouter = createTRPCRouter({
         let prevBalance: number | null = null;
         if (i > 0) {
           const prevTx = transactions[i - 1];
-          prevBalance = prevTx?.balance ? Number(prevTx.balance) : null;
+          prevBalance = prevTx?.balance != null ? Number(prevTx.balance) : null;
         }
 
         // 이전 잔액이 없으면 검증 불가

@@ -5,6 +5,7 @@ import {
   inferReferenceDateFromRows,
   mergePairedRows,
   normalizeMemoText,
+  parseBalance,
   parseDate,
   resolveTransactionDateFromRow,
   type ColumnMapping,
@@ -27,6 +28,11 @@ describe("data-extractor 회귀 방지", () => {
     expect(parsed?.getFullYear()).toBe(2025);
     expect(parsed?.getMonth()).toBe(10);
     expect(parsed?.getDate()).toBe(25);
+  });
+
+  it("마이너스통장 잔액의 부호를 보존한다", () => {
+    expect(parseBalance("-49,146,022")).toBe(-49146022);
+    expect(parseBalance("-49,246,022 중소벤처기업진")).toBe(-49246022);
   });
 
   it("연말 기준 날짜는 연초로 넘어가면 다음 해로 보정한다", () => {
