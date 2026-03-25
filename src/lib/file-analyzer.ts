@@ -28,6 +28,7 @@ import {
   hasAmountColumns,
 } from "./column-mapping";
 import { parsePdfWithUpstage } from "./pdf-ocr";
+import { maybeNormalizeWooriMergedLedgerTable } from "./woori-merged-ledger";
 
 /**
  * Analysis result interface
@@ -382,7 +383,8 @@ async function parseFile(
   if (format === "pdf") {
     // Use Upstage API to parse PDF
     console.log("[PDF Analysis] Starting Upstage Document Parse API...");
-    const tableData = await parsePdfWithUpstage(fileBuffer, upstageApiKey);
+    const parsedTable = await parsePdfWithUpstage(fileBuffer, upstageApiKey);
+    const tableData = maybeNormalizeWooriMergedLedgerTable(parsedTable);
     console.log(`[PDF Analysis] Extracted ${tableData.totalRows} rows`);
     console.log(`[PDF Analysis] Extracted ${tableData.pageTexts?.length || 0} page texts`);
 
