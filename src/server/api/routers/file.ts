@@ -14,7 +14,10 @@ import {
   type ColumnMapping,
 } from "~/lib/data-extractor";
 import { detectHeaderRowFromRawData } from "~/lib/header-row-detector";
-import { maybeNormalizeWooriMergedLedgerTable } from "~/lib/woori-merged-ledger";
+import {
+  detectWooriMergedLedgerProfile,
+  UNSUPPORTED_MERGED_LEDGER_MESSAGE,
+} from "~/lib/woori-merged-ledger";
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 /**
@@ -1414,8 +1417,14 @@ export const fileRouter = createTRPCRouter({
         console.log(`[PreAnalyze] 미리보기 PDF 크기: ${(previewBuffer.length / 1024).toFixed(2)}KB`);
         
         // Upstage API로 앞 3페이지 분석
-        const parsedTable = await parsePdfWithUpstage(previewBuffer, upstageApiKey || undefined);
-        const tableData = maybeNormalizeWooriMergedLedgerTable(parsedTable);
+        const tableData = await parsePdfWithUpstage(previewBuffer, upstageApiKey || undefined);
+
+        if (detectWooriMergedLedgerProfile(tableData.headers, tableData.rows)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: UNSUPPORTED_MERGED_LEDGER_MESSAGE,
+          });
+        }
         
         // 템플릿 매칭 시도 (3단계 파이프라인: 키워드 → LLM 유사도 → 폴백)
         const { classifyTransaction, convertSchemaToMapping } = await import("~/lib/template-classifier");
@@ -1753,8 +1762,14 @@ export const fileRouter = createTRPCRouter({
         const settingsService = new SettingsService(ctx.db);
         const upstageApiKey = await settingsService.getSetting('UPSTAGE_API_KEY');
         
-        const parsedTable = await parsePdfWithUpstage(fileBuffer, upstageApiKey || undefined);
-        const tableData = maybeNormalizeWooriMergedLedgerTable(parsedTable);
+        const tableData = await parsePdfWithUpstage(fileBuffer, upstageApiKey || undefined);
+
+        if (detectWooriMergedLedgerProfile(tableData.headers, tableData.rows)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: UNSUPPORTED_MERGED_LEDGER_MESSAGE,
+          });
+        }
         headers = tableData.headers;
         rows = tableData.rows;
       } else {
@@ -2044,8 +2059,11 @@ async function performExtraction(
     // Fallback: Use Upstage API to parse PDF (if extractedData not available)
     console.log("[PDF Extraction] Using Upstage API to extract table data...");
     const { parsePdfWithUpstage } = await import("~/lib/pdf-ocr");
-    const parsedTable = await parsePdfWithUpstage(fileBuffer);
-    const tableData = maybeNormalizeWooriMergedLedgerTable(parsedTable);
+    const tableData = await parsePdfWithUpstage(fileBuffer);
+
+    if (detectWooriMergedLedgerProfile(tableData.headers, tableData.rows)) {
+      throw new Error(UNSUPPORTED_MERGED_LEDGER_MESSAGE);
+    }
 
     // Convert table data to rawData format (array of arrays)
     // First row is headers, rest are data rows

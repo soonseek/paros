@@ -1,9 +1,10 @@
 {
   "extends": "./tsconfig.json",
   "include": [
-    "src/lib/data-extractor.ts",
-    "src/lib/data-extractor.test.ts",
-    "src/server/api/routers/transaction.ts"
+    "src/lib/woori-merged-ledger.ts",
+    "src/lib/woori-merged-ledger.test.ts",
+    "src/lib/file-analyzer.ts",
+    "src/server/api/routers/file.ts"
   ],
   "exclude": []
 }

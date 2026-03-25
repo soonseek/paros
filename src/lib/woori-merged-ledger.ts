@@ -4,6 +4,9 @@ export interface TableDataLike {
   totalRows?: number;
 }
 
+export const UNSUPPORTED_MERGED_LEDGER_MESSAGE =
+  "거래내역의 일자, 비고 등 표현이 완전하지 않은 문서(우리은행 일부 내역 등)";
+
 function normalizeHeader(value: string): string {
   return value.replace(/\s+/g, "");
 }
