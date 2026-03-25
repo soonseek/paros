@@ -54,9 +54,12 @@ describe("loan-tracking-excel", () => {
     expect(worksheet?.getCell("A1").value).toBe("대출금 사용 흐름");
     expect(worksheet?.autoFilter).toBeDefined();
     expect(worksheet?.views?.[0]?.state).toBe("frozen");
-    expect(worksheet?.getCell("A4").value).toBe("순번");
-    expect(worksheet?.getCell("C5").value).toBe("대출실행");
-    expect(worksheet?.getCell("C6").value).toBe("이동");
-    expect(worksheet?.getCell("H7").value).toBe("↳ 수협은행.pdf에서 이동된 자금 사용");
+    expect(worksheet?.getCell("A2").value).toBe("대출 실행일");
+    expect(worksheet?.getCell("A3").value).toBe("순번");
+    expect(worksheet?.getCell("C4").value).toBe("대출실행");
+    expect(worksheet?.getCell("C5").value).toBe("이동");
+    expect(worksheet?.getCell("G4").value).toBe("수협은행");
+    expect(worksheet?.getCell("H6").value).toBe("↳ 이동 후 사용");
+    expect(worksheet?.getColumn(6).width).toBeLessThanOrEqual(18);
   });
 });

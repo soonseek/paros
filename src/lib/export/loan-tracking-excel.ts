@@ -36,12 +36,13 @@ const COLORS = {
   loanText: "FF0C4A6E",
   transferBg: "FFF3E8FF",
   transferText: "FF6B21A8",
-  withdrawalBg: "FFFEE2E2",
-  withdrawalText: "FF991B1B",
+  withdrawalBg: "FFFFFFFF",
+  withdrawalText: "FF7F1D1D",
   exhaustedBg: "FFDCFCE7",
   exhaustedText: "FF166534",
   border: "FFE2E8F0",
   subtle: "FF64748B",
+  zebra: "FFF8FAFC",
 } as const;
 
 function formatDateOnly(value: string): string {
@@ -88,14 +89,18 @@ function setFilledRowStyle(
 
 function getFlowLabel(item: LoanTrackingExportItem): string {
   if (item.transferTo) {
-    return `→ ${item.transferTo}`;
+    return `→ ${shortenDocumentName(item.transferTo)}`;
   }
 
   if (item.transferFrom) {
-    return `↳ ${item.transferFrom}에서 이동된 자금 사용`;
+    return `↳ 이동 후 사용`;
   }
 
   return "";
+}
+
+function shortenDocumentName(value: string): string {
+  return value.replace(/\.(pdf|xlsx?|csv)$/i, "").trim();
 }
 
 export async function buildLoanTrackingExcelBuffer(
@@ -104,19 +109,13 @@ export async function buildLoanTrackingExcelBuffer(
   const workbook = createWorkbook();
   const worksheet = workbook.addWorksheet("대출금 사용 내역");
 
-  worksheet.views = [{ state: "frozen", ySplit: 4 }];
+  worksheet.views = [{ state: "frozen", ySplit: 3 }];
 
   worksheet.mergeCells("A1:H1");
   const titleCell = worksheet.getCell("A1");
   titleCell.value = "대출금 사용 흐름";
   titleCell.font = { name: "Malgun Gothic", size: 16, bold: true, color: { argb: COLORS.title } };
   titleCell.alignment = { horizontal: "left", vertical: "middle" };
-
-  worksheet.mergeCells("A2:H2");
-  const subtitleCell = worksheet.getCell("A2");
-  subtitleCell.value = "대출실행 → 이동 → 실제 지출 흐름을 한눈에 볼 수 있도록 색과 들여쓰기를 적용했습니다.";
-  subtitleCell.font = { name: "Malgun Gothic", size: 10, color: { argb: COLORS.subtle } };
-  subtitleCell.alignment = { horizontal: "left", vertical: "middle" };
 
   const summaryRow = worksheet.addRow([
     "대출 실행일",
@@ -152,8 +151,8 @@ export async function buildLoanTrackingExcelBuffer(
     }
   });
 
-  worksheet.addRow(["순번", "날짜", "구분", "금액", "남은 대출금", "비고", "거래내역 파일", "이동 흐름"]);
-  const headerRow = worksheet.getRow(4);
+  worksheet.addRow(["순번", "날짜", "구분", "금액", "남은 대출금", "비고", "파일", "흐름"]);
+  const headerRow = worksheet.getRow(3);
   headerRow.height = 24;
   headerRow.eachCell((cell) => {
     cell.fill = {
@@ -167,8 +166,8 @@ export async function buildLoanTrackingExcelBuffer(
   });
 
   worksheet.autoFilter = {
-    from: "A4",
-    to: "H4",
+    from: "A3",
+    to: "H3",
   };
 
   result.trackedItems.forEach((item, idx) => {
@@ -179,27 +178,37 @@ export async function buildLoanTrackingExcelBuffer(
       item.amount,
       item.remainingLoan,
       item.memo || "",
-      item.documentName || "",
+      shortenDocumentName(item.documentName || ""),
       getFlowLabel(item),
     ]);
 
-    row.height = 22;
+    row.height = 24;
     row.eachCell((cell, colNumber) => {
-      cell.font = { name: "Malgun Gothic", size: 10 };
+      cell.font = { name: "Malgun Gothic", size: 10, color: { argb: COLORS.summaryValue } };
       cell.alignment = {
         horizontal: colNumber === 1 || colNumber === 3 ? "center" : colNumber === 4 || colNumber === 5 ? "right" : "left",
         vertical: "middle",
-        wrapText: true,
+        wrapText: colNumber === 6,
       };
       setCellBorder(cell);
     });
+
+    if (idx % 2 === 1) {
+      row.eachCell((cell) => {
+        cell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: COLORS.zebra },
+        };
+      });
+    }
 
     row.getCell(4).numFmt = '#,##0"원"';
     row.getCell(5).numFmt = '#,##0"원"';
 
     if (item.transferFrom) {
       row.getCell(6).alignment = { horizontal: "left", vertical: "middle", wrapText: true, indent: 1 };
-      row.getCell(8).alignment = { horizontal: "left", vertical: "middle", wrapText: true, indent: 1 };
+      row.getCell(8).alignment = { horizontal: "left", vertical: "middle", wrapText: false, indent: 1 };
     }
 
     if (item.type === "대출실행") {
@@ -207,12 +216,41 @@ export async function buildLoanTrackingExcelBuffer(
     } else if (item.type === "이동") {
       setFilledRowStyle(row, COLORS.transferBg, COLORS.transferText);
     } else {
-      setFilledRowStyle(row, COLORS.withdrawalBg, COLORS.withdrawalText);
+      row.getCell(3).fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFFFF7ED" },
+      };
+      row.getCell(3).font = {
+        name: "Malgun Gothic",
+        size: 10,
+        bold: true,
+        color: { argb: COLORS.withdrawalText },
+      };
+      row.getCell(4).font = {
+        name: "Malgun Gothic",
+        size: 10,
+        bold: true,
+        color: { argb: COLORS.withdrawalText },
+      };
     }
 
     if (item.remainingLoan === 0) {
-      setFilledRowStyle(row, COLORS.exhaustedBg, COLORS.exhaustedText);
+      row.eachCell((cell) => {
+        cell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: COLORS.exhaustedBg },
+        };
+        setCellBorder(cell);
+      });
       row.getCell(5).font = {
+        name: "Malgun Gothic",
+        size: 11,
+        bold: true,
+        color: { argb: COLORS.exhaustedText },
+      };
+      row.getCell(3).font = {
         name: "Malgun Gothic",
         size: 10,
         bold: true,
@@ -221,15 +259,14 @@ export async function buildLoanTrackingExcelBuffer(
     }
   });
 
-  worksheet.getColumn(1).width = 8;
-  worksheet.getColumn(2).width = 14;
-  worksheet.getColumn(3).width = 11;
-  worksheet.getColumn(4).width = 16;
-  worksheet.getColumn(5).width = 16;
-  worksheet.getColumn(6).width = 32;
-  worksheet.getColumn(7).width = 24;
-  worksheet.getColumn(8).width = 30;
-  autoFitColumns(worksheet);
+  worksheet.getColumn(1).width = 6;
+  worksheet.getColumn(2).width = 12;
+  worksheet.getColumn(3).width = 10;
+  worksheet.getColumn(4).width = 13;
+  worksheet.getColumn(5).width = 13;
+  worksheet.getColumn(6).width = 18;
+  worksheet.getColumn(7).width = 13;
+  worksheet.getColumn(8).width = 12;
 
   return workbook.xlsx.writeBuffer() as Promise<ArrayBuffer>;
 }
